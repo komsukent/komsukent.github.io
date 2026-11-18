@@ -97,6 +97,8 @@ table.pl{width:100%;font-size:12px;border-collapse:collapse}table.pl td{padding:
 .ewin{font-size:20px;margin:16px 0;animation:pop .6s}@keyframes pop{from{transform:scale(.4);opacity:0}to{transform:scale(1);opacity:1}}
 #eclose{margin-top:10px;padding:10px 26px;background:#3a4a6b}
 .cf{position:absolute;top:-20px;width:9px;height:15px;border-radius:2px;animation:cf 3.2s linear forwards;pointer-events:none}@keyframes cf{to{transform:translateY(110vh) rotate(800deg)}}
+#sleepEl{position:fixed;inset:0;z-index:45;background:rgba(5,10,25,.88);display:flex;align-items:center;justify-content:center;color:#fff;text-align:center;padding:20px}.slb button{padding:14px 30px;font-size:18px;background:#2aa05a;margin-top:10px}
+.xcl{position:sticky;top:0;float:right;z-index:6;width:38px;height:38px;border-radius:50%;background:#c0392b;padding:0;margin:-4px -4px 4px 8px;font-size:18px;line-height:38px;box-shadow:0 2px 8px rgba(0,0,0,.4)}
 </style>
 </head>
 <body>
@@ -110,6 +112,7 @@ table.pl{width:100%;font-size:12px;border-collapse:collapse}table.pl td{padding:
 <div id="log" class="ui"></div>
 <div id="bottom" class="ui"><div id="ctabs"><button data-c="g" class="on">💬 Genel<i></i></button><button data-c="p">🏛 Parti<i></i></button><button data-c="f">👥 Arkadaş<i></i></button><button data-c="r" style="display:none">📻 Telsiz<i></i></button></div><div id="chatList"></div><div id="emo"><button>👋</button><button>😂</button><button>👍</button><button>😡</button><button>❤️</button><button>🎉</button></div><div id="bar"><input id="msg" maxlength="60" placeholder="Komşulara bir şey yaz…"><button id="send">Gönder</button></div></div>
 <div id="elnight"></div>
+<div id="sleepEl" style="display:none"><div class="slb"><div style="font-size:54px">😴</div><h2>Uyudun</h2><p>10 dakika hareket etmediğin için şehirden çıktın, yer kaplamayasın diye.</p><button id="sleepBtn">☀️ Devam et</button></div></div>
 <button id="adminToggle" class="ui">☰ Yönetim</button>
 <div id="admin" class="ui"></div>
 <div id="modal"><div class="card" id="mcard"></div></div>
@@ -245,6 +248,7 @@ function modal(title, items, extra = '') {
   mcard.querySelector('#mclose').onclick = closeModal; modalEl.style.display = 'flex';
 }
 var closeModal = function () { modalEl.style.display = 'none'; };
+new MutationObserver(() => { if (!mcard.querySelector(':scope > .xcl')) { const x = document.createElement('button'); x.className = 'xcl'; x.textContent = '✖'; x.onclick = () => { const c = mcard.querySelector('#mclose'); if (c) c.click(); else closeModal(); }; mcard.prepend(x); } }).observe(mcard, { childList: true });
 modalEl.addEventListener('pointerdown', e => { if (e.target === modalEl) closeModal(); });
 
 // ================= LOGIN =================
@@ -321,7 +325,7 @@ async function enter2(mode) {
     const job = JOBS.includes(prev.job) ? prev.job : 'İşsiz';
     ME = { name, job, color: myColor, money: prev.money ?? (isG ? 300 : 100), energy: prev.energy ?? 100, home: prev.home ?? null, shop: prev.shop ?? null,
       acc: prev.acc || {}, wear: prev.wear || {}, m: prev.m || {}, inv: prev.inv || {}, veh: prev.veh || {}, q: prev.q || {}, lvl: prev.lvl || 0, sick: prev.sick || 0,
-      play: prev.play || 0, pleft: prev.pleft || 0, jobDay: prev.jobDay || '', payDay: prev.payDay || '', kd: undefined, pd: prev.pd || {}, joined: prev.joined || now(), taxDay: prev.taxDay || '', drive: null, inside: null, bag: 0,
+      play: prev.play || 0, pleft: prev.pleft || 0, jobDay: prev.jobDay || '', payDay: prev.payDay || '', kd: undefined, stealDay: prev.stealDay || null, islah: prev.islah || 0, islahN: prev.islahN || 0, pd: prev.pd || {}, joined: prev.joined || now(), taxDay: prev.taxDay || '', drive: null, inside: null, bag: 0,
       x: prev.x ?? (SPAWN.x + (Math.random() - .5) * 200), y: prev.y ?? SPAWN.y, wanted: 0, jail: 0, ride: null };
     if (blocked(ME.x, ME.y) || ME.x > WORLD || ME.y > WORLD || (prev.v || 0) < 3) { ME.x = SPAWN.x + (Math.random() - .5) * 200; ME.y = SPAWN.y; }
     try { localStorage.setItem('kk_me', JSON.stringify({ name, job, color: myColor })); } catch (e) { }
@@ -332,6 +336,7 @@ async function enter2(mode) {
     onDisconnect(oref).remove();
     await set(oref, profile());
     setZone(true);
+    try { const jv = (await get(ref(db, 'jail/' + myId))).val(); if (jv > now()) { ME.jail = jv; ME.x = COURT_DOOR.x; ME.y = COURT_DOOR.y; pub({ jail: jv }); setTimeout(() => toast(`⛓ Hapis cezan devam ediyor: ${Math.ceil((jv - now()) / 60000)} dk`, 5000), 2500); } } catch (e) { }
     say(`<b>${esc(name)}</b> şehre taşındı 🏠 (${esc(job)})`, true);
     document.getElementById('panel').style.display = 'none';
     cam.x = ME.x; cam.y = ME.y;
@@ -340,8 +345,8 @@ async function enter2(mode) {
   } catch (e) { throw e; }
 }
 let loginT = 0;
-function profile() { return { name: ME.name, color: ME.color, job: ME.job, kd: ME.kd || 0, wear: ME.wear || {}, wanted: ME.wanted || 0, jail: ME.jail || 0, ride: ME.ride || null, drive: ME.drive || null, inside: ME.inside || null, sick: ME.sick || 0, bag: ME.bag || 0, t: serverTimestamp() }; }
-const pub = o => update(ref(db, 'online/' + myId), o).catch(() => { });
+function profile() { return { name: ME.name, color: ME.color, job: ME.job, kd: ME.kd || 0, afk: ME.afk || 0, wear: ME.wear || {}, wanted: ME.wanted || 0, jail: ME.jail || 0, ride: ME.ride || null, drive: ME.drive || null, inside: ME.inside || null, sick: ME.sick || 0, bag: ME.bag || 0, t: serverTimestamp() }; }
+const pub = o => (ME && ME.sleep) ? Promise.resolve() : update(ref(db, 'online/' + myId), o).catch(() => { });
 
 function hud() {
   if (!ME) return;
@@ -396,6 +401,7 @@ function listenPlayer() {
 // zone-based position sharing (saves bandwidth)
 const zoneSubs = {};
 function setZone(force) {
+  if (ME && ME.sleep) return;
   const z = zoneOf(ME.x, ME.y); if (!force && z === myZone) return;
   const old = myZone; myZone = z;
   if (old) { const r = ref(db, 'pos/' + old + '/' + myId); onDisconnect(r).cancel(); remove(r); }
@@ -416,6 +422,7 @@ function syncZoneSubs(want) {
   }
 }
 function sendPos(force) {
+  if (ME && ME.sleep) return;
   const t = performance.now();
   if (!force && (t - lastSent < 250 || Math.hypot(ME.x - sentX, ME.y - sentY) < 6)) return;
   lastSent = t; sentX = ME.x; sentY = ME.y;
@@ -427,7 +434,7 @@ function saveMe() {
   update(ref(db, 'players/' + myId), { v: 3, inv: ME.inv, veh: ME.veh, q: ME.q, lvl: ME.lvl, sick: ME.sick, play: ME.play, pd: ME.pd, joined: ME.joined, taxDay: ME.taxDay, money: Math.floor(ME.money), energy: Math.round(ME.energy), home: ME.home, shop: ME.shop, acc: ME.acc, wear: ME.wear, m: ME.m, x: Math.round(ME.x), y: Math.round(ME.y), name: ME.name, color: ME.color, job: ME.job });
 }
 setInterval(() => {
-  if (!ME) return;
+  if (!ME || ME.sleep) return;
   const d = new Date().toISOString().slice(0, 10); ME.play += 30000; ME.pd = { [d]: (ME.pd[d] || 0) + 30000 };
   if (ME.sick) ME.energy = Math.max(0, ME.energy - 1); else ME.energy = Math.min(100, ME.energy + (ME.inv.saat ? 2 : 1));
   if (!ME.sick && Math.random() < 0.03) { ME.sick = 1; pub({ sick: 1 }); toast('🤒 Hastalandın! Enerjin düşüyor, hastaneye git', 5000); }
@@ -840,7 +847,7 @@ function computeActs() {
     L.push({ label: `⛓ Hapiste: ${Math.ceil((ME.jail - t) / 1000)} sn${c && c.decided ? ' (karar verildi)' : ''}`, cls: 'gray', dyn: 1 });
     bailActs(L, t);
     return L;
-  } else if (ME.jail) { ME.jail = 0; ME.inside = null; update(ref(db, 'online/' + myId), { jail: 0, inside: null }); ME.x = COURT_DOOR.x; ME.y = COURT_DOOR.y; sendPos(true); toast('🔓 Serbestsin! Bir daha yapma 😅'); }
+  } else if (ME.jail) { setJailRec(myId, 0); ME.jail = 0; ME.inside = null; update(ref(db, 'online/' + myId), { jail: 0, inside: null }); ME.x = COURT_DOOR.x; ME.y = COURT_DOOR.y; sendPos(true); toast('🔓 Serbestsin! Bir daha yapma 😅'); }
   if (task) {
     const p = Math.min(1, (t - task.t0) / task.ms);
     if (task.where && !task.where()) { toast('❌ Uzaklaştın, iş yarıda kaldı'); task = null; }
@@ -900,9 +907,9 @@ function computeActs() {
   newJobActs(L, b, p, near, t);
   // thief / con man
   if ((ME.job === 'Hırsız' && isNight()) || ME.job === 'Dolandırıcı') {
-    const cd = (ME.lastSteal || 0) + 30000 - t;
+    const blk = stealBlock();
     near.filter(([id, o]) => !(o.jail > t)).slice(0, 2).forEach(([id, o]) => {
-      L.push({ label: cd > 0 ? `⏳ ${Math.ceil(cd / 1000)} sn bekle` : (ME.job === 'Hırsız' ? `🤏 ${o.name}'in cebini boşalt` : `🃏 ${o.name}'e sahte tapu sat`), cls: 'red', disabled: cd > 0, dyn: cd > 0, fn: () => steal(id, o) });
+      L.push({ label: blk ? blk : (ME.job === 'Hırsız' ? `🤏 ${o.name}'in cebini boşalt` : `🃏 ${o.name}'e sahte tapu sat`), cls: 'red', disabled: !!blk, dyn: !!blk, fn: () => steal(id, o) });
     });
   } else if (ME.job === 'Hırsız' && near.length) L.push({ label: '🌞 Gündüz çalamazsın, gece bekle', cls: 'gray' });
   // police
@@ -926,6 +933,7 @@ function leaveTaxi() {
   notify(ME.ride, `🚕 ${ME.name} indi, ${pay} 💰 ödedi`); ME.ride = null; update(ref(db, 'online/' + myId), { ride: null }); hud(); saveMe(); toast(`🚕 Taksi ücreti: ${pay} 💰`);
 }
 async function steal(id, o) {
+  const blk = stealBlock(); if (blk) return toast(blk);
   ME.lastSteal = now();
   if (cityOn('lamp') && isNight() && Math.random() < 0.5) { ME.wanted = now() + WANTED_MS; update(ref(db, 'online/' + myId), { wanted: ME.wanted }); toast('💡 Sokak lambaları yüzünden görüldün! Aranıyorsun 🚨', 4000); say(`💡🚨 <b>${esc(ME.name)}</b> sokak lambasının altında suçüstü görüldü!`, true); return; }
   const thief = ME.job === 'Hırsız', pct = thief ? 0.2 : 0.1, cap = thief ? 100 : 60;
@@ -933,17 +941,17 @@ async function steal(id, o) {
   const r = await runTransaction(ref(db, 'players/' + id + '/money'), m => { m = m || 0; taken = Math.min(cap, Math.floor(m * pct)); return m - taken; });
   if (!r.committed || taken <= 0) { toast('Cebi boş çıktı 😅'); return; }
   ME.wanted = now() + WANTED_MS; update(ref(db, 'online/' + myId), { wanted: ME.wanted });
-  stat('stolen', taken); earn(taken, thief ? '🤏 Kimse görmedi...' : '🃏 Tapu satıldı!');
+  stealDone(id, taken); stat('stolen', taken); earn(taken, thief ? '🤏 Kimse görmedi...' : '🃏 Tapu satıldı!');
   notify(id, thief ? `😱 Cebinden ${taken} 💰 çalındı! Hırsız: ${ME.name}. Polisi çağır!` : `🃏 ${ME.name} sana sahte tapu sattı, ${taken} 💰 gitti!`);
   say(`🚨 <b>${esc(ME.name)}</b> aranıyor! (${thief ? 'hırsızlık' : 'dolandırıcılık'})`, true);
 }
 async function arrest(id, o) {
-  const until = now() + JAIL_MS;
-  await update(ref(db, 'online/' + id), { jail: until, wanted: 0 });
+  const n = (sabika[id] || 0) + 1, until = now() + jailFor(n);
+  await update(ref(db, 'online/' + id), { jail: until, wanted: 0 }); setJailRec(id, until);
   await set(ref(db, 'cases/' + id), { name: o.name, until, by: ME.name, t: now(), def: 0, pros: 0, decided: 0 });
   stat('arrests'); earn(50, '🚔 Yakaladın!'); runTransaction(ref(db, 'sabika/' + id), v => (v || 0) + 1).catch(() => { });
-  const fine = await runTransaction(ref(db, 'players/' + id + '/money'), m => Math.max(0, (m || 0) - Math.min(100, Math.floor((m || 0) * 0.25))));
-  say(`🚔 <b>${esc(ME.name)}</b>, <b>${esc(o.name)}</b>'i yakaladı! Mahkemeye sevk edildi ⚖️`, true);
+  const paid = await finePay(id);
+  say(`🚔 <b>${esc(ME.name)}</b>, <b>${esc(o.name)}</b>'i yakaladı! ${n}. sabıka • ${Math.round(jailFor(n) / 60000)} dk hapis${paid ? ` • ${paid} 💰 tazminat` : ''} ⚖️`, true);
 }
 function courtActs(L) {
   const t = now();
@@ -957,18 +965,18 @@ function courtActs(L) {
 async function caseMod(id, delta, field, pay, msg) {
   const c = cases[id]; if (!c) return;
   const until = Math.max(now() + 5000, c.until + delta);
-  await update(ref(db, 'cases/' + id), { until, [field]: ME.name }); await update(ref(db, 'online/' + id), { jail: until });
+  await update(ref(db, 'cases/' + id), { until, [field]: ME.name }); await update(ref(db, 'online/' + id), { jail: until }); setJailRec(id, until);
   earn(pay); say(msg, true);
 }
 function judgeMenu(id, c) {
   const fin = async (until, txt) => {
-    await update(ref(db, 'cases/' + id), { until, decided: ME.name }); await update(ref(db, 'online/' + id), { jail: until });
+    await update(ref(db, 'cases/' + id), { until, decided: ME.name }); await update(ref(db, 'online/' + id), { jail: until }); setJailRec(id, until);
     earn(40, '⚖️ Karar verildi!'); say(`⚖️ Hakim <b>${esc(ME.name)}</b>: ${esc(c.name)} ${txt}`, true);
   };
   modal(`⚖️ ${esc(c.name)} davası`, [
     { label: '✅ Beraat (hemen serbest)', fn: () => fin(now() + 3000, 'BERAAT etti!') },
     { label: '⛓ Suçlu (normal ceza)', fn: () => fin(Math.max(c.until, now() + 30000), 'SUÇLU bulundu!') },
-    { label: '⛓⛓ Ağır ceza (+60 sn)', fn: () => fin(c.until + 60000, 'AĞIR CEZA aldı!') },
+    { label: '⛓⛓ Ağır ceza (+5 dk)', fn: () => fin(Math.min(now() + 1440000, c.until + 300000), 'AĞIR CEZA aldı!') },
   ], `<p>Avukat: ${esc(c.def || 'yok')} • Savcı: ${esc(c.pros || 'yok')}<br>Yakalayan: ${esc(c.by)}</p>`);
 }
 function plotMenu(p) {
@@ -1017,7 +1025,7 @@ async function electionTick() {
         const cl = Object.entries(e.cands || {}).map(([id, c]) => ({ id, n: c.name, v: c.votes || 0, p: c.p || null, pn: c.pn || '', c: c.c || null, s: c.s || null, vaat: c.vaat || '' })).sort((a, b) => b.v - a.v);
         const best = cl[0], won = !!(best && best.v > 0);
         if (won) {
-          await set(ref(db, 'roles/' + r), { id: best.id, name: best.n, until: t + 7 * 864e5, from: t, p: best.p, pn: best.pn, vaat: best.vaat });
+          await set(ref(db, 'roles/' + r), { id: best.id, name: best.n, until: t + FOREVER, from: t, p: best.p, pn: best.pn, vaat: best.vaat });
           say(`🎉 Yeni ${ROLES[r].n}: ${best.c ? flagHtml(best, 14) : ''}<b>${esc(best.n)}</b>${best.pn ? ' (' + esc(best.pn) + ')' : ''} • ${best.v} oy!`, true, 'ann');
           if (best.p && parties[best.p]) runTransaction(ref(db, `parties/${best.p}/wins`), w => (w || 0) + 1).catch(() => { });
           remove(ref(db, 'gensoru/' + r)).catch(() => { });
@@ -1027,7 +1035,9 @@ async function electionTick() {
       }
     } else if (PROLES.includes(r) && ADMIN && adminOk && holder && !holder.p) {
       await remove(ref(db, 'roles/' + r)).catch(() => { }); say(`🏛 ${ROLES[r].n} makamı boşaltıldı: artık sadece partilerin adayları seçilebilir`, true, 'ann');
-    } else if (!e && (!holder || holder.until < t) && !ADMIN && (!PROLES.includes(r) || Object.keys(parties).length >= 2)) {
+    } else if (PROF[r] && ADMIN && adminOk && holder && holder.until > t && others[holder.id] && others[holder.id].job && others[holder.id].job !== PROF[r]) {
+      await remove(ref(db, 'roles/' + r)).catch(() => { }); say(`🎖 ${ROLES[r].n} makamı boşaltıldı: artık sadece ${PROF[r]}lar arasından en kıdemlisi geçer`, true, 'ann');
+    } else if (PROLES.includes(r) && !e && (!holder || holder.until < t) && !ADMIN && Object.keys(parties).length >= 2) {
       await runTransaction(ref(db, 'elections/' + r), cur => cur ? undefined : { ends: t + 30 * 60000, cands: {} });
     }
   }
@@ -1395,15 +1405,17 @@ function karneTab() {
   return { n: '📜 Vaat karnesi', info: rows.join('<hr style="opacity:.2">') + '<br><small>Karne, kişinin bir sonraki seçiminde oy ekranında görünür.</small>', items };
 }
 async function gensoruMenu() {
-  const t = now(), all = (await get(ref(db, 'players'))).val() || {};
-  const active = Object.values(all).filter(p => p && p.name && (p.seen || 0) > t - 7 * 864e5).length, crisis = (CITY.crisis || 0) > t - 864e5, need = Math.max(3, crisis ? Math.ceil(active / 3) : Math.floor(active / 2) + 1), items = [];
-  PROLES.forEach(r => {
+  const t = now(), all = (await get(ref(db, 'players'))).val() || {}, act = Object.values(all).filter(p => p && p.name && (p.seen || 0) > t - 7 * 864e5);
+  const crisis = (CITY.crisis || 0) > t - 864e5, items = [];
+  const needOf = r => PROF[r] ? Math.max(2, Math.floor(act.filter(p => p.job === PROF[r]).length / 2) + 1) : Math.max(3, crisis ? Math.ceil(act.length / 3) : Math.floor(act.length / 2) + 1);
+  const canSign = r => PROF[r] ? ME.job === PROF[r] : true;
+  Object.keys(ROLES).forEach(r => {
     const h = roles[r]; if (!h || h.until < t) return;
-    const sig = gensoru[r] || {}, n = Object.keys(sig).length, young = (h.from || 0) > t - 2 * 864e5;
-    items.push({ label: `${ROLES[r].n}: <b>${esc(h.name)}</b><br><small>İmza: ${n}/${need}${young ? ' • yeni seçildi, ' + Math.ceil(((h.from || 0) + 2 * 864e5 - t) / 3600000) + ' saat sonra imza toplanabilir' : ''}</small>`, right: sig[myId] ? '✍️ imzaladın' : '✍️ İmzala',
-      disabled: !!sig[myId] || young || h.id === myId || (ME.play || 0) < VOTE_MIN, fn: () => signGensoru(r, need) });
+    const sig = gensoru[r] || {}, n = Object.keys(sig).length, need = needOf(r), young = (h.from || 0) > t - 2 * 864e5;
+    items.push({ label: `${ROLES[r].n}: <b>${esc(h.name)}</b><br><small>İmza: ${n}/${need}${PROF[r] ? ' • sadece ' + PROF[r] + 'lar imzalar' : ''}${young ? ' • yeni geldi, ' + Math.ceil(((h.from || 0) + 2 * 864e5 - t) / 3600000) + ' sa sonra' : ''}</small>`, right: sig[myId] ? '✍️ imzaladın' : '✍️ İmzala',
+      disabled: !!sig[myId] || young || h.id === myId || !canSign(r) || newbie(), fn: () => signGensoru(r, need) });
   });
-  modal('✋ Güvensizlik oylaması', items, `<p>${crisis ? '🚨 <b>Kasa boşaldığı için kriz var, imza sayısı 1/3\'e düştü!</b><br>' : ''}Son 7 günde oynayan <b>${active}</b> kişinin ${crisis ? 'üçte biri' : 'yarısından fazlası'} (<b>${need}</b> imza) toplanırsa görevdeki kişi düşer ve erken seçim başlar. Yeni seçilen biri ilk 2 gün düşürülemez.${items.length ? '' : '<br><br>Şu an görevde Belediye Başkanı ya da Muhtar yok.'}</p>`);
+  modal('✋ Görevden alma / seçim talebi', items, `<p>Makamdakiler kalıcıdır, kendiliğinden seçim olmaz. İşini yapmayan için imza topla:<br>• <b>Belediye Başkanı / Muhtar:</b> son 7 günde oynayanların ${crisis ? '<b>üçte biri</b> (kasa krizi!)' : 'yarısından fazlası'} → partiler arasında seçim açılır.<br>• <b>Meslek makamları:</b> o meslektekilerin yarısından fazlası → yerine sıradaki en kıdemli geçer.<br>Yeni gelen ilk 2 gün düşürülemez.</p>${items.length ? '' : '<p>Şu an makamda kimse yok.</p>'}`);
 }
 async function signGensoru(r, need) {
   try {
@@ -1411,9 +1423,9 @@ async function signGensoru(r, need) {
     const n = Object.keys((await get(ref(db, 'gensoru/' + r))).val() || {}).length, h = roles[r];
     if (n >= need && h) {
       await remove(ref(db, 'roles/' + r)); await remove(ref(db, 'gensoru/' + r)).catch(() => { });
-      await set(ref(db, 'elections/' + r), { ends: now() + 30 * 60000, cands: {} }).catch(() => { });
-      say(`⚖️ <b>Güvensizlik oylaması kabul edildi!</b> ${ROLES[r].n} ${esc(h.name)} görevden düştü. Erken seçim başladı! 🗳`, true, 'ann');
-    } else if (n === 1 && h) say(`✋ ${ROLES[r].n} <b>${esc(h.name)}</b> için güvensizlik imzası toplanmaya başlandı (Belediye → Güvensizlik)`, true);
+      if (PROF[r]) { await set(ref(db, 'depose/' + r), { id: h.id, t: now() }).catch(() => { }); say(`⚖️ <b>${PROF[r]}lar karar verdi!</b> ${ROLES[r].n} ${esc(h.name)} görevden alındı, yerine sıradaki en kıdemli geçecek`, true, 'ann'); setTimeout(autoAppoint, 1500); }
+      else { await set(ref(db, 'elections/' + r), { ends: now() + 30 * 60000, cands: {} }).catch(() => { }); say(`⚖️ <b>Halk karar verdi!</b> ${ROLES[r].n} ${esc(h.name)} görevden düştü. Partiler arasında seçim başladı! 🗳`, true, 'ann'); }
+    } else if (n === 1 && h) say(`✋ ${ROLES[r].n} <b>${esc(h.name)}</b> için görevden alma imzası toplanıyor (Belediye → ✋ Güvensizlik)`, true);
   } catch (e) { toast('İmza atılamadı: ' + e.message); }
 }
 
@@ -1535,6 +1547,7 @@ function listenParties() {
   onValue(ref(db, 'posters'), s => { posters = s.val() || {}; refreshBoards(); });
   onValue(ref(db, 'rally'), s => { const prev = rally; rally = s.val(); refreshRally(); if (rally && rally.ends > now() && (!prev || prev.t0 !== rally.t0) && ME) toast(`📣 ${esc(rally.n)} belediye meydanında miting yapıyor! Git, 50 💰 kap`, 5000); });
   onValue(ref(db, 'gensoru'), s => { gensoru = s.val() || {}; });
+  onValue(ref(db, 'depose'), s => { depose = s.val() || {}; });
   onValue(ref(db, 'karne'), s => { karne = s.val() || {}; });
   onValue(ref(db, 'debate'), s => {
     const prev = debate; debate = s.val();
@@ -1624,8 +1637,9 @@ function powersMenu() {
     if (a === 'Savcı' || a === 'bassavci') items.unshift({ label: `📂 Şikayet dosyaları`, right: openCrimes().length ? '🔴 ' + openCrimes().length : '0', fn: crimesMenu });
     if (a === 'emniyet') items.push({ label: '📻 Telsiz (polis kanalı)', fn: () => { closeModal(); openChat('r'); } }, { label: '🚨 Arananlar', right: Object.values(others).filter(o => o.wanted > t).length, fn: () => pickPlayer('🚨 Arananlar (polislere telsizden bildir)', o => o.wanted > t, (id, o) => push(ref(db, 'radio'), { uid: myId, n: ME.name, j: 'Emniyet Müdürü', h: `🚨 Tüm ekipler: ${o.name} aranıyor, yakalayın!`, t: serverTimestamp() })) });
     if (a === 'Savcı' || a === 'bassavci') items.push({ label: `❎ Aramayı kaldır <small>(${authTitle(a)})</small>`, fn: () => pickPlayer('❎ Kimin araması kalksın?', o => o.wanted > t, (id, o) => { update(ref(db, 'online/' + id), { wanted: 0 }); notify(id, `❎ ${authTitle(a)} ${ME.name} aramanı kaldırdı`); say(`❎ ${authTitle(a)} <b>${esc(ME.name)}</b>, <b>${esc(o.name)}</b> hakkındaki aramayı kaldırdı`, true); }) });
-    if (a === 'Hakim' || a === 'bashakim') items.push({ label: `🔓 Tahliye et <small>(${authTitle(a)})</small>`, fn: () => pickPlayer('🔓 Kim serbest kalsın?', o => o.jail > t, (id, o) => { update(ref(db, 'online/' + id), { jail: 0 }); remove(ref(db, 'cases/' + id)).catch(() => { }); say(`🔓 ${authTitle(a)} <b>${esc(ME.name)}</b>, <b>${esc(o.name)}</b>'i tahliye etti`, true); }) });
+    if (a === 'Hakim' || a === 'bashakim') items.push({ label: `🔓 Tahliye et <small>(${authTitle(a)})</small>`, fn: () => pickPlayer('🔓 Kim serbest kalsın?', o => o.jail > t, (id, o) => { update(ref(db, 'online/' + id), { jail: 0 }); setJailRec(id, 0); remove(ref(db, 'cases/' + id)).catch(() => { }); say(`🔓 ${authTitle(a)} <b>${esc(ME.name)}</b>, <b>${esc(o.name)}</b>'i tahliye etti`, true); }) });
   });
+  if (myRole()) items.push({ label: `🚪 ${ROLES[myRole()].n} makamından çekil`, fn: resignMenu });
   modal('📜 Yetkilerim', items, `<p>Makamın: <b>${A.map(authTitle).join(', ')}</b><br>Herkes kendi alanında: Savcı yakalama emri çıkarır, Hakim tahliye eder, Emniyet Müdürü polisleri yönetir, Başkan belediyeyi.<br>Emirlerin ilgili kişilere bildirim olarak gider ve şehre duyurulur. Yetkini kötüye kullanırsan seçimde karnen düşer 😉</p>`);
 }
 function pickPlayer(title, filt, fn) {
@@ -1758,10 +1772,11 @@ function chaseVec() {
 
 // ---------- bail ----------
 function bailActs(L, t) {
+  if ((sabika[myId] || 0) >= 3) { L.push({ label: '🚫 3+ sabıka: kefalet yok', cls: 'gray' }); return; }
   const left = Math.ceil((ME.jail - t) / 1000), cost = 100 + left * 2;
   L.push({ label: `💸 Kefalet öde, çık (${cost} 💰)`, cls: 'blue', disabled: ME.money < cost, dyn: 1, fn: () => {
     if (!(ME.jail > now()) || !spend(cost)) return; saveMe();
-    ME.jail = 1; update(ref(db, 'online/' + myId), { jail: 0 }); remove(ref(db, 'cases/' + myId)).catch(() => { });
+    ME.jail = 1; update(ref(db, 'online/' + myId), { jail: 0 }); setJailRec(myId, 0); remove(ref(db, 'cases/' + myId)).catch(() => { });
     const h = payJob(['Hakim'], Math.round(cost * 0.4), `💸 ${ME.name} kefaletle çıktı, payın`); payJob(['Avukat'], Math.round(cost * 0.2), `💸 ${ME.name} kefaletle çıktı, payın`);
     say(`💸 <b>${esc(ME.name)}</b> ${cost} 💰 kefalet ödeyip serbest kaldı${h ? ' (Hakim ' + esc(h) + ')' : ''}`, true);
   } });
@@ -1964,6 +1979,100 @@ function devCheck(uid) { const L = devAccts(); return L.includes(uid) || L.lengt
 function devAdd(uid) { try { const L = devAccts(); if (!L.includes(uid)) { L.push(uid); localStorage.setItem('kk_accts', JSON.stringify(L)); } } catch (e) { } }
 
 function listenCity() { onValue(ref(db, 'city'), s => { CITY = s.val() || {}; refreshPark(); }); }
+
+// ================= KALICI MAKAMLAR • AĞIR CEZA • HAPİS KAYDI • UYKU =================
+const PROF = { emniyet: 'Polis', bashekim: 'Doktor', okulmuduru: 'Öğretmen', bassavci: 'Savcı', bashakim: 'Hakim' };
+const FOREVER = 3650 * 864e5;
+const workedOf = p => { let s = 0; for (const m in (p && p.m) || {}) s += (p.m[m].worked || 0); return s; };
+let depose = {};
+async function autoAppoint() {
+  if (!db || autoAppoint.busy) return; const t = now();
+  const vac = Object.keys(PROF).filter(r => !roles[r] || !(roles[r].until > t));
+  if (!vac.length) return; autoAppoint.busy = 1;
+  try {
+    const all = (await get(ref(db, 'players'))).val() || {};
+    for (const r of vac) {
+      const ex = depose[r] && depose[r].t > t - 7 * 864e5 ? depose[r].id : null;
+      const busy = new Set(Object.values(roles).filter(x => x && x.until > t).map(x => x.id));
+      const pool = Object.entries(all).filter(([id, p]) => p && p.name && p.job === PROF[r] && id !== ex && !busy.has(id));
+      const act = pool.filter(([, p]) => (p.seen || 0) > t - 7 * 864e5), list = (act.length ? act : pool).sort((a, b) => (workedOf(b[1]) - workedOf(a[1])) || ((b[1].play || 0) - (a[1].play || 0)));
+      if (!list.length) continue;
+      const [id, p] = list[0];
+      const res = await runTransaction(ref(db, 'roles/' + r), cur => (cur && cur.until > now()) ? undefined : { id, name: p.name, until: now() + FOREVER, from: now(), auto: true }).catch(() => null);
+      if (res && res.committed) { say(`🎖 <b>${esc(p.name)}</b>, en kıdemli ${esc(PROF[r])} olarak <b>${ROLES[r].n}</b> oldu! (${workedOf(p)} mesai)`, true, 'ann'); notify(id, `🎖 Tebrikler! En kıdemli ${PROF[r]} sensin, artık ${ROLES[r].n}sin`); }
+    }
+  } catch (e) { } finally { autoAppoint.busy = 0; }
+}
+setInterval(() => { if (ME || (ADMIN && adminOk)) autoAppoint(); }, 120000);
+setTimeout(() => { if (ME || (ADMIN && adminOk)) autoAppoint(); }, 20000);
+function resignMenu() {
+  const r = myRole(); if (!r) return;
+  modal(`🚪 ${ROLES[r].n} makamından çekil`, [{ label: 'Evet, çekiliyorum', fn: async () => {
+    try { await remove(ref(db, 'roles/' + r)); say(`🚪 <b>${esc(ME.name)}</b> ${ROLES[r].n} makamından çekildi`, true, 'ann'); toast('Makamdan çekildin'); if (PROF[r]) setTimeout(autoAppoint, 1500); }
+    catch (e) { toast('Olmadı: ' + e.message); }
+  } }], `<p>${PROF[r] ? 'Yerine en kıdemli ' + PROF[r] + ' geçer.' : 'Makam boşalır, partiler arasında seçim yapılır.'}</p>`);
+}
+
+// ---------- heavy penalties ----------
+const JAIL_STEPS = [120000, 300000, 600000, 1200000];
+const jailFor = n => JAIL_STEPS[Math.min(JAIL_STEPS.length, Math.max(1, n)) - 1];
+function stealBlock() {
+  const t = now(), d = today(), sd = ME.stealDay && ME.stealDay.d === d ? ME.stealDay.n : 0;
+  if ((ME.islah || 0) > t) return `🚫 Islahevi: ${Math.ceil((ME.islah - t) / 3600000)} saat suç işleyemezsin`;
+  if (sd >= 3) return '🚫 Bugünlük suç hakkın bitti (günde 3)';
+  const cd = (ME.lastSteal || 0) + 300000 - t; if (cd > 0) return `⏳ ${Math.ceil(cd / 60000)} dk bekle`;
+  return null;
+}
+function stealDone(victim, amt) {
+  const d = today(); ME.stealDay = ME.stealDay && ME.stealDay.d === d ? { d, n: ME.stealDay.n + 1 } : { d, n: 1 };
+  update(ref(db, 'players/' + myId), { stealDay: ME.stealDay }).catch(() => { });
+  runTransaction(ref(db, `loot/${myId}/${victim}`), x => (x || 0) + amt).catch(() => { });
+}
+async function finePay(id) {   // give victims back twice what was stolen, from the criminal's pocket (100 per write)
+  try {
+    const loot = (await get(ref(db, 'loot/' + id))).val() || {}; let paid = 0;
+    for (const v in loot) {
+      let owe = (loot[v] || 0) * 2;
+      while (owe > 0) {
+        const c = Math.min(100, owe); let got = 0;
+        const r = await runTransaction(ref(db, `players/${id}/money`), m => { m = m || 0; got = Math.min(c, m); return m - got; }).catch(() => null);
+        if (!r || !r.committed || got <= 0) { owe = 0; break; }
+        payTo(v, got); paid += got; owe -= got;
+      }
+      notify(v, `💸 Seni soyan yakalandı! Mahkeme sana tazminat ödetti`);
+    }
+    await remove(ref(db, 'loot/' + id)).catch(() => { });
+    return paid;
+  } catch (e) { return 0; }
+}
+function checkIslah() {
+  if (!ME) return; const n = Math.floor((sabika[myId] || 0) / 5);
+  if (n > (ME.islahN || 0)) { ME.islahN = n; ME.islah = now() + 864e5; update(ref(db, 'players/' + myId), { islahN: n, islah: ME.islah }).catch(() => { }); toast('🚫 5 sabıka! 24 saat ıslahevindesin, suç işleyemezsin', 6000); }
+}
+setInterval(checkIslah, 15000);
+const setJailRec = (id, until) => set(ref(db, 'jail/' + id), until || 0).catch(() => { });
+
+// ---------- sleep (idle) ----------
+let lastInput = Date.now();
+['pointerdown', 'keydown', 'touchstart'].forEach(ev => addEventListener(ev, () => { lastInput = Date.now(); if (ME && ME.afk) { ME.afk = 0; pub({ afk: 0 }); } }, { passive: true }));
+async function goSleep() {
+  if (!ME || ME.sleep) return; ME.sleep = 1; CHASE = null;
+  try { await remove(ref(db, 'online/' + myId)); if (myZone) await remove(ref(db, 'pos/' + myZone + '/' + myId)); } catch (e) { }
+  const o = document.getElementById('sleepEl'); o.style.display = 'flex';
+}
+async function wake() {
+  if (!ME || !ME.sleep) return; lastInput = Date.now(); ME.afk = 0;
+  const oref = ref(db, 'online/' + myId); onDisconnect(oref).remove();
+  try { await set(oref, profile()); } catch (e) { }
+  ME.sleep = 0; myZone = null; setZone(true); document.getElementById('sleepEl').style.display = 'none'; toast('☀️ Günaydın, tekrar şehirdesin!');
+}
+document.getElementById('sleepBtn').onclick = wake;
+setInterval(() => {
+  if (!ME || ME.sleep) return; const idle = Date.now() - lastInput;
+  if (ME.jail > now() || task) { return; }
+  if (idle > 600000) goSleep();
+  else if (idle > 300000 && !ME.afk) { ME.afk = 1; pub({ afk: 1 }); }
+}, 15000);
 
 // ================= EVENTS =================
 const EV_NAMES = { yangin: '🔥 YANGIN', soygun: '🚨 SOYGUN', festival: '🎉 FESTİVAL' };
@@ -2322,7 +2431,7 @@ function syncPerson(id, p, me, t) {
   m.g.position.y = onBike ? 0.45 : p._mv ? Math.abs(Math.sin(t / 110)) * 0.06 : 0;
   const r = me ? myRole() : roleOf(id), wanted = p.wanted > now(), jailed = p.jail > now();
   const cls = jailed ? 'jail' : wanted ? 'bad' : r ? 'role' : me ? 'me' : '';
-  const tag = (admins[me ? myId : id] ? '👑 ' : '') + (jailed ? '⛓ ' : wanted ? '🚨 ' : r ? '👑 ' : me ? '⭐ ' : '') + (p.sick ? '🤒 ' : '');
+  const tag = (admins[me ? myId : id] ? '👑 ' : '') + (jailed ? '⛓ ' : wanted ? '🚨 ' : r ? '👑 ' : me ? '⭐ ' : '') + (p.sick ? '🤒 ' : '') + (!me && p.afk ? '💤 ' : '');
   const bub = p.msg && performance.now() - (p.msgAt || 0) < 6000 ? `<div class="bb">${esc(p.msg)}</div>` : '';
   const html = riding ? '' : `${bub}<div style="text-align:center"><span class="nm ${cls}" data-pid="${me ? '@me' : id}">${flagHtml(parties[PARTYOF[me ? myId : id]], 11)}${mods[me ? myId : id] ? '🛡 ' : ''}${tag}${esc(p.name || '')}</span></div><div class="jb">${esc(r ? ROLES[r].n : jobTitle(p.job, me ? ME.kd : p.kd))}${wanted ? ' • ARANIYOR' : ''}</div>`;
   if (m.label._h !== html) { m.label.innerHTML = html; m.label._h = html; }
