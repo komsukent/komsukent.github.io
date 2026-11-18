@@ -102,13 +102,13 @@ table.pl{width:100%;font-size:12px;border-collapse:collapse}table.pl td{padding:
 <body>
 <div id="labels"></div>
 <div id="hud" class="ui"><span class="pill" id="me">…</span><span class="pill" id="money">💰 0</span><span class="pill" id="energy">⚡ 100</span><span class="pill" id="clock">🕐</span><span class="pill" id="online">🟢 0</span></div>
-<div id="side" class="ui"><button id="bFull">⛶</button><button id="zin">＋</button><button id="zout">－</button><button id="bChat">💬<span class="badge" id="badge"></span></button><button id="bQuest">📋</button><button id="bBag">🎒</button><button id="bVeh">🚗</button><button id="bRank">🏆</button><button id="bWard">👕</button><button id="bPl" style="display:none">👥</button></div>
+<div id="side" class="ui"><button id="bFull">⛶</button><button id="zin">＋</button><button id="zout">－</button><button id="bChat">💬<span class="badge" id="badge"></span></button><button id="b155" title="155 İmdat">☎️</button><button id="bQuest">📋</button><button id="bBag">🎒</button><button id="bVeh">🚗</button><button id="bRank">🏆</button><button id="bWard">👕</button><button id="bPl" style="display:none">👥</button></div>
 <div id="joy"><i></i></div><div id="joyHint" class="ui">🕹<br>Sürükle</div>
 <div id="acts" class="ui"></div>
 <div id="toast" class="ui"></div>
 <div id="ann" class="ui"></div>
 <div id="log" class="ui"></div>
-<div id="bottom" class="ui"><div id="ctabs"><button data-c="g" class="on">💬 Genel<i></i></button><button data-c="p">🏛 Parti<i></i></button><button data-c="f">👥 Arkadaş<i></i></button></div><div id="chatList"></div><div id="emo"><button>👋</button><button>😂</button><button>👍</button><button>😡</button><button>❤️</button><button>🎉</button></div><div id="bar"><input id="msg" maxlength="60" placeholder="Komşulara bir şey yaz…"><button id="send">Gönder</button></div></div>
+<div id="bottom" class="ui"><div id="ctabs"><button data-c="g" class="on">💬 Genel<i></i></button><button data-c="p">🏛 Parti<i></i></button><button data-c="f">👥 Arkadaş<i></i></button><button data-c="r" style="display:none">📻 Telsiz<i></i></button></div><div id="chatList"></div><div id="emo"><button>👋</button><button>😂</button><button>👍</button><button>😡</button><button>❤️</button><button>🎉</button></div><div id="bar"><input id="msg" maxlength="60" placeholder="Komşulara bir şey yaz…"><button id="send">Gönder</button></div></div>
 <div id="elnight"></div>
 <button id="adminToggle" class="ui">☰ Yönetim</button>
 <div id="admin" class="ui"></div>
@@ -371,7 +371,7 @@ function listenCommon() {
   onValue(ref(db, 'admins'), s => { admins = s.val() || {}; });
   onValue(ref(db, 'avm2'), s => { avm = s.val() || {}; });
   onValue(ref(db, 'announce'), s => { const a = s.val(); if (a && now() - a.t < 15000) showAnn(a); });
-  listenParties();
+  listenParties(); listenLaw();
 }
 function listenPlayer() {
   onValue(ref(db, 'online/' + myId), s => {
@@ -455,6 +455,8 @@ function renderChat() {
   } else if (CH === 'f') {
     html = !ME ? '<div class="k-sys">Önce oyuna gir</div>' : !DMF ? friendListHtml()
       : `<div class="k-ann"><button class="cbtn" data-act="back">← Arkadaşlar</button> 💬 ${esc(friends[DMF] || '')}</div>` + ((dmData[DMF] || []).map(m => `<div class="k-chat"><b>${esc(m.n)}:</b> ${esc(m.h)}</div>`).join('') || '<div class="k-sys">Henüz mesaj yok. Selam ver 👋</div>');
+  } else if (CH === 'r') {
+    html = radioData.map(m => `<div class="k-chat"><b>📻 ${m.j ? esc(m.j) + ' ' : ''}${esc(m.n)}:</b> ${esc(m.h)}</div>`).join('') || '<div class="k-sys">📻 Telsiz sessiz. Emniyet Müdürü ve tüm güvenlik güçleri burada konuşur.</div>';
   } else html = chatData.map(e => `<div class="k-${e.k}">${e.h}</div>`).join('');
   chatEl.innerHTML = html;
   if (atBottom || renderChat.first) { chatEl.scrollTop = chatEl.scrollHeight; renderChat.first = false; }
@@ -505,7 +507,7 @@ function sendMsg(txt) {
   if (t === lastMsg.s && now() - lastMsg.t < 30000) { toast('Aynı mesajı tekrar atma 🙂'); return; }
   if (typeof txt !== 'string') msgIn.value = '';
   lastMsg = { t: now(), s: t }; t = cleanText(t);
-  if (CH !== 'g') { if (CH === 'p') sendParty(t); else if (DMF) sendDM(t); else toast('Önce bir arkadaş seç 👆'); return; }
+  if (CH !== 'g') { if (CH === 'p') sendParty(t); else if (CH === 'r') sendRadio(t); else if (DMF) sendDM(t); else toast('Önce bir arkadaş seç 👆'); return; }
   ME.msg = t; ME.msgAt = performance.now();
   update(ref(db, 'online/' + myId), { msg: t, msgT: now() });
   push(ref(db, 'log'), { h: `<b>${esc(ME.name)}:</b> ${esc(t)}`, k: 'chat', uid: myId, t: serverTimestamp() }).catch(() => toast('Mesaj gönderilemedi'));
@@ -523,7 +525,7 @@ function profileMenu(id) {
   const o = others[id]; if (!o) return;
   const t = now(), r = roleOf(id), targetMod = !!mods[id], items = [];
   const pp0 = parties[PARTYOF[id]];
-  const info = `${pp0 ? `<p>${flagHtml(pp0)}<b>${esc(pp0.name)}</b> • ${PR(id, pp0)}${PRN(id, pp0)}</p>` : ''}<p>${mods[id] ? '🛡 Moderatör • ' : ''}${esc(r ? '👑 ' + ROLES[r].n : o.job)}${o.wanted > t ? ' • 🚨 Aranıyor' : ''}${o.jail > t ? ' • ⛓ Hapiste' : ''}</p>`;
+  const info = `${pp0 ? `<p>${flagHtml(pp0)}<b>${esc(pp0.name)}</b> • ${PR(id, pp0)}${PRN(id, pp0)}</p>` : ''}${sabika[id] ? `<p>📁 Sabıka kaydı: <b>${sabika[id]}</b>${sabika[id] >= 3 ? ' (güvenlik ve yargı mesleklerine giremez)' : ''}</p>` : ''}<p>${mods[id] ? '🛡 Moderatör • ' : ''}${esc(r ? '👑 ' + ROLES[r].n : o.job)}${o.wanted > t ? ' • 🚨 Aranıyor' : ''}${o.jail > t ? ' • ⛓ Hapiste' : ''}</p>`;
   const opp = parties[PARTYOF[id]];
   if (ME) {
     if (friends[id]) items.push({ label: '💬 Özel mesaj', fn: () => openChat('f', id) }, { label: '➖ Arkadaşlıktan çıkar', fn: () => removeFriend(id) });
@@ -544,7 +546,7 @@ function profileMenu(id) {
   modal(esc(o.name), items, info);
 }
 function reportMenu(id, o) {
-  const rep = reason => { push(ref(db, 'reports'), { by: myId, byName: ME.name, target: id, targetName: o.name, reason, t: now() }); toast('🚩 Şikayetin moderatörlere iletildi'); };
+  const rep = reason => { if ((ME.lastComp || 0) > now() - 60000) return toast('Dakikada bir şikayet yapabilirsin'); ME.lastComp = now(); fileChatReport(id, o, reason); toast('🚩 Şikayetin moderatörlere iletildi'); };
   modal(`🚩 ${esc(o.name)} şikayet`, ['Küfür / hakaret', 'Spam', 'Hile', 'Rahatsız ediyor'].map(r => ({ label: r, fn: () => rep(r) })));
 }
 function mute(id, o, min) { set(ref(db, 'mutes/' + id), { until: now() + min * 60000, by: IS_ADMIN ? 'Yönetici' : ME.name }); modLog(min + ' dk susturdu', id, o.name); notify(id, `🔇 ${min} dakika susturuldun`); toast(`🔇 ${o.name} susturuldu`); }
@@ -555,6 +557,7 @@ function accountMenu() {
     try { await AU.linkWithPopup(u, new AU.GoogleAuthProvider()); toast('✅ Hesabın Google\'a bağlandı! Artık her cihazdan girebilirsin', 4000); }
     catch (x) { toast(x.code === 'auth/credential-already-in-use' ? 'Bu Google hesabı zaten başka bir oyuncuya bağlı' : (AUTH_ERR[x.code] || 'Bağlanamadı'), 4500); }
   } });
+  if (mods[myId]) items.unshift({ label: '🚩 Sohbet şikayetleri', fn: modReports });
   items.push({ label: '🚪 Çıkış yap', fn: async () => { await remove(ref(db, 'online/' + myId)); if (myZone) await remove(ref(db, 'pos/' + myZone + '/' + myId)); await AU.signOut(auth); location.reload(); } });
   modal('👤 Hesabım', items, `<p>${u.isAnonymous ? 'Misafir hesap: başka cihazdan girersen ilerlemen görünmez. Kaybetmemek için Google\'a bağla.' : '✅ Google hesabınla giriş yaptın, ilerlemen her cihazda kayıtlı.'}${mods[myId] ? '<br>🛡 Moderatörsün: oyunculara dokunarak sustur/at yapabilirsin.' : ''}</p>`);
 }
@@ -679,7 +682,7 @@ function policeDesk() {
   const near = Object.entries(others).filter(([id, o]) => o.name);
   const jailed = near.filter(([id, o]) => o.jail > now()), wanted = near.filter(([id, o]) => o.wanted > now());
   shopScreen('🚔 Komşukent Karakolu', '#1f3a6b', [
-    { n: '📞 Şikayet / ihbar', info: 'Kimi şikayet etmek istiyorsun? Şikayetin polislere ve moderatörlere gider.', items: near.map(([id, o]) => ({ e: '👤', n: esc(o.name), r: esc(o.job), stay: false, fn: () => complain(id, o) })) },
+    { n: '📞 Şikayet / ihbar', info: 'Kimi şikayet etmek istiyorsun? Hırsızlık ve dolandırıcılık Savcıya, hakaret moderatörlere gider. Acil durumda sağdaki ☎️ 155\'i ara.', items: near.map(([id, o]) => ({ e: '👤', n: esc(o.name), r: esc(o.job), stay: false, fn: () => complain(id, o) })) },
     { n: '🚨 Arananlar', info: wanted.length ? 'Bu kişiler şu an aranıyor:' : 'Şu an aranan kimse yok 👮', items: wanted.map(([id, o]) => ({ e: '🚨', n: esc(o.name), r: 'ARANIYOR', fn: () => { } })) },
     { n: '⛓ Nezarettekiler', info: jailed.length ? '' : 'Nezarette kimse yok.', items: jailed.map(([id, o]) => ({ e: '⛓', n: esc(o.name), r: Math.ceil((o.jail - now()) / 1000) + ' sn', fn: () => { } })) },
   ]);
@@ -687,9 +690,8 @@ function policeDesk() {
 function complain(id, o) {
   modal(`📞 ${esc(o.name)} hakkında`, ['Hırsızlık yaptı', 'Dolandırdı', 'Hakaret etti', 'Rahatsız ediyor'].map(r => ({ label: r, fn: () => {
     if ((ME.lastComp || 0) > now() - 60000) { toast('Dakikada bir şikayet yapabilirsin'); return; }
-    ME.lastComp = now(); push(ref(db, 'reports'), { by: myId, byName: ME.name, target: id, targetName: o.name, reason: '🚔 ' + r, t: now() });
-    Object.entries(others).filter(([pid, p]) => POLICE.includes(p.job)).forEach(([pid]) => notify(pid, `📞 İhbar: ${ME.name}, ${o.name} için "${r}" dedi`));
-    toast('📞 Şikayetin alındı, polislere iletildi 👮');
+    if (/Hakaret|Rahatsız/.test(r)) { if ((ME.lastComp || 0) > now() - 60000) { toast('Dakikada bir şikayet yapabilirsin'); return; } ME.lastComp = now(); fileChatReport(id, o, r); toast('🚩 Şikayetin moderatörlere gitti'); return; }
+    if (fileCrime(id, o.name, r, 'karakol')) toast('📂 Şikayetin Savcıya gitti. Sonuç sana bildirilecek ⚖️', 4000);
   } })));
 }
 function sanayi() {
@@ -827,6 +829,7 @@ function computeActs() {
   if (ME.jail > t) {
     const c = cases[myId];
     L.push({ label: `⛓ Hapiste: ${Math.ceil((ME.jail - t) / 1000)} sn${c && c.decided ? ' (karar verildi)' : ''}`, cls: 'gray', dyn: 1 });
+    bailActs(L, t);
     return L;
   } else if (ME.jail) { ME.jail = 0; ME.inside = null; update(ref(db, 'online/' + myId), { jail: 0, inside: null }); ME.x = COURT_DOOR.x; ME.y = COURT_DOOR.y; sendPos(true); toast('🔓 Serbestsin! Bir daha yapma 😅'); }
   if (task) {
@@ -895,8 +898,9 @@ function computeActs() {
   } else if (ME.job === 'Hırsız' && near.length) L.push({ label: '🌞 Gündüz çalamazsın, gece bekle', cls: 'gray' });
   // police
   if (POLICE.includes(ME.job) || role === 'emniyet') {
-    near.filter(([id, o]) => o.wanted > t && !(o.jail > t)).slice(0, 2).forEach(([id, o]) => L.push({ label: `🚔 ${o.name}'i yakala`, cls: 'blue', fn: () => arrest(id, o) }));
+    near.filter(([id, o]) => o.wanted > t && !(o.jail > t)).slice(0, 2).forEach(([id, o]) => L.push({ label: `🚔 ${o.name}'i yakala`, cls: 'blue', fn: () => { CHASE = null; arrest(id, o); } }));
   }
+  chaseActs(L, t);
   // taxi ride
   if (ME.job !== 'Taksici') near.filter(([id, o]) => o.job === 'Taksici').slice(0, 1).forEach(([id, o]) => L.push({ label: `🚕 ${o.name}'in taksisine bin`, cls: 'blue', fn: () => { ME.ride = id; ME.rideFrom = { x: ME.x, y: ME.y }; update(ref(db, 'online/' + myId), { ride: id }); notify(id, `🚕 ${ME.name} taksine bindi!`); target = null; } }));
   // events
@@ -924,7 +928,7 @@ async function arrest(id, o) {
   const until = now() + JAIL_MS;
   await update(ref(db, 'online/' + id), { jail: until, wanted: 0 });
   await set(ref(db, 'cases/' + id), { name: o.name, until, by: ME.name, t: now(), def: 0, pros: 0, decided: 0 });
-  stat('arrests'); earn(50, '🚔 Yakaladın!');
+  stat('arrests'); earn(50, '🚔 Yakaladın!'); runTransaction(ref(db, 'sabika/' + id), v => (v || 0) + 1).catch(() => { });
   const fine = await runTransaction(ref(db, 'players/' + id + '/money'), m => Math.max(0, (m || 0) - Math.min(100, Math.floor((m || 0) * 0.25))));
   say(`🚔 <b>${esc(ME.name)}</b>, <b>${esc(o.name)}</b>'i yakaladı! Mahkemeye sevk edildi ⚖️`, true);
 }
@@ -933,7 +937,8 @@ function courtActs(L) {
   Object.entries(cases).filter(([id, c]) => c && !c.decided && c.until > t).slice(0, 2).forEach(([id, c]) => {
     if (ME.job === 'Avukat' && !c.def) L.push({ label: `🧑‍⚖️ ${c.name}'i savun (-30 sn, +25 💰)`, cls: 'blue', fn: () => caseMod(id, -30000, 'def', 25, `🧑‍⚖️ Avukat <b>${esc(ME.name)}</b>, ${esc(c.name)}'i savundu`) });
     if (ME.job === 'Savcı' && !c.pros) L.push({ label: `📜 ${c.name}'i suçla (+30 sn, +25 💰)`, cls: 'red', fn: () => caseMod(id, 30000, 'pros', 25, `📜 Savcı <b>${esc(ME.name)}</b>, ${esc(c.name)} için ceza istedi`) });
-    if (ME.job === 'Hakim') L.push({ label: `⚖️ ${c.name} davasında karar ver`, fn: () => judgeMenu(id, c) });
+    if (ME.job === 'Avukat' && !c.talep) L.push({ label: `📄 ${c.name} için tahliye talebi ver`, fn: () => { update(ref(db, 'cases/' + id), { talep: ME.name }); Object.entries(others).filter(([, o]) => o.job === 'Hakim').forEach(([hid]) => notify(hid, `📄 Avukat ${ME.name}, ${c.name} için tahliye talep ediyor`)); toast('📄 Talep Hakime gitti'); } });
+    if (ME.job === 'Hakim') L.push({ label: `⚖️ ${c.name} davasında karar ver${c.talep ? ' (📄 tahliye talebi var)' : ''}`, fn: () => judgeMenu(id, c) });
   });
 }
 async function caseMod(id, delta, field, pay, msg) {
@@ -1096,7 +1101,7 @@ function socialListen() {
     for (const id in nv) if (!freqs[id]) { tabDot.f = 1; drawTabs(); ping(`👋 <b>${esc(nv[id])}</b> seni arkadaş eklemek istiyor! 💬 → 👥 Arkadaş`); }
     freqs = nv; if (CH === 'f' && chatOpen()) renderChat();
   });
-  partyChanged();
+  partyChanged(); watchFlags();
 }
 function addFriend(id, name) {
   if (friends[id]) return; if (freqs[id]) return acceptFriend(id);
@@ -1534,8 +1539,9 @@ async function jobPicker(change) {
   const today = new Date().toDateString(), paid = change && ME.jobDay === today, cost = paid ? 200 : 0;
   const on = (await get(ref(db, 'online')).catch(() => null))?.val() || {};
   const cnt = j => Object.entries(on).filter(([id, v]) => id !== myId && v && v.job === j).length;
-  const items = JOBS.filter(j => j !== ME.job).map(j => { const c = cnt(j), q = QUOTA[j] || QDEF; return {
-    e: JOB_E[j] || '💼', n: j, r: c >= q ? 'dolu' : `${c}/${q}`, off: c >= q || ME.money < cost, stay: false, fn: () => {
+  const sab = (sabika[myId] || 0) >= 3;
+  const items = JOBS.filter(j => j !== ME.job).map(j => { const c = cnt(j), q = QUOTA[j] || QDEF, nos = sab && SAB_JOBS.includes(j); return {
+    e: JOB_E[j] || '💼', n: j, r: nos ? '📁 sabıkalı' : c >= q ? 'dolu' : `${c}/${q}`, off: nos || c >= q || ME.money < cost, stay: false, fn: () => {
       if (cost && !spend(cost)) return;
       const old = ME.job; ME.job = j; ME.jobDay = today; pub({ job: j }); update(ref(db, 'players/' + myId), { job: j, jobDay: today }); saveMe(); hud(); closeModal();
       try { localStorage.setItem('kk_me', JSON.stringify({ name: ME.name, job: j, color: ME.color })); } catch (e) { }
@@ -1579,15 +1585,15 @@ function newJobActs(L, b, p, near, t) {
 }
 // ---------- authority ----------
 const SUBS = {
-  baskan: ['Herkes', 'Memur', 'Çöpçü', 'İtfaiyeci', 'Emlakçı', 'İnşaatçı', 'Kuryeci', 'Bekçi', 'Güvenlik Görevlisi'],
+  baskan: ['Herkes', 'Memur', 'Çöpçü', 'İtfaiyeci', 'Emlakçı', 'İnşaatçı', 'Kuryeci'],
   muhtar: ['Herkes', 'Bekçi', 'Çöpçü', 'Kuryeci'],
   emniyet: ['Polis', 'Jandarma', 'Asker', 'Bekçi', 'Güvenlik Görevlisi'],
   bashekim: ['Doktor', 'Hemşire', 'Eczacı', 'Veteriner'],
   okulmuduru: ['Öğretmen'],
-  Hakim: ['Polis', 'Jandarma', 'Savcı', 'Avukat'],
+  Hakim: ['Savcı', 'Avukat'],
   Savcı: ['Polis', 'Jandarma', 'Bekçi'],
 };
-const ARREST_AUTH = ['emniyet', 'baskan', 'Savcı', 'Hakim'];
+const ARREST_AUTH = ['Savcı'];
 function myAuth() { const a = [], r = myRole(); if (r && SUBS[r]) a.push(r); if (SUBS[ME.job]) a.push(ME.job); return a; }
 const authTitle = a => ROLES[a] ? ROLES[a].n : a;
 function powersMenu() {
@@ -1595,10 +1601,12 @@ function powersMenu() {
   A.forEach(a => {
     items.push({ label: `📜 ${authTitle(a)} olarak emir ver`, fn: () => orderMenu(a) });
     if (ARREST_AUTH.includes(a)) items.push({ label: `🚨 Yakalama emri çıkar <small>(${authTitle(a)})</small>`, fn: () => pickPlayer('🚨 Kim için yakalama emri?', o => !(o.jail > t) && !(o.wanted > t), (id, o) => warrant(a, id, o)) });
-    if (a === 'Hakim' || a === 'emniyet' || a === 'Savcı') items.push({ label: `❎ Aramayı kaldır <small>(${authTitle(a)})</small>`, fn: () => pickPlayer('❎ Kimin araması kalksın?', o => o.wanted > t, (id, o) => { update(ref(db, 'online/' + id), { wanted: 0 }); notify(id, `❎ ${authTitle(a)} ${ME.name} aramanı kaldırdı`); say(`❎ ${authTitle(a)} <b>${esc(ME.name)}</b>, <b>${esc(o.name)}</b> hakkındaki aramayı kaldırdı`, true); }) });
-    if (a === 'Hakim' || a === 'emniyet') items.push({ label: `🔓 Tahliye et <small>(${authTitle(a)})</small>`, fn: () => pickPlayer('🔓 Kim serbest kalsın?', o => o.jail > t, (id, o) => { update(ref(db, 'online/' + id), { jail: 0 }); remove(ref(db, 'cases/' + id)).catch(() => { }); say(`🔓 ${authTitle(a)} <b>${esc(ME.name)}</b>, <b>${esc(o.name)}</b>'i tahliye etti`, true); }) });
+    if (a === 'Savcı') items.unshift({ label: `📂 Şikayet dosyaları`, right: openCrimes().length ? '🔴 ' + openCrimes().length : '0', fn: crimesMenu });
+    if (a === 'emniyet') items.push({ label: '📻 Telsiz (polis kanalı)', fn: () => { closeModal(); openChat('r'); } }, { label: '🚨 Arananlar', right: Object.values(others).filter(o => o.wanted > t).length, fn: () => pickPlayer('🚨 Arananlar (polislere telsizden bildir)', o => o.wanted > t, (id, o) => push(ref(db, 'radio'), { uid: myId, n: ME.name, j: 'Emniyet Müdürü', h: `🚨 Tüm ekipler: ${o.name} aranıyor, yakalayın!`, t: serverTimestamp() })) });
+    if (a === 'Savcı') items.push({ label: `❎ Aramayı kaldır <small>(${authTitle(a)})</small>`, fn: () => pickPlayer('❎ Kimin araması kalksın?', o => o.wanted > t, (id, o) => { update(ref(db, 'online/' + id), { wanted: 0 }); notify(id, `❎ ${authTitle(a)} ${ME.name} aramanı kaldırdı`); say(`❎ ${authTitle(a)} <b>${esc(ME.name)}</b>, <b>${esc(o.name)}</b> hakkındaki aramayı kaldırdı`, true); }) });
+    if (a === 'Hakim') items.push({ label: `🔓 Tahliye et <small>(${authTitle(a)})</small>`, fn: () => pickPlayer('🔓 Kim serbest kalsın?', o => o.jail > t, (id, o) => { update(ref(db, 'online/' + id), { jail: 0 }); remove(ref(db, 'cases/' + id)).catch(() => { }); say(`🔓 ${authTitle(a)} <b>${esc(ME.name)}</b>, <b>${esc(o.name)}</b>'i tahliye etti`, true); }) });
   });
-  modal('📜 Yetkilerim', items, `<p>Makamın: <b>${A.map(authTitle).join(', ')}</b><br>Emirlerin ilgili kişilere bildirim olarak gider ve şehre duyurulur. Yetkini kötüye kullanırsan seçimde karnen düşer 😉</p>`);
+  modal('📜 Yetkilerim', items, `<p>Makamın: <b>${A.map(authTitle).join(', ')}</b><br>Herkes kendi alanında: Savcı yakalama emri çıkarır, Hakim tahliye eder, Emniyet Müdürü polisleri yönetir, Başkan belediyeyi.<br>Emirlerin ilgili kişilere bildirim olarak gider ve şehre duyurulur. Yetkini kötüye kullanırsan seçimde karnen düşer 😉</p>`);
 }
 function pickPlayer(title, filt, fn) {
   const list = Object.entries(others).filter(([id, o]) => o.name && filt(o));
@@ -1610,6 +1618,8 @@ function warrant(a, id, o) {
   notify(id, `🚨 ${authTitle(a)} ${ME.name} hakkında yakalama emri çıkardı! Kaç ya da teslim ol`);
   Object.entries(others).filter(([, x]) => POLICE.includes(x.job) || x.job === 'Bekçi' || x.job === 'Güvenlik Görevlisi').forEach(([pid]) => notify(pid, `🚨 Yakalama emri: ${o.name}! (${authTitle(a)} ${ME.name})`));
   say(`🚨 <b>${authTitle(a)} ${esc(ME.name)}</b>, <b>${esc(o.name)}</b> için yakalama emri çıkardı! Polisler göreve!`, true, 'ann');
+  push(ref(db, 'radio'), { uid: 'sys', n: '⚖️ Savcılık', h: `Yakalama emri: ${o.name} (${authTitle(a)} ${ME.name})`, t: serverTimestamp() }).catch(() => { });
+  return true;
 }
 function orderMenu(a) {
   let grp = SUBS[a][0];
@@ -1624,6 +1634,136 @@ function orderMenu(a) {
   } }], `<p>Kime?</p><div class="pgrid">${SUBS[a].map(g => `<button class="psb ${g === grp ? 'on' : ''}" style="font-size:13px" data-g="${esc(g)}">${JOB_E[g] || '📣'} ${esc(g)}</button>`).join('')}</div><input id="ordT" maxlength="80" placeholder="ör. Herkes karakol önünde toplansın!">`);
   const wire = () => mcard.querySelectorAll('[data-g]').forEach(b => b.onclick = () => { const v = mcard.querySelector('#ordT').value; grp = b.dataset.g; draw(); wire(); mcard.querySelector('#ordT').value = v; });
   draw(); wire();
+}
+
+// ================= ADALET • ŞİKAYET • TELSİZ • 155 =================
+let crimes = {}, sabika = {}, CHASE = null;
+const radioData = [];
+const RADIO_JOBS = ['Polis', 'Jandarma', 'Asker', 'Bekçi', 'Güvenlik Görevlisi'];
+const SAB_JOBS = ['Polis', 'Jandarma', 'Asker', 'Hakim', 'Savcı', 'Bekçi', 'Güvenlik Görevlisi'];
+const DAY = 864e5;
+const canRadio = () => ME && (RADIO_JOBS.includes(ME.job) || myRole() === 'emniyet');
+const openCrimes = () => Object.entries(crimes).filter(([, c]) => c && c.st !== 'kapandi' && c.t > now() - DAY).sort((a, b) => a[1].t - b[1].t);
+const ST = { acik: '🟡 Açık', inceleniyor: '🔵 İnceleniyor', kapandi: '✅ Kapandı' };
+
+// ---------- complaints: crime (→ Savcı) vs chat (→ moderators) ----------
+function fileCrime(id, name, reason, extra = '') {
+  if ((ME.lastComp || 0) > now() - 60000) { toast('Dakikada bir şikayet yapabilirsin'); return false; }
+  ME.lastComp = now();
+  push(ref(db, 'crimes'), { by: myId, byName: ME.name, target: id || '', targetName: name || 'bilinmiyor', reason: reason + (extra ? ' • ' + extra : ''), t: now(), st: 'acik' }).catch(() => { });
+  Object.entries(others).filter(([, o]) => o.job === 'Savcı').forEach(([pid]) => notify(pid, `📂 Yeni şikayet: ${ME.name} → ${name || '?'} (${reason}). 📜 Yetkilerim → Şikayet dosyaları`));
+  return true;
+}
+function fileChatReport(id, o, reason) {
+  push(ref(db, 'reports'), { by: myId, byName: ME.name, target: id, targetName: o.name, reason, t: now(), st: 'acik' }).catch(() => { });
+  if (/Küfür|hakaret|Hakaret/.test(reason)) set(ref(db, `flags/${id}/${myId}`), now()).catch(() => { });
+  Object.keys(mods).forEach(mid => { if (others[mid]) notify(mid, `🚩 Yeni sohbet şikayeti: ${o.name} (${reason}). 👤 → Şikayetler`); });
+}
+function crimesMenu() {
+  const L = openCrimes();
+  modal('📂 Şikayet dosyaları', L.map(([k, c]) => ({ label: `${ST[c.st] || '🟡 Açık'} <b>${esc(c.byName)}</b> → <b>${esc(c.targetName)}</b><br><small>${esc(c.reason)} • ${Math.round((now() - c.t) / 60000)} dk önce${c.h ? ' • ' + esc(c.h) : ''}</small>`, fn: () => crimeMenu(k) })),
+    L.length ? '<p>Her dosyayı sonuçlandırınca <b>+30 💰</b>. 24 saat bakılmayan dosya kendiliğinden kapanır.</p>' : '<p>Açık şikayet yok 👍</p>');
+}
+function crimeMenu(k) {
+  const c = crimes[k]; if (!c) return;
+  const close = (res, extra) => update(ref(db, 'crimes/' + k), { st: 'kapandi', res, h: ME.name, ht: now() }).then(() => { earn(30, '📂 Dosya kapandı'); if (c.by !== myId) notify(c.by, `📂 Savcı ${ME.name} şikayetini sonuçlandırdı: ${res}`); extra && extra(); }).catch(e => toast('Olmadı: ' + e.message));
+  const tgt = others[c.target];
+  modal(`📂 ${esc(c.byName)} → ${esc(c.targetName)}`, [
+    { label: '🔵 İncelemeye al', disabled: c.st === 'inceleniyor', fn: () => update(ref(db, 'crimes/' + k), { st: 'inceleniyor', h: ME.name }).then(() => { notify(c.by, `🔵 Savcı ${ME.name} şikayetini inceliyor`); toast('🔵 İncelemeye alındı'); }) },
+    { label: `🚨 Yakalama emri çıkar ve kapat${tgt ? '' : ' <small>(şüpheli şu an oyunda değil)</small>'}`, disabled: !tgt || tgt.jail > now(), fn: () => { if (warrant('Savcı', c.target, tgt)) close('Yakalama emri çıkarıldı 🚨'); } },
+    { label: '✖ Reddet (delil yetersiz)', fn: () => close('Reddedildi, delil yetersiz') },
+  ], `<p>${ST[c.st] || ''} • ${esc(c.reason)}<br>${new Date(c.t).toLocaleString('tr', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}</p>`);
+}
+async function modReports() {
+  const all = (await get(ref(db, 'reports')).catch(() => null))?.val() || {}, t = now();
+  const L = Object.entries(all).filter(([, r]) => r && r.st !== 'kapandi' && r.t > t - DAY).sort((a, b) => a[1].t - b[1].t);
+  const close = (k, r, res) => update(ref(db, 'reports/' + k), { st: 'kapandi', res, h: ME ? ME.name : 'Yönetici' }).then(() => { if (ME) earn(30, '🚩 Şikayet kapandı'); notify(r.by, `🚩 Şikayetin sonuçlandı: ${res}`); modLog('şikayeti kapattı: ' + res, r.target, r.targetName); }).catch(e => toast('Olmadı: ' + e.message));
+  modal('🚩 Sohbet şikayetleri', L.map(([k, r]) => ({ label: `🟡 <b>${esc(r.byName)}</b> → <b>${esc(r.targetName)}</b><br><small>${esc(r.reason)} • ${Math.round((t - r.t) / 60000)} dk önce</small>`, fn: () => modal(`🚩 ${esc(r.targetName)}`, [
+    { label: '🔇 10 dk sustur ve kapat', fn: () => { mute(r.target, { name: r.targetName }, 10); close(k, r, '10 dk susturuldu'); } },
+    { label: '⚠️ Uyar ve kapat', fn: () => { notify(r.target, '⚠️ Moderatör uyarısı: kurallara uy, yoksa susturulursun'); close(k, r, 'Uyarı verildi'); } },
+    { label: '✖ Asılsız, kapat', fn: () => close(k, r, 'Asılsız bulundu') },
+  ]) })), L.length ? '<p>Her şikayeti kapatınca <b>+30 💰</b>. Aynı kişiye 3 farklı küfür şikayeti gelirse otomatik 10 dk susturulur.</p>' : '<p>Açık şikayet yok 👍</p>');
+}
+// auto-mute myself when 3 different people flag me for swearing within an hour
+function watchFlags() {
+  onValue(ref(db, 'flags/' + myId), s => {
+    const v = s.val() || {}, t = now(), n = Object.values(v).filter(x => x > t - 3600000).length;
+    if (n >= 3 && myMute < t) {
+      myMute = t + 10 * 60000; try { localStorage.setItem('kk_mute', String(myMute)); } catch (e) { }
+      toast('🔇 3 kişi seni küfürden şikayet etti, 10 dakika yazamazsın', 6000);
+      say(`🔇 <b>${esc(ME.name)}</b> çok şikayet aldığı için otomatik susturuldu`, true, 'mod'); remove(ref(db, 'flags/' + myId)).catch(() => { });
+    }
+  });
+  try { const m = +localStorage.getItem('kk_mute') || 0; if (m > myMute) myMute = m; } catch (e) { }
+}
+
+// ---------- 155 ----------
+function call155() {
+  if (!ME) return;
+  modal('☎️ 155 Polis İmdat', ['Soyuldum', 'Dolandırıldım', 'Tehdit / kavga', 'Şüpheli biri var'].map(r => ({ label: r, fn: () => {
+    const list = Object.entries(others).filter(([, o]) => o.name);
+    modal(`☎️ ${r} • Kim?`, [{ label: '❓ Bilmiyorum, sadece konumumu gönder', fn: () => send155(r, '', '') }, ...list.map(([id, o]) => ({ label: `${esc(o.name)} <small>${esc(o.job || '')}</small>`, fn: () => send155(r, id, o.name) }))]);
+  } })), '<p>Şikayetin Savcıya gider, en yakın polislere konumunla birlikte haber verilir.</p>');
+}
+function send155(reason, id, name) {
+  const where = (BUILD.find(x => nearB(x, 240)) || {}).n || 'sokak';
+  if (id && !fileCrime(id, name, reason, '155')) return;
+  if (!id && (ME.lastComp || 0) > now() - 60000) return toast('Dakikada bir arayabilirsin');
+  if (!id) ME.lastComp = now();
+  const cops = Object.entries(others).filter(([pid, o]) => o.hasPos && (RADIO_JOBS.includes(o.job) || roleOf(pid) === 'emniyet')).sort((a, b) => Math.hypot(a[1].x - ME.x, a[1].y - ME.y) - Math.hypot(b[1].x - ME.x, b[1].y - ME.y)).slice(0, 3);
+  cops.forEach(([pid]) => notify(pid, `☎️ 155: ${ME.name} "${reason}"${name ? ' • şüpheli ' + name : ''} • ${where} civarı`));
+  push(ref(db, 'radio'), { uid: 'sys', n: '☎️ 155', h: `${ME.name}: ${reason}${name ? ' • şüpheli ' + name : ''} • ${where}`.slice(0, 118), t: serverTimestamp() }).catch(() => { });
+  toast(cops.length ? `☎️ ${cops.length} polise haber verildi 🚔` : '☎️ Şu an oyunda polis yok ama şikayetin Savcıya gitti', 4500);
+}
+document.getElementById('b155').onclick = call155;
+
+// ---------- police auto-chase ----------
+function chaseActs(L, t) {
+  if (!(POLICE.includes(ME.job) || myRole() === 'emniyet')) return;
+  if (CHASE) { const o = others[CHASE]; if (o) L.push({ label: `🏃 ${o.name} takip ediliyor • bırak`, cls: 'gray', fn: () => { CHASE = null; } }); return; }
+  Object.entries(others).filter(([, o]) => o.hasPos && o.wanted > t && !(o.jail > t)).slice(0, 2).forEach(([id, o]) => {
+    if (Math.hypot(o.x - ME.x, o.y - ME.y) < 70) return;
+    L.push({ label: `🚨 Aranan: ${o.name} • Takip et`, cls: 'red', fn: () => { CHASE = id; toast(`🏃 ${o.name}'in peşindesin! Yaklaşınca 🚔 Yakala çıkar`, 3500); } });
+  });
+}
+function chaseVec() {
+  const o = CHASE && others[CHASE];
+  if (!o || !o.hasPos || !(o.wanted > now()) || o.jail > now() || o.inside) { if (CHASE) { CHASE = null; toast('🚨 Takip bitti'); } return null; }
+  const dx = o.x - ME.x, dy = o.y - ME.y, d = Math.hypot(dx, dy);
+  if (d < 45) return [0, 0, 0];
+  if (chaseVec.stuck > 25) { chaseVec.side = (chaseVec.side || 1) * -1; chaseVec.stuck = 0; chaseVec.turn = 30; }
+  if (chaseVec.turn > 0) { chaseVec.turn--; const s = chaseVec.side || 1; return [-dy / d * s, dx / d * s, 1]; }
+  return [dx / d, dy / d, 1];
+}
+
+// ---------- bail ----------
+function bailActs(L, t) {
+  const left = Math.ceil((ME.jail - t) / 1000), cost = 100 + left * 2;
+  L.push({ label: `💸 Kefalet öde, çık (${cost} 💰)`, cls: 'blue', disabled: ME.money < cost, dyn: 1, fn: () => {
+    if (!(ME.jail > now()) || !spend(cost)) return; saveMe();
+    ME.jail = 1; update(ref(db, 'online/' + myId), { jail: 0 }); remove(ref(db, 'cases/' + myId)).catch(() => { });
+    const h = payJob(['Hakim'], Math.round(cost * 0.4), `💸 ${ME.name} kefaletle çıktı, payın`); payJob(['Avukat'], Math.round(cost * 0.2), `💸 ${ME.name} kefaletle çıktı, payın`);
+    say(`💸 <b>${esc(ME.name)}</b> ${cost} 💰 kefalet ödeyip serbest kaldı${h ? ' (Hakim ' + esc(h) + ')' : ''}`, true);
+  } });
+}
+
+// ---------- radio tab ----------
+function sendRadio(t) { if (!canRadio()) return toast('Telsiz sadece güvenlik güçleri için'); push(ref(db, 'radio'), { uid: myId, n: ME.name, j: myRole() === 'emniyet' ? 'Emniyet Müdürü' : ME.job, h: t, t: serverTimestamp() }).catch(() => toast('Telsize ulaşılamadı')); }
+let radioOn = false;
+function radioListen() {
+  const tab = ctabsEl.querySelector('[data-c="r"]'); const ok = canRadio();
+  tab.style.display = ok ? '' : 'none'; if (!ok && CH === 'r') setCh('g');
+  if (!ok || radioOn) return; radioOn = true;
+  onChildAdded(query(ref(db, 'radio'), limitToLast(40)), s => {
+    const v = s.val(); if (!v) return; radioData.push(v); if (radioData.length > 60) radioData.shift();
+    if (CH === 'r' && chatOpen()) renderChat();
+    else if ((v.t || 0) > loginT - 3000 && v.uid !== myId) { tabDot.r = 1; drawTabs(); ping(`📻 <b>${esc(v.n)}</b>: ${esc(v.h)}`); }
+  });
+}
+setInterval(() => { if (ME && db) radioListen(); }, 4000);
+function listenLaw() {
+  onValue(ref(db, 'crimes'), s => { crimes = s.val() || {}; });
+  onValue(ref(db, 'sabika'), s => { sabika = s.val() || {}; });
 }
 
 // ================= EVENTS =================
@@ -1857,7 +1997,10 @@ addEventListener('keyup', e => { keys[e.key.toLowerCase()] = 0; });
 function inputVec() {
   let x = joy.x, y = joy.y;
   if (keys.a || keys.arrowleft) x -= 1; if (keys.d || keys.arrowright) x += 1; if (keys.w || keys.arrowup) y -= 1; if (keys.s || keys.arrowdown) y += 1;
-  const m = Math.hypot(x, y); if (m > 1) { x /= m; y /= m; } return [x, y, Math.min(1, m)];
+  const m = Math.hypot(x, y); if (m > 1) { x /= m; y /= m; }
+  if (m > 0.08) { if (CHASE) { CHASE = null; toast('Takip bırakıldı'); } return [x, y, Math.min(1, m)]; }
+  if (CHASE && ME) { const v = chaseVec(); if (v) { const px = ME.x, py = ME.y; setTimeout(() => { if (ME && Math.hypot(ME.x - px, ME.y - py) < 0.5 && v[2]) chaseVec.stuck = (chaseVec.stuck || 0) + 1; else chaseVec.stuck = 0; }, 0); return v; } }
+  return [x, y, Math.min(1, m)];
 }
 // fullscreen + chat toggle
 document.getElementById('bFull').onclick = () => {
@@ -2111,6 +2254,7 @@ function adminLogin() {
     listenCommon();
     onChildAdded(query(ref(db, 'reports'), limitToLast(20)), s2 => { reports[s2.key] = s2.val(); });
     onChildRemoved(ref(db, 'reports'), s2 => { delete reports[s2.key]; });
+    onChildChanged(ref(db, 'reports'), s2 => { reports[s2.key] = s2.val(); });
     onChildAdded(query(ref(db, 'modlog'), limitToLast(20)), s2 => { modlog[s2.key] = s2.val(); });
     const all = {}; for (let a = 0; a < NZ; a++) for (let b = 0; b < NZ; b++) all[a + '_' + b] = 1; syncZoneSubs(all);
     zoom = 1.8; adminUI(); setInterval(adminUI, 3000);
@@ -2139,7 +2283,7 @@ function adminUI() {
   <h3>🏛 Partiler</h3>${Object.entries(parties).map(([pid, p]) => `<div class="row"><button class="pl" style="flex:4">${flagHtml(p, 13)}${esc(p.name)} • 👥${Object.keys(p.members || {}).length} 💰${Math.floor(p.kasa || 0)}</button><button style="flex:1;background:#c0392b" data-cp="${pid}">Kapat</button></div>`).join('') || '<p>Henüz parti yok.</p>'}
   <h3>👢 Toplu işlem</h3><button id="aKickAll" style="background:#c0392b">👢 Herkesi at + isimleri sıfırla (v2)</button>
   <h3>🛡 Moderatörler</h3>${Object.entries(mods).map(([id, m]) => `<div class="row"><button class="pl" style="flex:4">${esc(m.name || id)}</button><button style="flex:1;background:#c0392b" data-unmod="${id}">✖</button></div>`).join('') || '<p style="font-size:13px">Henüz yok. Oyuncu listesinde ⚙️ ile ekle.</p>'}
-  <h3>🚩 Şikayetler</h3>${Object.entries(reports).reverse().map(([k, r]) => `<div style="font-size:12px;margin:4px 0">${esc(r.byName)} → <b>${esc(r.targetName)}</b>: ${esc(r.reason)}</div><div class="row"><button data-f="${r.target}">Git</button><button data-delrep="${k}" style="background:#7f8c8d">Sil</button></div>`).join('') || '<p style="font-size:13px">Şikayet yok 👍</p>'}
+  <h3>🚩 Cevapsız şikayetler</h3><p style="font-size:12px;opacity:.8">Suç şikayetleri Savcıya, sohbet şikayetleri moderatörlere gider. Burada sadece kimsenin bakmadıkları var (24 saat sonra kendiliğinden düşer).</p>${Object.entries(reports).filter(([, r]) => r && r.st !== 'kapandi' && r.t > t - 864e5).reverse().map(([k, r]) => `<div style="font-size:12px;margin:4px 0">💬 ${esc(r.byName)} → <b>${esc(r.targetName)}</b>: ${esc(r.reason)}</div><div class="row"><button data-f="${r.target}">Git</button><button data-delrep="${k}" style="background:#7f8c8d">Kapat</button></div>`).join('')}${openCrimes().reverse().map(([k, c]) => `<div style="font-size:12px;margin:4px 0">📂 ${esc(c.byName)} → <b>${esc(c.targetName)}</b>: ${esc(c.reason)} • ${ST[c.st] || ''}</div><div class="row"><button data-f="${c.target}">Git</button><button data-delcr="${k}" style="background:#7f8c8d">Kapat</button></div>`).join('') || ''}${!Object.values(reports).some(r => r && r.st !== 'kapandi' && r.t > t - 864e5) && !openCrimes().length ? '<p style="font-size:13px">Cevapsız şikayet yok 👍</p>' : ''}
   <h3>📋 Moderatör işlemleri</h3>${Object.values(modlog).reverse().map(m => `<div style="font-size:12px;margin:3px 0">${new Date(m.t).toLocaleTimeString('tr', { hour: '2-digit', minute: '2-digit' })} ${esc(m.by)}: ${esc(m.act)} → ${esc(m.target)}</div>`).join('') || '<p style="font-size:13px">Kayıt yok</p>'}`;
   adminEl.querySelector('#aKickAll').onclick = kickAll;
   adminEl.querySelectorAll('[data-rmc]').forEach(b => b.onclick = () => { const [r, cid] = b.dataset.rmc.split('|'); if (confirm('Bu aday çıkarılsın mı?')) remove(ref(db, `elections/${r}/cands/${cid}`)).then(adminUI).catch(e => alert('❌ ' + e.message)); });
@@ -2168,7 +2312,8 @@ function adminUI() {
   adminEl.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { adm.follow = b.dataset.f || null; if (adm.follow) zoom = 0.9; });
   adminEl.querySelectorAll('[data-p]').forEach(b => b.onclick = () => profileMenu(b.dataset.p));
   adminEl.querySelectorAll('[data-unmod]').forEach(b => b.onclick = () => remove(ref(db, 'mods/' + b.dataset.unmod)));
-  adminEl.querySelectorAll('[data-delrep]').forEach(b => b.onclick = () => remove(ref(db, 'reports/' + b.dataset.delrep)).then(adminUI));
+  adminEl.querySelectorAll('[data-delrep]').forEach(b => b.onclick = () => update(ref(db, 'reports/' + b.dataset.delrep), { st: 'kapandi', res: 'Yönetici kapattı', h: 'Yönetici' }).then(adminUI));
+  adminEl.querySelectorAll('[data-delcr]').forEach(b => b.onclick = () => update(ref(db, 'crimes/' + b.dataset.delcr), { st: 'kapandi', res: 'Yönetici kapattı', h: 'Yönetici' }).then(adminUI));
 }
 setInterval(() => { if (ADMIN && adminOk) electionTick(); }, 10000);
 if (ADMIN) adminLogin();
