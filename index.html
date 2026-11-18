@@ -113,7 +113,7 @@ table.pl{width:100%;font-size:12px;border-collapse:collapse}table.pl td{padding:
 <button id="gGoogle" class="lg">🔵 Google ile gir</button>
 <button id="gGuest" class="lg" style="background:#3a4a6b">👤 Misafir olarak oyna</button>
 <button id="gResume" class="lg" style="display:none">Şehre gir 🏙️</button>
-<button id="gSwitch" class="lg" style="display:none;background:transparent;font-size:13px;padding:6px;font-weight:600">Başka hesapla gir</button>
+<button id="gSwitch" class="lg" style="display:none;background:#2e86de">🔑 Giriş yap (başka hesap)</button>
 <div id="igWarn">Instagram'ın içinde Google girişi çalışmaz. Sağ üstteki <b>⋯</b> menüsünden <b>"Tarayıcıda aç"</b>'ı seç, ya da misafir olarak oyna.</div>
 <div id="err"></div>
 </div></div>
@@ -657,7 +657,7 @@ function adminPlay() {
   if (ME) { admView = !admView; adminEl.style.display = 'none'; ['hud', 'acts', 'bWard', 'bRank', 'bQuest', 'bBag', 'bVeh'].forEach(i => document.getElementById(i).style.display = admView ? 'none' : ''); return; }
   adminEl.style.display = 'none'; admView = false;
   document.getElementById('alogin').remove(); document.getElementById('login').style.display = '';
-  LB[0].style.display = LB[1].style.display = 'none'; LB[2].style.display = 'block'; LB[3].style.display = 'none'; LB[2].textContent = 'Şehre gir 🏙️ (👑 yönetici)';
+  LB[0].style.display = LB[1].style.display = 'none'; LB[2].style.display = LB[3].style.display = 'block'; LB[2].textContent = 'Şehre gir 🏙️ (👑 yönetici)';
   document.getElementById('panel').style.display = 'flex';
   ['hud', 'acts', 'bWard', 'bRank', 'bQuest', 'bBag', 'bVeh'].forEach(i => document.getElementById(i).style.display = '');
 }
