@@ -12,7 +12,8 @@
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;overflow:hidden;background:#7cc06a;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#fff;-webkit-user-select:none;user-select:none}
-canvas{display:block;touch-action:none;position:fixed;inset:0}
+canvas{display:block;touch-action:none;position:fixed;inset:0;width:100%!important;height:100%!important}
+html,body{background:#15233f}
 #labels{position:fixed;inset:0;pointer-events:none;overflow:hidden}
 .lb{position:absolute;left:0;top:0;white-space:nowrap;will-change:transform}
 .nm{background:rgba(255,255,255,.93);color:#1a1a1a;font:700 12px system-ui;padding:3px 8px;border-radius:10px;display:inline-block}
@@ -68,12 +69,12 @@ button:disabled{opacity:.45}
 #err{color:#ff8a8a;text-align:center;font-size:13px;min-height:18px;margin-top:8px}
 #toast{top:96px;left:50%;transform:translateX(-50%);background:rgba(15,25,45,.94);padding:9px 16px;border-radius:18px;font-weight:700;font-size:14px;display:none;text-align:center;max-width:90vw}
 #ann{top:140px;left:50%;transform:translateX(-50%);background:#8e44ad;padding:12px 18px;border-radius:16px;font-weight:800;font-size:16px;display:none;text-align:center;max-width:92vw;box-shadow:0 6px 20px rgba(0,0,0,.4)}
-#admin{top:0;left:0;bottom:0;width:min(300px,82vw);background:rgba(10,18,35,.93);padding:12px;overflow:auto;display:none;z-index:4}
+#admin{top:0;left:0;bottom:0;padding-top:max(12px,env(safe-area-inset-top))!important;width:min(300px,82vw);background:rgba(10,18,35,.93);padding:12px;overflow:auto;display:none;z-index:4}
 #admin h3{margin:12px 0 6px;color:#ffd23f;font-size:15px}
 #admin button{width:100%;margin:3px 0;font-size:14px;padding:9px}
 #admin select,#admin input{width:100%;border-radius:10px;border:0;padding:8px;margin:3px 0;font-size:14px}
 #admin .pl{display:block;background:#24365e;text-align:left;font-weight:600}
-#adminToggle{top:8px;left:8px;display:none;z-index:5;background:rgba(15,25,45,.9);padding:8px 12px}
+#adminToggle{top:max(10px,env(safe-area-inset-top));left:max(10px,env(safe-area-inset-left));display:none;z-index:5;background:rgba(15,25,45,.9);padding:8px 12px}
 .rec .ui:not(#adminToggle){display:none!important}
 </style>
 </head>
@@ -769,7 +770,7 @@ async function init3D() {
   sun = new THREE.DirectionalLight('#fff4e0', 1.6); sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048); const sc = sun.shadow.camera; sc.left = -24; sc.right = 24; sc.top = 24; sc.bottom = -24; sc.near = 1; sc.far = 90;
   sun.shadow.bias = -0.0008; scene.add(sun, sun.target);
-  addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight); camera3.aspect = innerWidth / innerHeight; camera3.updateProjectionMatrix(); });
+  addEventListener('resize', fitView); if (window.visualViewport) visualViewport.addEventListener('resize', fitView);
   rayc = new THREE.Raycaster(); ndc = new THREE.Vector2();
   winMat = new THREE.MeshLambertMaterial({ color: '#6fb6d8', emissive: '#ffd27a', emissiveIntensity: 0 });
   lampMat = new THREE.MeshLambertMaterial({ color: '#fffbe0', emissive: '#ffe08a', emissiveIntensity: 0 });
@@ -1020,7 +1021,13 @@ const adm = { cx: WN / 2, cz: WN / 2, follow: null };
 const occ = [], winMats = [];
 let prev = performance.now(), lastActs = 0;
 let NIGHTC;
+function fitView() {
+  if (!renderer) return; const c = renderer.domElement, w = c.clientWidth || innerWidth, h = c.clientHeight || innerHeight;
+  const sz = renderer.getSize(new THREE.Vector2()); if (sz.x === w && sz.y === h) return;
+  renderer.setSize(w, h, false); camera3.aspect = w / h; camera3.updateProjectionMatrix();
+}
 function frame(t) {
+  if ((frame.n = (frame.n || 0) + 1) % 30 === 0) fitView();
   const dt = Math.min(50, t - prev); prev = t;
   let fx = WN / 2, fz = WN / 2;
   if (ME) {
@@ -1089,7 +1096,7 @@ function adminLogin() {
       IS_ADMIN = true; myId = uid;
     } catch (x) { e.textContent = AUTH_ERR[x.code] || ('Bağlanamadı: ' + (x.code || x.message)); return; }
     adminOk = true; loginT = now(); document.getElementById('panel').style.display = 'none';
-    ['hud', 'acts'].forEach(i => document.getElementById(i).style.display = 'none');
+    ['hud', 'acts', 'bChat', 'bWard', 'bRank'].forEach(i => document.getElementById(i).style.display = 'none');
     document.getElementById('adminToggle').style.display = 'block';
     listenCommon();
     onChildAdded(query(ref(db, 'reports'), limitToLast(20)), s2 => { reports[s2.key] = s2.val(); });
