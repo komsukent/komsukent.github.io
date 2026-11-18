@@ -1020,6 +1020,7 @@ async function electionTick() {
   const t = now();
   for (const r in ROLES) {
     const e = elections[r], holder = roles[r];
+    if (PROF[r]) { if (e) remove(ref(db, 'elections/' + r)).catch(() => { }); continue; }
     if (e && e.ends < t && !e.done) {
       const res = await runTransaction(ref(db, 'elections/' + r + '/done'), d => d ? undefined : 1);
       if (res.committed) {
@@ -1036,8 +1037,6 @@ async function electionTick() {
       }
     } else if (PROLES.includes(r) && ADMIN && adminOk && holder && !holder.p) {
       await remove(ref(db, 'roles/' + r)).catch(() => { }); say(`🏛 ${ROLES[r].n} makamı boşaltıldı: artık sadece partilerin adayları seçilebilir`, true, 'ann');
-    } else if (PROLES.includes(r) && !e && (!holder || holder.until < t) && !ADMIN && Object.keys(parties).length >= 2) {
-      await runTransaction(ref(db, 'elections/' + r), cur => cur ? undefined : { ends: t + 30 * 60000, cands: {} });
     }
   }
 }
@@ -1421,9 +1420,10 @@ async function signGensoru(r, need) {
     await set(ref(db, `gensoru/${r}/${myId}`), true); toast('✍️ İmzan alındı');
     const n = Object.keys((await get(ref(db, 'gensoru/' + r))).val() || {}).length, h = roles[r];
     if (n >= need && h) {
+      if (!PROF[r]) await set(ref(db, 'elections/' + r), { ends: now() + 30 * 60000, cands: {} }).catch(() => { });
       await remove(ref(db, 'roles/' + r)); await remove(ref(db, 'gensoru/' + r)).catch(() => { });
       if (PROF[r]) { await set(ref(db, 'depose/' + r), { id: h.id, t: now() }).catch(() => { }); say(`⚖️ <b>${PROF[r]}lar karar verdi!</b> ${ROLES[r].n} ${esc(h.name)} görevden alındı, yerine sıradaki en kıdemli geçecek`, true, 'ann'); setTimeout(autoAppoint, 1500); }
-      else { await set(ref(db, 'elections/' + r), { ends: now() + 30 * 60000, cands: {} }).catch(() => { }); say(`⚖️ <b>Halk karar verdi!</b> ${ROLES[r].n} ${esc(h.name)} görevden düştü. Partiler arasında seçim başladı! 🗳`, true, 'ann'); }
+      else { say(`⚖️ <b>Halk karar verdi!</b> ${ROLES[r].n} ${esc(h.name)} görevden düştü. Partiler arasında seçim başladı! 🗳`, true, 'ann'); }
     } else if (n === 1 && h) say(`✋ ${ROLES[r].n} <b>${esc(h.name)}</b> için görevden alma imzası toplanıyor (Belediye → ✋ Güvensizlik)`, true);
   } catch (e) { toast('İmza atılamadı: ' + e.message); }
 }
