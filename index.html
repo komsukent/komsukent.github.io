@@ -112,7 +112,7 @@ table.pl{width:100%;font-size:12px;border-collapse:collapse}table.pl td{padding:
 <div id="log" class="ui"></div>
 <div id="bottom" class="ui"><div id="ctabs"><button data-c="g" class="on">💬 Genel<i></i></button><button data-c="p">🏛 Parti<i></i></button><button data-c="f">👥 Arkadaş<i></i></button><button data-c="r" style="display:none">📻 Telsiz<i></i></button></div><div id="chatList"></div><div id="emo"><button>👋</button><button>😂</button><button>👍</button><button>😡</button><button>❤️</button><button>🎉</button></div><div id="bar"><input id="msg" maxlength="60" placeholder="Komşulara bir şey yaz…"><button id="send">Gönder</button></div></div>
 <div id="elnight"></div>
-<div id="sleepEl" style="display:none"><div class="slb"><div style="font-size:54px">😴</div><h2>Uyudun</h2><p>10 dakika hareket etmediğin için şehirden çıktın, yer kaplamayasın diye.</p><button id="sleepBtn">☀️ Devam et</button></div></div>
+<div id="sleepEl" style="display:none"><div class="slb"><div style="font-size:54px">😴</div><h2>Uyudun</h2><p>6 dakika hareket etmediğin için şehirden çıktın, başkalarına yer açılsın diye.</p><button id="sleepBtn">☀️ Devam et</button></div></div>
 <button id="adminToggle" class="ui">☰ Yönetim</button>
 <div id="admin" class="ui"></div>
 <div id="modal"><div class="card" id="mcard"></div></div>
@@ -144,14 +144,14 @@ const CFG = {
   appId: "1:734007209872:web:1b379478026d6f73de4d15"
 };
 const ADMIN = location.hash === '#yonetim';
-let db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off;
+let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off;
 let auth = null, AU = {}, authResolve; const authReady = new Promise(r => authResolve = r);
 const IN_APP = /Instagram|FBAN|FBAV|FB_IAB|TikTok|musical_ly|Snapchat/i.test(navigator.userAgent);
 const fbReady = (async () => {
   const A = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js");
   const D = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js");
   AU = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js");
-  ({ ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off } = D);
+  ({ goOffline, goOnline, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off } = D);
   const app = A.initializeApp(CFG);
   db = D.getDatabase(app);
   try { auth = AU.initializeAuth(app, { persistence: [AU.indexedDBLocalPersistence, AU.browserLocalPersistence, AU.inMemoryPersistence], popupRedirectResolver: AU.browserPopupRedirectResolver }); }
@@ -272,7 +272,7 @@ const AUTH_ERR = { 'auth/popup-blocked': 'Açılır pencere engellendi. Tekrar d
 const withTimeout = (p, ms, msg) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej({ message: msg }), ms))]);
 async function enter(mode) {
   if (mode === 'google' && IN_APP) { errEl.innerHTML = 'Instagram\'ın içinde Google girişi çalışmıyor 😕 Sağ üstteki <b>⋯</b> → <b>Tarayıcıda aç</b>, ya da <b>Misafir olarak oyna</b>.'; return; }
-  try { await withTimeout(enter2(mode), 20000, 'Bağlantı zaman aşımına uğradı. Sayfayı yenileyip tekrar dene.'); }
+  try { await withTimeout(enter2(mode), 20000, '⚠️ Şehre bağlanılamadı. Şehir şu an çok kalabalık olabilir, 1-2 dakika sonra tekrar dene.'); }
   catch (e) { lbDisable(false); errEl.textContent = AUTH_ERR[e.code] || (e.code ? 'Bağlanamadı: ' + e.code : e.message); }
 }
 async function enter2(mode) {
@@ -2057,10 +2057,12 @@ let lastInput = Date.now();
 async function goSleep() {
   if (!ME || ME.sleep) return; ME.sleep = 1; CHASE = null;
   try { await remove(ref(db, 'online/' + myId)); if (myZone) await remove(ref(db, 'pos/' + myZone + '/' + myId)); } catch (e) { }
+  try { goOffline(db); } catch (e) { }   // free the server connection slot
   const o = document.getElementById('sleepEl'); o.style.display = 'flex';
 }
 async function wake() {
   if (!ME || !ME.sleep) return; lastInput = Date.now(); ME.afk = 0;
+  try { goOnline(db); } catch (e) { }
   const oref = ref(db, 'online/' + myId); onDisconnect(oref).remove();
   try { await set(oref, profile()); } catch (e) { }
   ME.sleep = 0; myZone = null; setZone(true); document.getElementById('sleepEl').style.display = 'none'; toast('☀️ Günaydın, tekrar şehirdesin!');
@@ -2069,8 +2071,8 @@ document.getElementById('sleepBtn').onclick = wake;
 setInterval(() => {
   if (!ME || ME.sleep) return; const idle = Date.now() - lastInput;
   if (ME.jail > now() || task) { return; }
-  if (idle > 600000) goSleep();
-  else if (idle > 300000 && !ME.afk) { ME.afk = 1; pub({ afk: 1 }); }
+  if (idle > 360000) goSleep();
+  else if (idle > 180000 && !ME.afk) { ME.afk = 1; pub({ afk: 1 }); }
 }, 15000);
 
 // admin-side cleanup: profession roles must be held by the right job, one person one role, no elections for profession roles
@@ -2566,8 +2568,8 @@ function adminLogin() {
     try {
       await fbReady; await authReady;
       if (!auth.currentUser || auth.currentUser.isAnonymous) await AU.signInWithPopup(auth, new AU.GoogleAuthProvider());
-      const uid = auth.currentUser.uid;
-      const ok = (await get(ref(db, 'admins/' + uid)).catch(() => null));
+      const uid = auth.currentUser.uid; e.textContent = 'Sunucuya bağlanılıyor…';
+      const ok = await withTimeout(get(ref(db, 'admins/' + uid)), 15000, '⚠️ Sunucuya bağlanılamadı. Büyük ihtimalle sunucu dolu (ücretsiz planda aynı anda en fazla 100 bağlantı). Biraz sonra tekrar dene.').catch(x => { throw x; });
       if (!ok || ok.val() !== true) { e.innerHTML = `Bu hesap yönetici değil.<br><br>Yönetici olmak için Firebase'de <b>Realtime Database → Data</b> bölümüne <b>admins</b> altına şu kimliği <b>true</b> değeriyle ekle:<br><code style="user-select:all;-webkit-user-select:all;background:#000;padding:4px;display:block;margin-top:6px">${uid}</code>`; return; }
       IS_ADMIN = true; myId = uid;
     } catch (x) { e.textContent = AUTH_ERR[x.code] || ('Bağlanamadı: ' + (x.code || x.message)); return; }
