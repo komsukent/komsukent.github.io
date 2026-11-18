@@ -143,6 +143,7 @@ const CFG = {
   messagingSenderId: "734007209872",
   appId: "1:734007209872:web:1b379478026d6f73de4d15"
 };
+const APP_V = '2026111812';   // bump on every upload (yyyymmddNN)
 const ADMIN = location.hash === '#yonetim';
 let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off;
 let auth = null, AU = {}, authResolve; const authReady = new Promise(r => authResolve = r);
@@ -383,6 +384,19 @@ function listenCommon() {
   onValue(ref(db, 'avm2'), s => { avm = s.val() || {}; });
   onValue(ref(db, 'announce'), s => { const a = s.val(); if (a && now() - a.t < 15000) showAnn(a); });
   listenParties(); listenLaw(); listenMarket2(); listenCity();
+  onValue(ref(db, 'config/ver'), s => {
+    const v = s.val(); if (!v) return;
+    if (ADMIN && adminOk && v < APP_V) { set(ref(db, 'config/ver'), APP_V).catch(() => { }); return; }
+    if (v > APP_V) {
+      let tried = ''; try { tried = sessionStorage.getItem('kk_upd') || ''; } catch (e) { }
+      if (tried === v) return;   // already reloaded once for this version (old copy still cached) → don't loop
+      try { sessionStorage.setItem('kk_upd', v); } catch (e) { }
+      toast('🔄 Yeni güncelleme geldi! Oyun 3 saniye içinde yenileniyor…', 4000);
+      try { if (ME) saveMe(); } catch (e) { }
+      setTimeout(() => location.replace(location.pathname + '?v=' + v + location.hash), 3000);
+    }
+  });
+  if (ADMIN && adminOk) get(ref(db, 'config/ver')).then(s => { if (!s.val() || s.val() < APP_V) set(ref(db, 'config/ver'), APP_V).catch(() => { }); }).catch(() => { });
 }
 function listenPlayer() {
   onValue(ref(db, 'online/' + myId), s => {
