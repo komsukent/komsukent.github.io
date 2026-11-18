@@ -279,7 +279,8 @@ async function enter2(mode) {
     } else if (!isAdm) {
       if (bad(name)) throw { message: 'Bu isim kullanılamaz 🙅 Kendi Instagram ya da TikTok kullanıcı adını yaz' };
       const al = await allowList();
-      if (al && !al.has(keyOf(name))) throw { message: `"${name}" takipçi listemizde yok 😕 Instagram ya da TikTok'tan @komsukent'i takip et (liste her gün güncellenir) ya da Google ile gir.` };
+      if (al && !al.has(keyOf(name)) && (await get(ref(db, 'allow/' + keyOf(name))).catch(() => null))?.val() !== true)
+        throw { message: `"${name}" takipçi listemizde yok 😕 @komsukent'i takip et ve Instagram'dan bize yaz, seni hemen ekleyelim 🙌 Ya da Google ile gir.` };
     }
     if (name.length < 2) throw { message: 'Kullanıcı adını yaz' };
     let nk = keyOf(name);
@@ -1485,11 +1486,15 @@ function adminUI() {
   <h3>🗳 Seçimler</h3>
   ${Object.keys(ROLES).map(r => { const e = elections[r], h = roles[r]; return `<div style="font-size:13px;margin:6px 0"><b>${ROLES[r].n}</b>: ${h && h.until > t ? '👑 ' + esc(h.name) : 'boş'}${e ? ` • seçim ${Math.max(0, Math.ceil((e.ends - t) / 60000))} dk (${Object.values(e.cands || {}).map(c => esc(c.name) + ' ' + (c.votes || 0)).join(', ') || 'aday yok'})` : ''}</div>
     <div class="row"><button data-el="${r}" data-min="10">Seçim 10 dk</button><button data-el="${r}" data-min="60">60 dk</button>${e ? `<button data-end="${r}" style="background:#c0392b">Bitir</button>` : ''}${h ? `<button data-rm="${r}" style="background:#7f8c8d">Görevden al</button>` : ''}</div>`; }).join('')}
+  <h3>➕ Takipçi listesine isim ekle</h3><input id="aAl" maxlength="40" placeholder="Instagram / TikTok kullanıcı adı" autocapitalize="off" autocorrect="off"><div class="row"><button id="aAlAdd">➕ Ekle</button><button id="aAlDel" style="background:#c0392b">➖ Çıkar</button></div>
   <h3>👢 Toplu işlem</h3><button id="aKickAll" style="background:#c0392b">👢 Herkesi at + isimleri sıfırla (v2)</button>
   <h3>🛡 Moderatörler</h3>${Object.entries(mods).map(([id, m]) => `<div class="row"><button class="pl" style="flex:4">${esc(m.name || id)}</button><button style="flex:1;background:#c0392b" data-unmod="${id}">✖</button></div>`).join('') || '<p style="font-size:13px">Henüz yok. Oyuncu listesinde ⚙️ ile ekle.</p>'}
   <h3>🚩 Şikayetler</h3>${Object.entries(reports).reverse().map(([k, r]) => `<div style="font-size:12px;margin:4px 0">${esc(r.byName)} → <b>${esc(r.targetName)}</b>: ${esc(r.reason)}</div><div class="row"><button data-f="${r.target}">Git</button><button data-delrep="${k}" style="background:#7f8c8d">Sil</button></div>`).join('') || '<p style="font-size:13px">Şikayet yok 👍</p>'}
   <h3>📋 Moderatör işlemleri</h3>${Object.values(modlog).reverse().map(m => `<div style="font-size:12px;margin:3px 0">${new Date(m.t).toLocaleTimeString('tr', { hour: '2-digit', minute: '2-digit' })} ${esc(m.by)}: ${esc(m.act)} → ${esc(m.target)}</div>`).join('') || '<p style="font-size:13px">Kayıt yok</p>'}`;
   adminEl.querySelector('#aKickAll').onclick = kickAll;
+  const alKey = () => { const v = clean(adminEl.querySelector('#aAl').value.replace(/^@/, '')); return v.length < 2 ? null : [v, fold(v.toLocaleLowerCase('tr')).replace(/[.\s]/g, '_')]; };
+  adminEl.querySelector('#aAlAdd').onclick = async () => { const k = alKey(); if (!k) return; try { await set(ref(db, 'allow/' + k[1]), true); adminEl.querySelector('#aAl').value = ''; alert(`✅ "${k[0]}" eklendi, artık girebilir`); } catch (e) { alert('❌ Olmadı: ' + e.message); } };
+  adminEl.querySelector('#aAlDel').onclick = async () => { const k = alKey(); if (!k) return; try { await remove(ref(db, 'allow/' + k[1])); adminEl.querySelector('#aAl').value = ''; alert(`➖ "${k[0]}" listeden çıkarıldı`); } catch (e) { alert('❌ Olmadı: ' + e.message); } };
   adminEl.querySelector('#aPlay').onclick = adminPlay; adminEl.querySelector('#aPl').onclick = playersMenu;
   adminEl.querySelector('#aRec').onclick = () => { document.body.classList.toggle('rec'); adminEl.style.display = 'none'; };
   adminEl.querySelectorAll('[data-ev]').forEach(b => b.onclick = () => {
