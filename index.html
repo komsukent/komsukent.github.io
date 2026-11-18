@@ -315,7 +315,7 @@ async function enter2(mode) {
     const cnt = Object.entries(on).filter(([id, v]) => id !== myId && v && v.job === job).length;
     if (cnt >= (QUOTA[job] || QDEF)) { errEl.textContent = `${job} kadrosu dolu 😬 Başka bir meslek seç`; lbDisable(false); return; }
     let prev = (await get(ref(db, 'players/' + myId))).val();
-    if (!prev) {   // carry over progress from the old (pre-login) version on this device
+    if (!prev || prev.money == null) {   // carry over progress (old device / new browser)
       let old = null; try { old = localStorage.getItem('kk_id'); } catch (e) { }
       if (takeFrom) old = takeFrom;
       if (old && old !== myId) { const o = (await get(ref(db, 'players/' + old))).val(); if (o) prev = { money: Math.min(2000, o.money || 0), energy: o.energy, acc: o.acc, wear: o.wear, m: o.m, lvl: o.lvl, inv: o.inv, q: o.q, play: o.play, pd: o.pd, joined: o.joined, pleft: o.pleft }; }
