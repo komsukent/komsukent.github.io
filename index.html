@@ -181,7 +181,9 @@ const BMAP = Object.fromEntries(BUILD.map(b => [b.id, b]));
 const ROLES = {
   baskan: { n: 'Belediye Başkanı', b: 'belediye' }, muhtar: { n: 'Muhtar', b: 'belediye' },
   emniyet: { n: 'Emniyet Müdürü', b: 'polis' }, bashekim: { n: 'Başhekim', b: 'hastane' }, okulmuduru: { n: 'Okul Müdürü', b: 'okul' },
+  bashakim: { n: 'Baş Hakim', b: 'adalet' }, bassavci: { n: 'Başsavcı', b: 'adalet' },
 };
+const ROLE_JOBS = { emniyet: ['Polis', 'Jandarma', 'Asker'], bashekim: ['Doktor', 'Hemşire', 'Eczacı', 'Veteriner'], okulmuduru: ['Öğretmen'], bashakim: ['Hakim'], bassavci: ['Savcı'] };
 const STREET = ['Taksici', 'Hırsız', 'Dolandırıcı', 'Şarkıcı', 'Influencer', 'Youtuber', 'Kuryeci', 'Çöpçü', 'Gazeteci', 'Futbolcu', 'Bekçi'];
 const JOBS = [...new Set(BUILD.flatMap(b => b.jobs))].concat(STREET).sort((a, b) => a.localeCompare(b, 'tr'));
 const QUOTA = { Hakim: 2, Savcı: 3, Avukat: 5, İmam: 2 }; const QDEF = 8;
@@ -200,6 +202,7 @@ for (let by = 0; by < NBK; by++) for (let bx = 0; bx < NBK; bx++) {
 }
 const PMAP = Object.fromEntries(PLOTS.map(p => [p.k, p]));
 const HOUSE_PRICE = 1500, SHOP_PRICE = 2500, SHIFT_MS = 45000, SHIFT_PAY = 40, SHIFT_E = 20, REST_MS = 20000;
+const JOBPAY = { Hakim: 70, Savcı: 70, Doktor: 70, Avukat: 55, Öğretmen: 55, Eczacı: 55, Veteriner: 55, Polis: 55, Jandarma: 55, Asker: 55, İtfaiyeci: 55, Elektrikçi: 50, Hemşire: 45, Memur: 45, Emlakçı: 45, Tamirci: 45, Kaportacı: 45, Galerici: 45, İnşaatçı: 45, İmam: 45, 'Güvenlik Görevlisi': 45 };
 const JAIL_MS = 90000, WANTED_MS = 90000, DAY_MS = 24 * 60000;
 const COURT_DOOR = { x: (BMAP.adalet.x + 3) * T, y: (BMAP.adalet.y + 6) * T + 30 }, JAIL_SPOT = { x: (BMAP.polis.x + 3) * T, y: (BMAP.polis.y + 6) * T + 30 };
 const SPAWN = { x: (3 * BLK + 7) * T, y: (4 * BLK + 1) * T };
@@ -371,18 +374,19 @@ function listenCommon() {
   onValue(ref(db, 'admins'), s => { admins = s.val() || {}; });
   onValue(ref(db, 'avm2'), s => { avm = s.val() || {}; });
   onValue(ref(db, 'announce'), s => { const a = s.val(); if (a && now() - a.t < 15000) showAnn(a); });
-  listenParties(); listenLaw();
+  listenParties(); listenLaw(); listenMarket2();
 }
 function listenPlayer() {
   onValue(ref(db, 'online/' + myId), s => {
     const v = s.val(); if (!v || !ME) return;
     if (v.kick && v.kick > loginT) { kicked(false, v.soft); return; }
+    if (typeof v.wanted === 'number') ME.wanted = v.wanted;
     if (ME.jail > now() && !(v.jail > now()) && v.jail !== undefined) { ME.jail = 1; toast('🔓 Tahliye edildin!', 4000); }
     if (v.jail && v.jail > now() && !(ME.jail > now())) { ME.jail = v.jail; ME.wanted = 0; if (ME.ride) update(ref(db, 'online/' + myId), { ride: null }); ME.ride = null; ME.x = COURT_DOOR.x; ME.y = COURT_DOOR.y; ME.drive = null; ME.inside = 'adalet'; pub({ inside: 'adalet', drive: null }); target = null; task = null; toast('🚔 Yakalandın! Adalet Sarayı\'na götürüldün ⚖️'); sendPos(true); }
     else if (v.jail !== ME.jail) ME.jail = v.jail || 0;
   });
   onChildAdded(ref(db, 'notify/' + myId), s => { const v = s.val(); if (v) toast(v.m, 4000); remove(s.ref); });
-  onValue(ref(db, 'mutes/' + myId), s => { myMute = (s.val() || {}).until || 0; });
+  onValue(ref(db, 'mutes/' + myId), s => { let lm = 0; try { lm = +localStorage.getItem('kk_mute') || 0; } catch (e) { } myMute = Math.max((s.val() || {}).until || 0, lm); });
   onValue(ref(db, 'bans/' + myId), s => { if (s.exists()) kicked(true); });
   onValue(ref(db, 'players/' + myId + '/money'), s => { const v = s.val(); if (typeof v === 'number' && Math.abs(v - ME.money) > 0.5) { ME.money = v; hud(); } });
 }
@@ -632,6 +636,7 @@ function techItems(owner) {
   } }; });
 }
 function goInside(bid) {
+  if (bid && ME.wanted > now()) { toast('🚨 Aranıyorsun, içeri giremezsin!'); return; }
   ME.inside = bid; target = null; if (ME.drive) { ME.drive = null; }
   pub({ inside: bid, drive: null }); if (bid) officeScreen(bid); else { closeModal(); toast('🚪 Dışarı çıktın'); }
 }
@@ -669,7 +674,6 @@ const BMENU = {
         ...(PARTYOF[myId] ? [{ e: '⚙', n: 'Partimi yönet', fn: myPartyMenu, stay: false }] : [{ e: '➕', n: 'Parti kur', r: '5.000 💰', off: ME.money < PARTY_PRICE || Object.keys(parties).length >= MAX_PARTY || penalty() > 0, fn: createParty, stay: false }]),
         ...(debate && debate.ends > t ? [{ e: '🎤', n: 'Münazarayı izle', fn: debateView, stay: false }] : [])] },
       karneTab(),
-      { n: '💼 İş Kur', info: `Mesleğin: <b>${esc(ME.job)}</b><br>Günde 1 kez ücretsiz meslek değiştirebilirsin, sonrakiler 200 💰.`, items: [{ e: '💼', n: 'Meslek değiştir', r: ME.jobDay === new Date().toDateString() ? '200 💰' : 'ücretsiz', fn: () => jobPicker(true), stay: false }] },
       { n: '✋ Güvensizlik', info: 'Görevdeki Belediye Başkanı ya da Muhtar işini yapmıyorsa imza topla. Yeterli imza olursa düşer, erken seçim olur.', items: [{ e: '✋', n: 'Güvensizlik oylaması', fn: gensoruMenu, stay: false }] },
       { n: '👑 Makamlar', info: Object.keys(ROLES).map(r => `<b>${ROLES[r].n}:</b> ${roles[r] && roles[r].until > t ? '👑 ' + esc(roles[r].name) : 'boş'}`).join('<br>'), items: [] },
       { n: '🧾 Vergi', info: `Günlük vergin: araçlar %2, ev 30 💰, dükkan 60 💰. Her gün ilk girişte kesilir.<br>Senin günlük vergin: <b>${Math.round(Object.values(ME.veh).reduce((a, v) => a + VEH[v.t].p * 0.02, 0) + (ME.home ? 30 : 0) + (ME.shop ? 60 : 0))} 💰</b>`, items: [] },
@@ -728,7 +732,7 @@ function avmBuy(i) {
 function bagMenu() {
   const it = Object.entries(ME.inv).filter(([k, n]) => FOOD[k] && n > 0);
   shopScreen('🎒 Çantam', '#16a085', [{ n: 'Çanta', info: (it.length ? 'Yemek için dokun.' : 'Çantan boş. Markete, fırına ya da AVM\'ye uğra.') + (Object.keys(TECH).some(k => ME.inv[k]) ? '<br>Eşyaların: ' + Object.keys(TECH).filter(k => ME.inv[k]).map(k => TECH[k].e + ' ' + TECH[k].n).join(', ') : ''),
-    items: it.map(([k, n]) => ({ e: FOOD[k].e, n: `${FOOD[k].n} x${n}`, r: `+${FOOD[k].en}⚡`, off: ME.energy >= 100, fn: () => { ME.inv[k]--; if (!ME.inv[k]) delete ME.inv[k]; ME.energy = Math.min(100, ME.energy + FOOD[k].en); stat('ate'); saveMe(); hud(); toast(`😋 ${FOOD[k].n} yedin +${FOOD[k].en}⚡`); } })) }]);
+    items: [...it.map(([k, n]) => ({ e: FOOD[k].e, n: `${FOOD[k].n} x${n}`, r: `+${FOOD[k].en}⚡`, off: ME.energy >= 100, fn: () => { ME.inv[k]--; if (!ME.inv[k]) delete ME.inv[k]; ME.energy = Math.min(100, ME.energy + FOOD[k].en); stat('ate'); saveMe(); hud(); toast(`😋 ${FOOD[k].n} yedin +${FOOD[k].en}⚡`); } })), { e: '🏷', n: '2. El Pazarı', r: 'al / sat', fn: () => market2Menu(), stay: false }] }]);
 }
 function vehMenu() {
   const vs = Object.entries(ME.veh);
@@ -852,7 +856,7 @@ function computeActs() {
   if (b) {
     const roleHere = role && ROLES[role].b === b.id;
     if (b.jobs.includes(ME.job) || roleHere) {
-      const pay = Math.round(SHIFT_PAY * (roleHere ? 2 : 1) * (1 + 0.1 * (ME.lvl || 0)) * (ME.sick ? 0.5 : 1) * (isNight() && ['Polis', 'Jandarma', 'İtfaiyeci', 'Doktor', 'Hemşire'].includes(ME.job) ? 1.5 : 1));
+      const pay = Math.round((JOBPAY[ME.job] || SHIFT_PAY) * (roleHere ? 1.5 : 1) * (1 + 0.1 * (ME.lvl || 0)) * (ME.sick ? 0.5 : 1) * (isNight() && ['Polis', 'Jandarma', 'İtfaiyeci', 'Doktor', 'Hemşire'].includes(ME.job) ? 1.2 : 1));
       if (ME.inside === b.id) {
         L.push({ label: `🔨 Mesaiye başla (+${pay} 💰, -${SHIFT_E}⚡)`, disabled: ME.energy < SHIFT_E, fn: () => startTask('work', SHIFT_MS * (ME.inv.laptop ? 0.75 : 1), () => ME.inside === b.id, () => { ME.energy -= SHIFT_E; stat('worked'); earn(pay, '💼 Mesai bitti!'); }, '💼 İçeride mesai') });
         L.push({ label: '🚪 Dışarı çık', cls: 'gray', fn: () => goInside(null) });
@@ -906,6 +910,9 @@ function computeActs() {
   // events
   if (EV && t < EV.t0 + 300000 && !EV.done) evActs(L);
   rallyActs(L);
+  if (ME.inside && ME.wanted > t) { goInside(null); toast('🚨 Aranıyorsun, saklanamazsın!'); }
+  if (ME.inside && !L.some(a => /Dışarı/.test(a.label))) L.push({ label: '🚪 Dışarı çık', cls: 'gray', fn: () => goInside(null) });
+  if (b && b.id === 'avm' && !ME.inside) L.push({ label: '🏷 2. El Pazarı', cls: 'blue', fn: () => market2Menu() });
   return L;
 }
 function leaveTaxi() {
@@ -1012,7 +1019,9 @@ async function electionTick() {
         if (cl.length) await set(ref(db, 'results/' + r), { t, list: cl.map(({ n, v, pn, c, s }) => ({ n, v, pn, c, s })), win: won ? best.n : null }).catch(() => { });
         await remove(ref(db, 'elections/' + r));
       }
-    } else if (!e && (!holder || holder.until < t) && !ADMIN) {
+    } else if (PROLES.includes(r) && ADMIN && adminOk && holder && !holder.p) {
+      await remove(ref(db, 'roles/' + r)).catch(() => { }); say(`🏛 ${ROLES[r].n} makamı boşaltıldı: artık sadece partilerin adayları seçilebilir`, true, 'ann');
+    } else if (!e && (!holder || holder.until < t) && !ADMIN && (!PROLES.includes(r) || Object.keys(parties).length >= 2)) {
       await runTransaction(ref(db, 'elections/' + r), cur => cur ? undefined : { ends: t + 30 * 60000, cands: {} });
     }
   }
@@ -1289,10 +1298,10 @@ function voteMenu() {
     });
     if (cands[myId]) items.push({ label: '✍️ Vaatlerini yaz', fn: () => vaatMenu(r) });
     if (cands[myId] && n >= 2 && !(debate && debate.ends > t)) items.push({ label: '🎤 Münazara başlat (5 dk)', fn: () => startDebate(r) });
-    if (P) { if (!cands[myId] && !PARTYOF[myId] && !myRole() && n < MAX_CAND) items.push({ label: `✋ ${ROLES[r].n} için bağımsız aday ol`, right: INDEP_PRICE.toLocaleString('tr') + ' 💰', disabled: ME.money < INDEP_PRICE, fn: () => candidate(r, INDEP_PRICE) }); }
-    else if (!cands[myId] && !myRole()) items.push({ label: `✋ ${ROLES[r].n} adayı ol`, right: '100 💰', disabled: ME.money < 100, fn: () => candidate(r, 100) });
+    if (P) { if (!cands[myId] && !PARTYOF[myId]) items.push({ label: `ℹ️ ${ROLES[r].n} adayı olmak için bir partiye katıl ya da parti kur`, disabled: true }); }
+    else if (!cands[myId] && !myRole()) { const rj = ROLE_JOBS[r], ok = !rj || rj.includes(ME.job); items.push({ label: ok ? `✋ ${ROLES[r].n} adayı ol` : `✋ ${ROLES[r].n} adayı olmak için ${rj.join('/')} olmalısın`, right: ok ? '100 💰' : '', disabled: !ok || ME.money < 100, fn: () => candidate(r, 100) }); }
   });
-  modal('🗳 Seçim sandığı', items, `<p>Her seçimde 1 oy hakkın var.${canVote ? '' : ' <b>⏳ Oy vermek için en az 10 dakika oynamış olmalısın.</b>'}<br>Belediye Başkanı ve Muhtar adaylarını partiler gösterir (Parti → 🗳 Aday göster). Partisizler bağımsız aday olabilir.</p>`);
+  modal('🗳 Seçim sandığı', items, `<p>Her seçimde 1 oy hakkın var.${canVote ? '' : ' <b>⏳ Oy vermek için en az 10 dakika oynamış olmalısın.</b>'}<br>Belediye Başkanı ve Muhtar adaylarını sadece partiler gösterir (Parti → 🗳 Aday göster). Emniyet Müdürü, Başhekim, Okul Müdürü, Baş Hakim ve Başsavcı adayları kendi meslek sınıfından olmalı.</p>`);
 }
 async function vote(r, cid) {
   const e = elections[r]; if (!e || !e.cands || !e.cands[cid] || (e.voters || {})[myId]) return;
@@ -1306,7 +1315,8 @@ async function vote(r, cid) {
 }
 async function candidate(r, price) {
   if (ME.money < price) return toast('Para yetmiyor');
-  if (PROLES.includes(r) && Object.keys((elections[r] && elections[r].cands) || {}).length >= MAX_CAND) return toast('Aday kontenjanı dolu');
+  if (PROLES.includes(r)) return toast('Belediye Başkanı ve Muhtar adaylarını partiler gösterir');
+  if (ROLE_JOBS[r] && !ROLE_JOBS[r].includes(ME.job)) return toast(`${ROLES[r].n} adayı olmak için ${ROLE_JOBS[r].join('/')} olmalısın`);
   try {
     const res = await runTransaction(ref(db, 'elections/' + r + '/cands/' + myId), c => c ? undefined : { name: ME.name, votes: 0 });
     if (res.committed) { ME.money -= price; stat('voted'); hud(); saveMe(); say(`✋ <b>${esc(ME.name)}</b> ${ROLES[r].n} için ${PROLES.includes(r) ? 'bağımsız ' : ''}aday oldu!`, true); if (PROLES.includes(r)) setTimeout(() => vaatMenu(r), 400); }
@@ -1535,7 +1545,7 @@ function listenParties() {
 // ================= MESLEK SEÇİMİ • YENİ MESLEKLER • YETKİLER =================
 const JOB_E = { Memur: '🗂', Emlakçı: '🏡', Marketçi: '🛒', Kasiyer: '🧾', Kasap: '🥩', Manav: '🍎', Fırıncı: '🥖', Pastacı: '🎂', Hakim: '⚖️', Savcı: '📜', Avukat: '💼', Doktor: '🩺', Hemşire: '💉', Eczacı: '💊', Veteriner: '🐶', Polis: '👮', Asker: '🪖', Jandarma: '🚓', Öğretmen: '📚', Tamirci: '🔧', Kaportacı: '🔨', Elektrikçi: '💡', Galerici: '🚗', İnşaatçı: '🏗', Kuaför: '💇', Berber: '💈', Manikürcü: '💅', İtfaiyeci: '🚒', İmam: '🕌', 'AVM Çalışanı': '🏬', Garson: '🍽', Aşçı: '👨‍🍳', 'Güvenlik Görevlisi': '🛡', Taksici: '🚕', Hırsız: '🦹', Dolandırıcı: '🃏', Şarkıcı: '🎤', Influencer: '🤳', Youtuber: '📹', Kuryeci: '📦', Çöpçü: '🧹', Gazeteci: '📰', Futbolcu: '⚽', Bekçi: '🔦' };
 async function jobPicker(change) {
-  if (!ME) return;
+  if (!ME || ME.job !== 'İşsiz') return;
   const today = new Date().toDateString(), paid = change && ME.jobDay === today, cost = paid ? 200 : 0;
   const on = (await get(ref(db, 'online')).catch(() => null))?.val() || {};
   const cnt = j => Object.entries(on).filter(([id, v]) => id !== myId && v && v.job === j).length;
@@ -1592,8 +1602,10 @@ const SUBS = {
   okulmuduru: ['Öğretmen'],
   Hakim: ['Savcı', 'Avukat'],
   Savcı: ['Polis', 'Jandarma', 'Bekçi'],
+  bashakim: ['Hakim', 'Avukat'],
+  bassavci: ['Savcı', 'Polis', 'Jandarma'],
 };
-const ARREST_AUTH = ['Savcı'];
+const ARREST_AUTH = ['Savcı', 'bassavci'];
 function myAuth() { const a = [], r = myRole(); if (r && SUBS[r]) a.push(r); if (SUBS[ME.job]) a.push(ME.job); return a; }
 const authTitle = a => ROLES[a] ? ROLES[a].n : a;
 function powersMenu() {
@@ -1601,10 +1613,10 @@ function powersMenu() {
   A.forEach(a => {
     items.push({ label: `📜 ${authTitle(a)} olarak emir ver`, fn: () => orderMenu(a) });
     if (ARREST_AUTH.includes(a)) items.push({ label: `🚨 Yakalama emri çıkar <small>(${authTitle(a)})</small>`, fn: () => pickPlayer('🚨 Kim için yakalama emri?', o => !(o.jail > t) && !(o.wanted > t), (id, o) => warrant(a, id, o)) });
-    if (a === 'Savcı') items.unshift({ label: `📂 Şikayet dosyaları`, right: openCrimes().length ? '🔴 ' + openCrimes().length : '0', fn: crimesMenu });
+    if (a === 'Savcı' || a === 'bassavci') items.unshift({ label: `📂 Şikayet dosyaları`, right: openCrimes().length ? '🔴 ' + openCrimes().length : '0', fn: crimesMenu });
     if (a === 'emniyet') items.push({ label: '📻 Telsiz (polis kanalı)', fn: () => { closeModal(); openChat('r'); } }, { label: '🚨 Arananlar', right: Object.values(others).filter(o => o.wanted > t).length, fn: () => pickPlayer('🚨 Arananlar (polislere telsizden bildir)', o => o.wanted > t, (id, o) => push(ref(db, 'radio'), { uid: myId, n: ME.name, j: 'Emniyet Müdürü', h: `🚨 Tüm ekipler: ${o.name} aranıyor, yakalayın!`, t: serverTimestamp() })) });
-    if (a === 'Savcı') items.push({ label: `❎ Aramayı kaldır <small>(${authTitle(a)})</small>`, fn: () => pickPlayer('❎ Kimin araması kalksın?', o => o.wanted > t, (id, o) => { update(ref(db, 'online/' + id), { wanted: 0 }); notify(id, `❎ ${authTitle(a)} ${ME.name} aramanı kaldırdı`); say(`❎ ${authTitle(a)} <b>${esc(ME.name)}</b>, <b>${esc(o.name)}</b> hakkındaki aramayı kaldırdı`, true); }) });
-    if (a === 'Hakim') items.push({ label: `🔓 Tahliye et <small>(${authTitle(a)})</small>`, fn: () => pickPlayer('🔓 Kim serbest kalsın?', o => o.jail > t, (id, o) => { update(ref(db, 'online/' + id), { jail: 0 }); remove(ref(db, 'cases/' + id)).catch(() => { }); say(`🔓 ${authTitle(a)} <b>${esc(ME.name)}</b>, <b>${esc(o.name)}</b>'i tahliye etti`, true); }) });
+    if (a === 'Savcı' || a === 'bassavci') items.push({ label: `❎ Aramayı kaldır <small>(${authTitle(a)})</small>`, fn: () => pickPlayer('❎ Kimin araması kalksın?', o => o.wanted > t, (id, o) => { update(ref(db, 'online/' + id), { wanted: 0 }); notify(id, `❎ ${authTitle(a)} ${ME.name} aramanı kaldırdı`); say(`❎ ${authTitle(a)} <b>${esc(ME.name)}</b>, <b>${esc(o.name)}</b> hakkındaki aramayı kaldırdı`, true); }) });
+    if (a === 'Hakim' || a === 'bashakim') items.push({ label: `🔓 Tahliye et <small>(${authTitle(a)})</small>`, fn: () => pickPlayer('🔓 Kim serbest kalsın?', o => o.jail > t, (id, o) => { update(ref(db, 'online/' + id), { jail: 0 }); remove(ref(db, 'cases/' + id)).catch(() => { }); say(`🔓 ${authTitle(a)} <b>${esc(ME.name)}</b>, <b>${esc(o.name)}</b>'i tahliye etti`, true); }) });
   });
   modal('📜 Yetkilerim', items, `<p>Makamın: <b>${A.map(authTitle).join(', ')}</b><br>Herkes kendi alanında: Savcı yakalama emri çıkarır, Hakim tahliye eder, Emniyet Müdürü polisleri yönetir, Başkan belediyeyi.<br>Emirlerin ilgili kişilere bildirim olarak gider ve şehre duyurulur. Yetkini kötüye kullanırsan seçimde karnen düşer 😉</p>`);
 }
@@ -1728,7 +1740,7 @@ function chaseActs(L, t) {
 }
 function chaseVec() {
   const o = CHASE && others[CHASE];
-  if (!o || !o.hasPos || !(o.wanted > now()) || o.jail > now() || o.inside) { if (CHASE) { CHASE = null; toast('🚨 Takip bitti'); } return null; }
+  if (!o || !o.hasPos || !(o.wanted > now()) || o.jail > now()) { if (CHASE) { CHASE = null; toast('🚨 Takip bitti'); } return null; }
   const dx = o.x - ME.x, dy = o.y - ME.y, d = Math.hypot(dx, dy);
   if (d < 45) return [0, 0, 0];
   if (chaseVec.stuck > 25) { chaseVec.side = (chaseVec.side || 1) * -1; chaseVec.stuck = 0; chaseVec.turn = 30; }
@@ -1765,6 +1777,74 @@ function listenLaw() {
   onValue(ref(db, 'crimes'), s => { crimes = s.val() || {}; });
   onValue(ref(db, 'sabika'), s => { sabika = s.val() || {}; });
 }
+
+// ================= 2. EL PAZARI =================
+let market2 = {};
+function m2Item(kind, key) {
+  if (kind === 'veh') { const v = VEH[key]; return v && { e: v.e, n: v.n, p: v.p }; }
+  if (kind === 'tech') { const v = TECH[key]; return v && { e: v.e, n: v.n, p: v.p }; }
+  if (kind === 'cloth') { const v = CLOTH[key]; return v && { e: v.e, n: v.n, p: v.p }; }
+  return null;
+}
+function sellables() {
+  const L = [];
+  Object.entries(ME.veh || {}).forEach(([id, v]) => { if (VEH[v.t]) L.push({ kind: 'veh', key: v.t, ref: id, broken: !!v.br }); });
+  Object.keys(TECH).forEach(k => { if (ME.inv[k]) L.push({ kind: 'tech', key: k, ref: k }); });
+  Object.keys(CLOTH).forEach(k => { if (ME.acc['c_' + k]) L.push({ kind: 'cloth', key: k, ref: k }); });
+  return L;
+}
+function market2Menu(tab = 0) {
+  if (!ME) return; const t = now();
+  const live = Object.entries(market2).filter(([, m]) => m && !m.buyer && m.t > t - 3 * 864e5).sort((a, b) => b[1].t - a[1].t);
+  const mine = Object.entries(market2).filter(([, m]) => m && m.seller === myId);
+  shopScreen('🏷 2. El Pazarı', '#8e44ad', [
+    { n: '🛒 Satılanlar', info: live.length ? 'Oyuncuların sattığı eşyalar. Para doğrudan satıcıya gider. İlanlar 3 gün durur.' : 'Şu an ilan yok. İlk ilanı sen ver!', items: live.filter(([, m]) => m.seller !== myId).map(([k, m]) => { const it = m2Item(m.kind, m.key) || { e: '📦', n: m.key, p: 0 };
+      return { e: it.e, n: `${it.n}${m.broken ? ' (arızalı)' : ''} • ${esc(m.sellerName)}`, r: m.price.toLocaleString('tr') + ' 💰' + (it.p ? ` (yeni: ${it.p.toLocaleString('tr')})` : ''), off: ME.money < m.price, stay: false, fn: () => buy2(k) }; }) },
+    { n: '🏷 Eşya sat', info: 'Satmak istediğin eşyaya dokun, fiyatını yaz. İlana koyunca eşya senden alınır, satılınca para hesabına geçer. İstersen ilanı geri çekebilirsin.', items: sellables().map(s => { const it = m2Item(s.kind, s.key); return { e: it.e, n: it.n + (s.broken ? ' (arızalı)' : ''), r: 'Sat', off: s.kind === 'veh' && ME.drive === s.ref, stay: false, fn: () => list2(s) }; }) },
+    { n: '📋 İlanlarım', info: mine.length ? '' : 'İlanın yok.', items: mine.map(([k, m]) => { const it = m2Item(m.kind, m.key) || { e: '📦', n: m.key };
+      return { e: it.e, n: it.n, r: m.buyer ? `✅ ${esc(m.buyerName || '')} aldı` : `${m.price} 💰 • geri çek`, stay: false, fn: () => m.buyer ? remove(ref(db, 'market2/' + k)) : unlist2(k) }; }) },
+  ], tab);
+}
+function list2(s) {
+  const it = m2Item(s.kind, s.key), max = Math.round(it.p * 1.2), sug = Math.round(it.p * (s.broken ? 0.4 : 0.7));
+  modal(`🏷 ${it.e} ${it.n} sat`, [{ label: '🏷 İlana koy', fn: async () => {
+    const price = Math.round(+document.getElementById('m2p').value || 0);
+    if (price < 1 || price > max) return toast(`Fiyat 1 ile ${max} arası olmalı`);
+    if (Object.values(market2).filter(m => m && m.seller === myId && !m.buyer).length >= 5) return toast('En fazla 5 ilanın olabilir');
+    // take the item out of the seller's hands (escrow)
+    if (s.kind === 'veh') { if (!ME.veh[s.ref]) return; delete ME.veh[s.ref]; if (ME.drive === s.ref) { ME.drive = null; pub({ drive: null }); } }
+    if (s.kind === 'tech') { if (!ME.inv[s.key]) return; delete ME.inv[s.key]; if (s.key === 'kulaklik') { ME.wear.k = 0; pub({ wear: ME.wear }); } }
+    if (s.kind === 'cloth') { if (!ME.acc['c_' + s.key]) return; delete ME.acc['c_' + s.key]; if (ME.wear.ck === s.key) { delete ME.wear.ck; delete ME.wear.sh; delete ME.wear.dress; pub({ wear: ME.wear }); } }
+    saveMe();
+    try { await push(ref(db, 'market2'), { seller: myId, sellerName: ME.name, kind: s.kind, key: s.key, broken: s.broken ? 1 : 0, price, t: now() }); toast('🏷 İlanın yayında!'); say(`🏷 <b>${esc(ME.name)}</b> 2. el pazarına ${it.e} ${esc(it.n)} koydu: ${price} 💰`, true); }
+    catch (e) { toast('İlan verilemedi'); restore2(s.kind, s.key, s.broken); }
+  } }], `<p>Yeni fiyatı ${it.p.toLocaleString('tr')} 💰. En fazla ${max.toLocaleString('tr')} 💰 isteyebilirsin.</p><input id="m2p" type="number" inputmode="numeric" value="${sug}">`);
+}
+function restore2(kind, key, broken) {
+  if (kind === 'veh') ME.veh['v' + now().toString(36)] = broken ? { t: key, br: 'motor' } : { t: key };
+  if (kind === 'tech') ME.inv[key] = 1;
+  if (kind === 'cloth') ME.acc['c_' + key] = 1;
+  saveMe();
+}
+async function unlist2(k) {
+  const m = market2[k]; if (!m || m.seller !== myId) return;
+  const r = await runTransaction(ref(db, 'market2/' + k), cur => cur && !cur.buyer && cur.seller === myId ? null : undefined).catch(() => null);
+  if (r && r.committed) { restore2(m.kind, m.key, m.broken); toast('↩️ İlan geri çekildi, eşya sende'); } else toast('İlan çoktan satılmış');
+}
+async function buy2(k) {
+  const m = market2[k]; if (!m || m.buyer || m.seller === myId) return;
+  if (ME.money < m.price) return toast('Para yetmiyor');
+  if (m.kind === 'tech' && ME.inv[m.key]) return toast('Bu eşya zaten sende var');
+  if (m.kind === 'cloth' && ME.acc['c_' + m.key]) return toast('Bu kıyafet zaten sende var');
+  const r = await runTransaction(ref(db, 'market2/' + k), cur => cur && !cur.buyer ? Object.assign({}, cur, { buyer: myId, buyerName: ME.name, bt: now() }) : undefined).catch(() => null);
+  if (!r || !r.committed) return toast('Biri senden önce aldı 😬');
+  if (!spend(m.price)) return; restore2(m.kind, m.key, m.broken);
+  let left = m.price; while (left > 0) { const c = Math.min(1000, left); await runTransaction(ref(db, 'players/' + m.seller + '/money'), x => (x || 0) + c).catch(() => { }); left -= c; }
+  const it = m2Item(m.kind, m.key) || { e: '📦', n: m.key };
+  notify(m.seller, `🏷 ${ME.name} 2. elden ${it.n} aldı! +${m.price} 💰`); stat('bought');
+  toast(`🎉 ${it.e} ${it.n} artık senin!`, 3500);
+}
+function listenMarket2() { onValue(ref(db, 'market2'), s => { market2 = s.val() || {}; }); }
 
 // ================= EVENTS =================
 const EV_NAMES = { yangin: '🔥 YANGIN', soygun: '🚨 SOYGUN', festival: '🎉 FESTİVAL' };
@@ -2183,13 +2263,14 @@ function frame(t) {
   if (ME && !(IS_ADMIN && admView)) {
     ME._mv = false;
     if (ME.jail > now()) { target = null; }
+    if (ME.inside && !(ME.jail > now()) && !task && inputVec()[2] > 0.08) goInside(null);
     if (ME.ride && others[ME.ride] && others[ME.ride].hasPos) { const d = others[ME.ride]; ME.x = d.x; ME.y = d.y; ME._mv = true; sendPos(); }
     else if (!(ME.jail > now()) && !ME.inside) {
       const [jx, jy, jm] = inputVec();
       if (jm > 0.08) {
         const sp = (ME.job === 'Taksici' ? 0.32 : ME.drive && ME.veh[ME.drive] ? VEH[ME.veh[ME.drive].t].sp : ME.sick ? 0.12 : 0.18) * dt * jm;
         const nx = Math.max(10, Math.min(WORLD - 10, ME.x + jx * sp)), ny = Math.max(10, Math.min(WORLD - 10, ME.y + jy * sp));
-        if (!blocked(nx, ny)) { ME.x = nx; ME.y = ny; ME._mv = true; }
+        if (blocked(ME.x, ME.y) || !blocked(nx, ny)) { ME.x = nx; ME.y = ny; ME._mv = true; }
         else if (!blocked(nx, ME.y)) { ME.x = nx; ME._mv = true; }
         else if (!blocked(ME.x, ny)) { ME.y = ny; ME._mv = true; }
         ME._face = Math.atan2(jx, jy);
@@ -2293,6 +2374,7 @@ function adminUI() {
     try {
       const uid = (await get(ref(db, 'names/' + fold(v.toLocaleLowerCase('tr')).replace(/[.\s]/g, '_')))).val(); if (!uid) return alert('❌ Bu isimde oyuncu bulunamadı');
       const nm = (await get(ref(db, `players/${uid}/name`))).val() || v, pid = PARTYOF[uid], p = parties[pid];
+      if (PROLES.includes(r) && !p) return alert('❌ Belediye Başkanı / Muhtar adayı bir partiye üye olmalı');
       await set(ref(db, `elections/${r}/cands/${uid}`), Object.assign({ name: nm, votes: 0 }, p ? { p: pid, pn: p.name, c: p.c, s: p.s } : {}));
       say(`🗳 <b>${esc(nm)}</b> ${ROLES[r].n} adayı oldu!`, true); alert(`✅ ${nm} aday eklendi`); adminUI();
     } catch (e) { alert('❌ ' + e.message); }
