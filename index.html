@@ -129,7 +129,10 @@ const fbReady = (async () => {
   AU = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js");
   ({ ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off } = D);
   const app = A.initializeApp(CFG);
-  db = D.getDatabase(app); auth = AU.getAuth(app);
+  db = D.getDatabase(app);
+  try { auth = AU.initializeAuth(app, { persistence: [AU.indexedDBLocalPersistence, AU.browserLocalPersistence, AU.inMemoryPersistence], popupRedirectResolver: AU.browserPopupRedirectResolver }); }
+  catch (e) { auth = AU.getAuth(app); }
+  setTimeout(() => authResolve(auth.currentUser), 4000);
   let first = true;
   AU.onAuthStateChanged(auth, u => { if (first) { first = false; authResolve(u); } });
 })();
@@ -230,21 +233,27 @@ const errEl = document.getElementById('err');
 
 const LB = ['gGoogle', 'gGuest', 'gResume', 'gSwitch'].map(i => document.getElementById(i));
 const lbDisable = d => LB.forEach(b => b.disabled = d);
-if (IN_APP) document.getElementById('igWarn').style.display = 'block';
+if (IN_APP) { document.getElementById('igWarn').style.display = 'block'; LB[0].style.opacity = .5; }
 if (!ADMIN) fbReady.then(() => authReady).then(u => {
   if (u) { LB[0].style.display = LB[1].style.display = 'none'; LB[2].style.display = LB[3].style.display = 'block'; LB[2].textContent = `Şehre gir 🏙️ (${u.isAnonymous ? 'misafir hesabın' : 'Google hesabın'})`; }
 }).catch(() => {});
 LB[0].onclick = () => enter('google'); LB[1].onclick = () => enter('guest'); LB[2].onclick = () => enter('resume');
 LB[3].onclick = async () => { await fbReady; await AU.signOut(auth); LB[0].style.display = LB[1].style.display = 'block'; LB[2].style.display = LB[3].style.display = 'none'; };
 const AUTH_ERR = { 'auth/popup-blocked': 'Açılır pencere engellendi. Tekrar dene ya da misafir oyna.', 'auth/popup-closed-by-user': 'Giriş penceresi kapatıldı.', 'auth/cancelled-popup-request': 'Giriş iptal edildi.', 'auth/operation-not-supported-in-this-environment': 'Bu tarayıcıda Google girişi çalışmıyor. Safari ya da Chrome\'da aç, veya misafir oyna.', 'auth/web-storage-unsupported': 'Bu tarayıcıda giriş çalışmıyor. Safari ya da Chrome\'da aç.', 'auth/network-request-failed': 'İnternet bağlantısını kontrol et.', 'auth/admin-restricted-operation': 'Misafir girişi kapalı.', 'PERMISSION_DENIED': 'Erişim reddedildi.' };
+const withTimeout = (p, ms, msg) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej({ message: msg }), ms))]);
 async function enter(mode) {
+  if (mode === 'google' && IN_APP) { errEl.innerHTML = 'Instagram\'ın içinde Google girişi çalışmıyor 😕 Sağ üstteki <b>⋯</b> → <b>Tarayıcıda aç</b>, ya da <b>Misafir olarak oyna</b>.'; return; }
+  try { await withTimeout(enter2(mode), 20000, 'Bağlantı zaman aşımına uğradı. Sayfayı yenileyip tekrar dene.'); }
+  catch (e) { lbDisable(false); errEl.textContent = AUTH_ERR[e.code] || ('Bağlanamadı: ' + (e.code || e.message)); }
+}
+async function enter2(mode) {
   const name = clean(document.getElementById('name').value);
   if (name.length < 2) { errEl.textContent = 'Kullanıcı adını yaz'; return; }
   let kk = 0; try { kk = +localStorage.getItem('kk_kick') || 0; } catch (e) { }
   if (kk > now()) { errEl.textContent = `Oyundan atıldın 😕 ${Math.ceil((kk - now()) / 60000)} dk sonra tekrar girebilirsin`; return; }
   lbDisable(true); errEl.textContent = 'Şehre bağlanılıyor…';
   try {
-    await fbReady; await authReady;
+    await withTimeout(fbReady, 12000, 'Oyun sunucusuna ulaşılamadı. İnternetini kontrol et.'); await authReady;
     if (mode === 'google' && !auth.currentUser) await AU.signInWithPopup(auth, new AU.GoogleAuthProvider());
     if (mode === 'guest' && !auth.currentUser) await AU.signInAnonymously(auth);
     if (!auth.currentUser) throw { message: 'Giriş yapılamadı' };
@@ -275,10 +284,7 @@ async function enter(mode) {
     cam.x = ME.x; cam.y = ME.y;
     loginT = now();
     listenCommon(); listenPlayer(); hud(); document.getElementById('joyHint').style.display = 'flex';
-  } catch (e) {
-    lbDisable(false);
-    errEl.textContent = AUTH_ERR[e.code] || ('Bağlanamadı: ' + (e.code || e.message));
-  }
+  } catch (e) { throw e; }
 }
 let loginT = 0;
 function profile() { return { name: ME.name, color: ME.color, job: ME.job, wear: ME.wear || {}, wanted: ME.wanted || 0, jail: ME.jail || 0, ride: ME.ride || null, t: serverTimestamp() }; }
