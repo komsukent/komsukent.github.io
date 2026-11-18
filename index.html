@@ -1064,14 +1064,14 @@ async function init3D() {
   let down = null;
   renderer.domElement.addEventListener('pointerdown', e => { down = { x: e.clientX, y: e.clientY, cx: adm.cx, cz: adm.cz }; });
   renderer.domElement.addEventListener('pointermove', e => {
-    if (!ADMIN || !down || !(e.buttons || e.pointerType === 'touch')) return;
+    if (!ADMIN || !admView || !down || !(e.buttons || e.pointerType === 'touch')) return;
     const k = 0.045 * zoom; adm.cx = down.cx - (e.clientX - down.x) * k; adm.cz = down.cz - (e.clientY - down.y) * k; adm.follow = null;
   });
   renderer.domElement.addEventListener('pointerup', () => { down = null; });
   // joystick (left half of the screen, appears where the thumb touches)
   const joyEl = document.getElementById('joy'), knob = joyEl.firstChild;
   renderer.domElement.addEventListener('pointerdown', e => {
-    if (ADMIN || !ME || joy.id !== null || e.clientX > innerWidth * 0.55) return;
+    if ((ADMIN && admView) || !ME || joy.id !== null || e.clientX > innerWidth * 0.55) return;
     msgIn.blur(); joy.id = e.pointerId; joy.ox = e.clientX; joy.oy = e.clientY; joy.x = 0; joy.y = 0;
     joyEl.style.left = e.clientX + 'px'; joyEl.style.top = e.clientY + 'px'; joyEl.style.display = 'block'; knob.style.transform = '';
     document.getElementById('joyHint').style.display = 'none';
