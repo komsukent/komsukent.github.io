@@ -445,16 +445,22 @@ async function allowList() {
 async function kickAll() {
   if (!confirm('⚠️ Herkes oyundan atılsın ve isimler sıfırlansın mı?\n\n(Kimsenin parası, evi, mesleği silinmez.)')) return;
   if (!confirm('Emin misin? Son onay 👢')) return;
-  try {
-    const on = (await get(ref(db, 'online'))).val() || {}; const t = now(); let n = 0;
-    const jobs = [];
-    for (const id in on) if (id !== myId && on[id] && on[id].name) { jobs.push(update(ref(db, 'online/' + id), { kick: t, soft: 1 })); n++; }
-    const nm = (await get(ref(db, 'names'))).val() || {}; let m = 0;
-    for (const k in nm) if (nm[k] !== myId) { jobs.push(remove(ref(db, 'names/' + k))); m++; }
-    await Promise.all(jobs);
-    push(ref(db, 'log'), { k: 'ann', h: '👢 Şehir yenilendi! Herkes kendi adıyla tekrar girsin 🏙️', t: serverTimestamp() }).catch(() => {});
-    alert(`✅ Tamam!\n👢 ${n} oyuncu atıldı\n🔓 ${m} isim sıfırlandı`);
-  } catch (e) { alert('❌ Olmadı: ' + (e.message || e)); }
+  const t = now(), err = []; let n = 0, m = 0, p = 0;
+  const step = async (lbl, fn) => { try { await fn(); } catch (e) { err.push(lbl + ': ' + (e.message || e)); } };
+  await step('Oyundan atma', async () => {
+    const on = (await get(ref(db, 'online'))).val() || {};
+    await Promise.all(Object.keys(on).filter(id => id !== myId && on[id] && on[id].name).map(id => { n++; return update(ref(db, 'online/' + id), { kick: t, soft: 1 }); }));
+  });
+  await step('İsim kayıtları (names)', async () => {
+    const nm = (await get(ref(db, 'names'))).val() || {};
+    await Promise.all(Object.keys(nm).filter(k => nm[k] !== myId).map(k => { m++; return remove(ref(db, 'names/' + k)); }));
+  });
+  await step('Hesap isimleri (players)', async () => {
+    const pl = (await get(ref(db, 'players'))).val() || {};
+    await Promise.all(Object.keys(pl).filter(id => id !== myId && pl[id] && pl[id].name).map(id => { p++; return update(ref(db, 'players/' + id), { name: null, nk: null }); }));
+  });
+  push(ref(db, 'log'), { k: 'ann', h: '👢 Şehir yenilendi! Herkes kendi adıyla tekrar girsin 🏙️', t: serverTimestamp() }).catch(() => {});
+  alert((err.length ? '⚠️ Bazı adımlar olmadı:\n' + err.join('\n') + '\n\n' : '✅ Tamam!\n') + `👢 ${n} oyuncu atıldı\n🔓 ${m} isim kaydı silindi\n📝 ${p} hesap ismi sıfırlandı`);
 }
 const RESERVED = ['komsukent', 'komsu_kent', 'komsukentoyun', 'yonetici', 'yonetim', 'admin', 'moderator', 'belediyebaskani', 'anthropic', 'claude'];
 const fold = w => w.replace(/[çğıöşü]/g, c => ({ ç: 'c', ğ: 'g', ı: 'i', ö: 'o', ş: 's', ü: 'u' }[c]));
@@ -723,8 +729,18 @@ async function playersMenu() {
     .sort((a, b) => (b.on - a.on) || (b.today - a.today) || (b.tot - a.tot)).slice(0, 150);
   mcard.className = 'card shop';
   mcard.innerHTML = `<h2>👥 Oyuncular (${rows.filter(r => r.on).length} çevrimiçi / ${rows.length})</h2><table class="pl"><tr><td></td><td><b>Oyuncu</b></td><td><b>Bugün</b></td><td><b>Toplam</b></td><td><b>Katıldı</b></td><td></td></tr>` +
-    rows.map(r => `<tr><td>${r.on ? '🟢' : '⚪'}</td><td>${mods[r.id] ? '🛡 ' : ''}${esc(r.p.name)}<br><span style="opacity:.6">${esc(r.p.job || '')}</span></td><td>${Math.round(r.today)} dk</td><td>${r.tot.toFixed(1)} sa</td><td>${r.p.joined ? new Date(r.p.joined).toLocaleDateString('tr') : '-'}</td><td>${IS_ADMIN && r.id !== myId ? `<button data-m="${r.id}" style="padding:5px 8px;font-size:12px;background:${mods[r.id] ? '#c0392b' : '#2aa05a'}">${mods[r.id] ? 'Mod al' : 'Mod yap'}</button>` : ''}</td></tr>`).join('') + '</table><button class="mi" style="justify-content:center;background:#3a4a6b" id="mclose">Kapat</button>';
+    rows.map(r => `<tr><td>${r.on ? '🟢' : '⚪'}</td><td>${mods[r.id] ? '🛡 ' : ''}${esc(r.p.name)}<br><span style="opacity:.6">${esc(r.p.job || '')}</span></td><td>${Math.round(r.today)} dk</td><td>${r.tot.toFixed(1)} sa</td><td>${r.p.joined ? new Date(r.p.joined).toLocaleDateString('tr') : '-'}</td><td>${IS_ADMIN && r.id !== myId ? `<button data-m="${r.id}" style="padding:5px 8px;font-size:12px;background:${mods[r.id] ? '#c0392b' : '#2aa05a'}">${mods[r.id] ? 'Mod al' : 'Mod yap'}</button>${IS_ADMIN && r.id !== myId ? `<button data-del="${r.id}" style="padding:5px 8px;font-size:12px;background:#7f1d1d;margin-left:4px">🗑</button>` : ''}` : ''}</td></tr>`).join('') + '</table><button class="mi" style="justify-content:center;background:#3a4a6b" id="mclose">Kapat</button>';
   mcard.querySelectorAll('[data-m]').forEach(b => b.onclick = async () => { const id = b.dataset.m; if (mods[id]) await remove(ref(db, 'mods/' + id)); else { await set(ref(db, 'mods/' + id), { name: all[id].name, t: now() }); say(`🛡 <b>${esc(all[id].name)}</b> artık moderatör!`, true, 'ann'); } setTimeout(playersMenu, 400); });
+  mcard.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
+    const id = b.dataset.del, p = all[id];
+    if (!confirm(`🗑 "${p.name}" hesabı tamamen silinsin mi?\nParası, evi, mesleği gider. Geri alınamaz!`)) return;
+    try {
+      await update(ref(db, 'online/' + id), { kick: now(), soft: 1 }).catch(() => {});
+      if (p.nk) await remove(ref(db, 'names/' + p.nk)).catch(() => {});
+      await remove(ref(db, 'players/' + id));
+      playersMenu();
+    } catch (e) { alert('❌ Silinemedi: ' + (e.message || e)); }
+  });
   mcard.querySelector('#mclose').onclick = closeModal; modalEl.style.display = 'flex';
 }
 function adminPlay() {
@@ -1469,7 +1485,7 @@ function adminUI() {
   <h3>🗳 Seçimler</h3>
   ${Object.keys(ROLES).map(r => { const e = elections[r], h = roles[r]; return `<div style="font-size:13px;margin:6px 0"><b>${ROLES[r].n}</b>: ${h && h.until > t ? '👑 ' + esc(h.name) : 'boş'}${e ? ` • seçim ${Math.max(0, Math.ceil((e.ends - t) / 60000))} dk (${Object.values(e.cands || {}).map(c => esc(c.name) + ' ' + (c.votes || 0)).join(', ') || 'aday yok'})` : ''}</div>
     <div class="row"><button data-el="${r}" data-min="10">Seçim 10 dk</button><button data-el="${r}" data-min="60">60 dk</button>${e ? `<button data-end="${r}" style="background:#c0392b">Bitir</button>` : ''}${h ? `<button data-rm="${r}" style="background:#7f8c8d">Görevden al</button>` : ''}</div>`; }).join('')}
-  <h3>👢 Toplu işlem</h3><button id="aKickAll" style="background:#c0392b">👢 Herkesi oyundan at (yeniden girsinler)</button>
+  <h3>👢 Toplu işlem</h3><button id="aKickAll" style="background:#c0392b">👢 Herkesi at + isimleri sıfırla (v2)</button>
   <h3>🛡 Moderatörler</h3>${Object.entries(mods).map(([id, m]) => `<div class="row"><button class="pl" style="flex:4">${esc(m.name || id)}</button><button style="flex:1;background:#c0392b" data-unmod="${id}">✖</button></div>`).join('') || '<p style="font-size:13px">Henüz yok. Oyuncu listesinde ⚙️ ile ekle.</p>'}
   <h3>🚩 Şikayetler</h3>${Object.entries(reports).reverse().map(([k, r]) => `<div style="font-size:12px;margin:4px 0">${esc(r.byName)} → <b>${esc(r.targetName)}</b>: ${esc(r.reason)}</div><div class="row"><button data-f="${r.target}">Git</button><button data-delrep="${k}" style="background:#7f8c8d">Sil</button></div>`).join('') || '<p style="font-size:13px">Şikayet yok 👍</p>'}
   <h3>📋 Moderatör işlemleri</h3>${Object.values(modlog).reverse().map(m => `<div style="font-size:12px;margin:3px 0">${new Date(m.t).toLocaleTimeString('tr', { hour: '2-digit', minute: '2-digit' })} ${esc(m.by)}: ${esc(m.act)} → ${esc(m.target)}</div>`).join('') || '<p style="font-size:13px">Kayıt yok</p>'}`;
