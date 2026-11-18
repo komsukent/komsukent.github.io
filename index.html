@@ -143,7 +143,7 @@ const CFG = {
   messagingSenderId: "734007209872",
   appId: "1:734007209872:web:1b379478026d6f73de4d15"
 };
-const APP_V = '2026111815';   // bump on every upload (yyyymmddNN)
+const APP_V = '2026111816';   // bump on every upload (yyyymmddNN)
 const ADMIN = location.hash === '#yonetim';
 let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off;
 let auth = null, AU = {}, authResolve; const authReady = new Promise(r => authResolve = r);
@@ -843,7 +843,7 @@ const nearB = (b, pad = 30) => ME && inside(b, ME.x, ME.y, pad);
 const nearPlot = (p, pad = 14) => ME && inside(p, ME.x, ME.y, pad);
 function nearOthers(r) { return Object.entries(others).filter(([id, o]) => o.hasPos && o.name && live(o) && dist(o, ME) < r); }
 const live = o => Date.now() - (o._seen || 0) < 200000;   // no heartbeat or movement for ~3 min → hidden
-setInterval(() => { if (ME && !ME.sleep && db) pub({ hb: Date.now() }); }, 60000);
+setInterval(() => { if (ME && !ME.sleep && db) set(ref(db, 'hb/' + myId), serverTimestamp()).catch(() => { }); }, 120000);
 
 // ================= ACTIONS =================
 const actsEl = document.getElementById('acts'); let actsKey = '';
@@ -1814,7 +1814,7 @@ function radioListen() {
 }
 setInterval(() => { if (ME && db) radioListen(); }, 4000);
 function listenLaw() {
-  onValue(ref(db, 'crimes'), s => { crimes = s.val() || {}; });
+  onValue(query(ref(db, 'crimes'), limitToLast(60)), s => { crimes = s.val() || {}; });
   onValue(ref(db, 'sabika'), s => { sabika = s.val() || {}; });
 }
 
@@ -2105,7 +2105,8 @@ async function adminCleanup() {
       if (wrong || dup) { await remove(ref(db, 'roles/' + r)).catch(() => { }); n++; say(`🎖 ${ROLES[r].n} makamı boşaltıldı (${wrong ? 'sadece ' + PROF[r] + 'lar olabilir' : 'bir kişi tek makam'}), yerine en kıdemli ${PROF[r] || ''} geçecek`, true, 'ann'); }
       else { seen.add(h.id); if (PROF[r] && h.until < now() + 30 * 864e5) await update(ref(db, 'roles/' + r), { until: now() + FOREVER }).catch(() => { }); }
     }
-    for (const id in others) { const o = others[id]; if (o && o.name && Date.now() - (o._seen || 0) > 300000) { remove(ref(db, 'online/' + id)).catch(() => { }); delete others[id]; } }
+    const hb = (await get(ref(db, 'hb')).catch(() => null))?.val() || {}, on = (await get(ref(db, 'online')).catch(() => null))?.val() || {}, srv = Math.max(now(), ...Object.values(hb).filter(x => typeof x === 'number'));
+    for (const id in on) if (!(hb[id] > srv - 600000) && Date.now() - ((others[id] || {})._seen || 0) > 300000) { remove(ref(db, 'online/' + id)).catch(() => { }); delete others[id]; }
     if (n) setTimeout(autoAppoint, 2000);
   } catch (e) { } finally { adminCleanup.busy = 0; }
 }
