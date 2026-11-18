@@ -143,7 +143,7 @@ const CFG = {
   messagingSenderId: "734007209872",
   appId: "1:734007209872:web:1b379478026d6f73de4d15"
 };
-const APP_V = '2026111816';   // bump on every upload (yyyymmddNN)
+const APP_V = '2026111817';   // bump on every upload (yyyymmddNN)
 const ADMIN = location.hash === '#yonetim';
 let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off;
 let auth = null, AU = {}, authResolve; const authReady = new Promise(r => authResolve = r);
@@ -438,7 +438,7 @@ function syncZoneSubs(want) {
 function sendPos(force) {
   if (ME && ME.sleep) return;
   const t = performance.now();
-  if (!force && (t - lastSent < 250 || Math.hypot(ME.x - sentX, ME.y - sentY) < 6)) return;
+  if (!force && (t - lastSent < 700 || Math.hypot(ME.x - sentX, ME.y - sentY) < 16)) return;
   lastSent = t; sentX = ME.x; sentY = ME.y;
   setZone(false);
   set(ref(db, 'pos/' + myZone + '/' + myId), { x: Math.round(ME.x), y: Math.round(ME.y) });
@@ -2663,7 +2663,7 @@ function frame(t) {
     if (adm.follow && others[adm.follow] && others[adm.follow].hasPos) { const o = others[adm.follow]; adm.cx += (o.x * S3 - adm.cx) * 0.1; adm.cz += (o.y * S3 - adm.cz) * 0.1; }
     fx = adm.cx; fz = adm.cz;
   } else { const a = t / 9000; fx = WN / 2 + Math.sin(a) * 8; fz = WN / 2 + Math.cos(a) * 8; }
-  for (const id in others) { const o = others[id]; if (!o.hasPos) continue; const ox = o.x, oy = o.y; o.x += (o.tx - o.x) * 0.18; o.y += (o.ty - o.y) * 0.18; o._mv = Math.hypot(o.x - ox, o.y - oy) > 0.3; }
+  for (const id in others) { const o = others[id]; if (!o.hasPos) continue; const ox = o.x, oy = o.y; o.x += (o.tx - o.x) * 0.09; o.y += (o.ty - o.y) * 0.09; o._mv = Math.hypot(o.x - ox, o.y - oy) > 0.3; }
   const dist3 = 15 * zoom; camera3.position.set(fx, dist3 * 1.05, fz + dist3 * 0.95); camera3.lookAt(fx, 0.8, fz);
   sun.position.set(fx + 12, 25, fz + 8); sun.target.position.set(fx, 0, fz);
   // day / night
