@@ -2,7 +2,12 @@
 <html lang="tr">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Komşukent">
+<meta name="theme-color" content="#15233f">
 <title>Komşukent</title>
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -15,19 +20,23 @@ canvas{display:block;touch-action:none;position:fixed;inset:0}
 .jb{font:600 10px system-ui;color:#fff;text-shadow:0 1px 2px #000;text-align:center}
 .bb{background:#fff;color:#222;font:600 13px system-ui;padding:5px 9px;border-radius:10px;max-width:200px;overflow:hidden;text-overflow:ellipsis;margin:0 auto 4px;text-align:center;width:max-content}
 .ui{position:fixed;z-index:3}
-#hud{top:0;left:0;right:0;display:flex;gap:6px;padding:8px;align-items:center;flex-wrap:wrap;pointer-events:none}
+#hud{top:0;left:0;right:60px;display:flex;gap:6px;padding:8px;padding-top:max(8px,env(safe-area-inset-top));padding-left:max(8px,env(safe-area-inset-left));align-items:center;flex-wrap:wrap;pointer-events:none}
 .pill{background:rgba(15,25,45,.85);border-radius:18px;padding:6px 11px;font-weight:700;font-size:13px;pointer-events:auto}
 #money{color:#ffd23f}#energy{color:#7CFC9a}
-#side{right:8px;top:92px;display:flex;flex-direction:column;gap:6px}
+#side{right:max(8px,env(safe-area-inset-right));top:max(8px,env(safe-area-inset-top));display:flex;flex-direction:column;gap:6px}
 #side button{width:42px;height:42px;padding:0;border-radius:50%;background:rgba(15,25,45,.85);font-size:19px}
-#bottom{left:0;right:0;bottom:0;padding:10px;display:flex;flex-direction:column;gap:8px;pointer-events:none}
-#log{font-size:13px;line-height:1.35;text-shadow:0 1px 2px #000;max-height:110px;overflow:hidden}
+#bottom{left:0;right:0;bottom:0;padding:10px;padding-bottom:max(10px,env(safe-area-inset-bottom));display:none;pointer-events:none;z-index:6}
+#bottom.open{display:flex}
+#log{position:fixed;z-index:2;left:max(10px,env(safe-area-inset-left));top:calc(max(8px,env(safe-area-inset-top)) + 70px);max-width:min(60vw,420px);font-size:12px;line-height:1.35;text-shadow:0 1px 2px #000,0 0 6px rgba(0,0,0,.6);pointer-events:none}
 #log b{color:#ffd23f}
 #bar{display:flex;gap:8px;pointer-events:auto}
 #msg{flex:1;border:0;border-radius:22px;padding:11px 15px;font-size:16px;background:rgba(255,255,255,.95);color:#222;-webkit-user-select:text;user-select:text}
 button{border:0;border-radius:22px;padding:11px 16px;font-weight:800;font-size:15px;background:#2aa05a;color:#fff;cursor:pointer;font-family:inherit}
 button:disabled{opacity:.45}
-#acts{left:50%;transform:translateX(-50%);bottom:178px;display:flex;flex-direction:column;gap:7px;align-items:center;width:max-content;max-width:94vw}
+#acts{right:max(12px,env(safe-area-inset-right));bottom:max(18px,env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:7px;align-items:flex-end;max-width:56vw}
+#joy{position:fixed;z-index:2;width:120px;height:120px;margin:-60px 0 0 -60px;border-radius:50%;background:rgba(255,255,255,.18);border:2px solid rgba(255,255,255,.45);display:none;pointer-events:none}
+#joy i{position:absolute;left:50%;top:50%;width:54px;height:54px;margin:-27px 0 0 -27px;border-radius:50%;background:rgba(255,255,255,.8);box-shadow:0 2px 8px rgba(0,0,0,.35)}
+#joyHint{position:fixed;z-index:2;left:max(26px,env(safe-area-inset-left));bottom:max(26px,env(safe-area-inset-bottom));width:110px;height:110px;border-radius:50%;border:2px dashed rgba(255,255,255,.5);display:none;align-items:center;justify-content:center;font-size:12px;font-weight:700;text-align:center;pointer-events:none;text-shadow:0 1px 2px #000}
 #acts button{background:#e67e22;font-size:15px;padding:11px 18px;box-shadow:0 4px 14px rgba(0,0,0,.35)}
 #acts button.blue{background:#2e86de}#acts button.red{background:#c0392b}#acts button.gray{background:rgba(15,25,45,.85);font-weight:700}
 #panel,#modal{position:fixed;inset:0;background:rgba(10,18,35,.9);display:flex;align-items:center;justify-content:center;z-index:9}
@@ -59,11 +68,13 @@ button:disabled{opacity:.45}
 <body>
 <div id="labels"></div>
 <div id="hud" class="ui"><span class="pill" id="me">…</span><span class="pill" id="money">💰 0</span><span class="pill" id="energy">⚡ 100</span><span class="pill" id="clock">🕐</span><span class="pill" id="online">🟢 0</span></div>
-<div id="side" class="ui"><button id="zin">＋</button><button id="zout">－</button><button id="bRank">🏆</button><button id="bWard">👕</button></div>
+<div id="side" class="ui"><button id="bFull">⛶</button><button id="zin">＋</button><button id="zout">－</button><button id="bChat">💬</button><button id="bRank">🏆</button><button id="bWard">👕</button></div>
+<div id="joy"><i></i></div><div id="joyHint" class="ui">🕹<br>Sürükle</div>
 <div id="acts" class="ui"></div>
 <div id="toast" class="ui"></div>
 <div id="ann" class="ui"></div>
-<div id="bottom" class="ui"><div id="log"></div><div id="bar"><input id="msg" maxlength="60" placeholder="Komşulara bir şey yaz…"><button id="send">Gönder</button></div></div>
+<div id="log" class="ui"></div>
+<div id="bottom" class="ui"><div id="bar"><input id="msg" maxlength="60" placeholder="Komşulara bir şey yaz…"><button id="send">Gönder</button></div></div>
 <button id="adminToggle" class="ui">☰ Yönetim</button>
 <div id="admin" class="ui"></div>
 <div id="modal"><div class="card" id="mcard"></div></div>
@@ -103,20 +114,21 @@ const fbReady = (async () => {
 fbReady.catch(() => {});
 
 // ================= WORLD =================
-const T = 40, WN = 60, WORLD = T * WN, ZS = 400;           // zone = 10 tiles
-const isRoad = (gx, gy) => gx % 10 === 0 || gy % 10 === 0;
+const T = 40, BLK = 12, RW = 2, NBK = 7, WN = BLK * NBK + RW, WORLD = T * WN, ZS = 400, NZ = Math.ceil(WORLD / ZS);
+const isRoad = (gx, gy) => gx % BLK < RW || gy % BLK < RW;
+const BP = (bx, by) => ({ x: bx * BLK + 4, y: by * BLK + 4 });
 const BUILD = [
-  { id: 'belediye', n: 'Belediye', jobs: ['Memur'], c: '#3d5a80', r: '#c0392b', x: 22, y: 22, H: 5 },
-  { id: 'market', n: 'Market', jobs: ['Marketçi', 'Kasiyer'], c: '#f5f5f5', r: '#d63a2f', x: 12, y: 2 },
-  { id: 'firin', n: 'Fırın', jobs: ['Fırıncı', 'Pastacı'], c: '#e9b872', r: '#9b3b2a', x: 32, y: 2 },
-  { id: 'adalet', n: 'Adalet Sarayı', jobs: ['Hakim', 'Savcı', 'Avukat'], c: '#d9cfc1', r: '#5d4037', x: 22, y: 2, H: 4.4 },
-  { id: 'hastane', n: 'Hastane', jobs: ['Doktor', 'Hemşire', 'Eczacı', 'Veteriner'], c: '#ffffff', r: '#2e86de', x: 42, y: 12, H: 4.5 },
-  { id: 'polis', n: 'Karakol', jobs: ['Polis', 'Asker', 'Jandarma'], c: '#1f3a6b', r: '#111827', x: 2, y: 12 },
-  { id: 'okul', n: 'Okul', jobs: ['Öğretmen'], c: '#f4d35e', r: '#8a4b2a', x: 12, y: 42 },
-  { id: 'sanayi', n: 'Sanayi', jobs: ['Tamirci', 'Kaportacı', 'Elektrikçi', 'Galerici'], c: '#9aa0a6', r: '#d35400', x: 2, y: 32 },
-  { id: 'kuafor', n: 'Güzellik Salonu', jobs: ['Kuaför', 'Berber', 'Manikürcü'], c: '#ffd6e8', r: '#d63384', x: 32, y: 42 },
-  { id: 'itfaiye', n: 'İtfaiye', jobs: ['İtfaiyeci'], c: '#c0151f', r: '#7a0d14', x: 52, y: 32 },
-  { id: 'cami', n: 'Cami', jobs: ['İmam'], c: '#ecf0f1', r: '#7f8c8d', x: 42, y: 2 },
+  { id: 'belediye', n: 'Belediye', jobs: ['Memur'], c: '#3d5a80', r: '#c0392b', ...BP(3, 3), H: 5 },
+  { id: 'market', n: 'Market', jobs: ['Marketçi', 'Kasiyer'], c: '#f5f5f5', r: '#d63a2f', ...BP(2, 2) },
+  { id: 'firin', n: 'Fırın', jobs: ['Fırıncı', 'Pastacı'], c: '#e9b872', r: '#9b3b2a', ...BP(4, 2) },
+  { id: 'adalet', n: 'Adalet Sarayı', jobs: ['Hakim', 'Savcı', 'Avukat'], c: '#d9cfc1', r: '#5d4037', ...BP(3, 2), H: 4.4 },
+  { id: 'hastane', n: 'Hastane', jobs: ['Doktor', 'Hemşire', 'Eczacı', 'Veteriner'], c: '#ffffff', r: '#2e86de', ...BP(4, 3), H: 4.5 },
+  { id: 'polis', n: 'Karakol', jobs: ['Polis', 'Asker', 'Jandarma'], c: '#1f3a6b', r: '#111827', ...BP(2, 3) },
+  { id: 'okul', n: 'Okul', jobs: ['Öğretmen'], c: '#f4d35e', r: '#8a4b2a', ...BP(2, 4) },
+  { id: 'sanayi', n: 'Sanayi', jobs: ['Tamirci', 'Kaportacı', 'Elektrikçi', 'Galerici'], c: '#9aa0a6', r: '#d35400', ...BP(1, 3) },
+  { id: 'kuafor', n: 'Güzellik Salonu', jobs: ['Kuaför', 'Berber', 'Manikürcü'], c: '#ffd6e8', r: '#d63384', ...BP(4, 4) },
+  { id: 'itfaiye', n: 'İtfaiye', jobs: ['İtfaiyeci'], c: '#c0151f', r: '#7a0d14', ...BP(5, 3) },
+  { id: 'cami', n: 'Cami', jobs: ['İmam'], c: '#ecf0f1', r: '#7f8c8d', ...BP(3, 4) },
 ].map(b => Object.assign({ w: 6, h: 6, H: 3.4 }, b));
 const BMAP = Object.fromEntries(BUILD.map(b => [b.id, b]));
 const ROLES = {
@@ -134,15 +146,16 @@ const ACC = {
 const SHOPTYPES = { Market: '🛒', Kafe: '☕', Restoran: '🍔', Butik: '👗' };
 // plots: keyed by coordinates
 const PLOTS = [];
-for (let by = 0; by < 6; by++) for (let bx = 0; bx < 6; bx++) {
-  const ox = bx * 10 + 1, oy = by * 10 + 1;
-  if (BUILD.some(b => b.x < ox + 9 && b.x + b.w > ox && b.y < oy + 9 && b.y + b.h > oy)) continue;
-  for (const [dx, dy] of [[1, 1], [5, 1], [1, 5], [5, 5]]) PLOTS.push({ k: (ox + dx) + '_' + (oy + dy), x: ox + dx, y: oy + dy, w: 3, h: 3 });
+for (let by = 0; by < NBK; by++) for (let bx = 0; bx < NBK; bx++) {
+  const ox = bx * BLK + RW, oy = by * BLK + RW;
+  if (BUILD.some(b => b.x < ox + 10 && b.x + b.w > ox && b.y < oy + 10 && b.y + b.h > oy)) continue;
+  for (const [dx, dy] of [[1, 1], [6, 1], [1, 6], [6, 6]]) PLOTS.push({ k: (ox + dx) + '_' + (oy + dy), x: ox + dx, y: oy + dy, w: 3, h: 3 });
 }
 const PMAP = Object.fromEntries(PLOTS.map(p => [p.k, p]));
 const HOUSE_PRICE = 1500, SHOP_PRICE = 2500, SHIFT_MS = 45000, SHIFT_PAY = 40, SHIFT_E = 20, REST_MS = 20000;
 const JAIL_MS = 90000, WANTED_MS = 90000, DAY_MS = 24 * 60000;
-const COURT_DOOR = { x: (22 + 3) * T, y: (2 + 6) * T + 30 }, JAIL_SPOT = { x: (2 + 3) * T, y: (12 + 6) * T + 30 };
+const COURT_DOOR = { x: (BMAP.adalet.x + 3) * T, y: (BMAP.adalet.y + 6) * T + 30 }, JAIL_SPOT = { x: (BMAP.polis.x + 3) * T, y: (BMAP.polis.y + 6) * T + 30 };
+const SPAWN = { x: (3 * BLK + 7) * T, y: (4 * BLK + 1) * T };
 
 // ================= STATE =================
 const COLORS = ['#e74c3c', '#3498db', '#2ecc71', '#f1c40f', '#9b59b6', '#e67e22', '#1abc9c', '#ff6fb5', '#34495e'];
@@ -156,7 +169,7 @@ const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '
 const clean = s => s.replace(/^@+/, '').replace(/[^\p{L}\p{N}._ ]/gu, '').trim().slice(0, 24);
 const now = () => Date.now();
 const MK = () => new Date().toISOString().slice(0, 7);
-const zoneOf = (x, y) => Math.max(0, Math.min(5, Math.floor(x / ZS))) + '_' + Math.max(0, Math.min(5, Math.floor(y / ZS)));
+const zoneOf = (x, y) => Math.max(0, Math.min(NZ - 1, Math.floor(x / ZS))) + '_' + Math.max(0, Math.min(NZ - 1, Math.floor(y / ZS)));
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const toast = (t, ms = 2600) => { const e = document.getElementById('toast'); e.innerHTML = t; e.style.display = 'block'; clearTimeout(toast.h); toast.h = setTimeout(() => e.style.display = 'none', ms); };
 function sid() {
@@ -207,8 +220,8 @@ document.getElementById('go').onclick = async () => {
     const prev = (await get(ref(db, 'players/' + myId))).val() || {};
     ME = { name, job, color: myColor, money: prev.money ?? 100, energy: prev.energy ?? 100, home: prev.home ?? null, shop: prev.shop ?? null,
       acc: prev.acc || {}, wear: prev.wear || {}, m: prev.m || {},
-      x: prev.x ?? (WORLD / 2 + (Math.random() - .5) * 200), y: prev.y ?? (WORLD / 2 + 300), wanted: 0, jail: 0, ride: null };
-    if (blocked(ME.x, ME.y)) { ME.x = WORLD / 2; ME.y = WORLD / 2 + 300; }
+      x: prev.x ?? (SPAWN.x + (Math.random() - .5) * 200), y: prev.y ?? SPAWN.y, wanted: 0, jail: 0, ride: null };
+    if (blocked(ME.x, ME.y) || ME.x > WORLD || ME.y > WORLD || (prev.v || 0) < 3) { ME.x = SPAWN.x + (Math.random() - .5) * 200; ME.y = SPAWN.y; }
     try { localStorage.setItem('kk_me', JSON.stringify({ name, job, color: myColor })); } catch (e) { }
     await update(ref(db, 'players/' + myId), { name, job, color: myColor, money: ME.money, energy: ME.energy, seen: serverTimestamp() });
     const oref = ref(db, 'online/' + myId);
@@ -218,7 +231,7 @@ document.getElementById('go').onclick = async () => {
     say(`<b>${esc(name)}</b> şehre taşındı 🏠 (${esc(job)})`, true);
     document.getElementById('panel').style.display = 'none';
     cam.x = ME.x; cam.y = ME.y;
-    listenCommon(); listenPlayer(); hud();
+    listenCommon(); listenPlayer(); hud(); document.getElementById('joyHint').style.display = 'flex';
   } catch (e) {
     document.getElementById('go').disabled = false;
     errEl.textContent = 'Bağlanamadı: ' + (e.code || e.message);
@@ -273,7 +286,7 @@ function setZone(force) {
   const r = ref(db, 'pos/' + z + '/' + myId); onDisconnect(r).remove(); set(r, { x: Math.round(ME.x), y: Math.round(ME.y) });
   update(ref(db, 'online/' + myId), { z });
   const [zx, zy] = z.split('_').map(Number), want = {};
-  for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) { const a = zx + dx, b = zy + dy; if (a >= 0 && b >= 0 && a < 6 && b < 6) want[a + '_' + b] = 1; }
+  for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) { const a = zx + dx, b = zy + dy; if (a >= 0 && b >= 0 && a < NZ && b < NZ) want[a + '_' + b] = 1; }
   syncZoneSubs(want);
 }
 function syncZoneSubs(want) {
@@ -295,7 +308,7 @@ function sendPos(force) {
 }
 function saveMe() {
   if (!ME) return;
-  update(ref(db, 'players/' + myId), { money: Math.floor(ME.money), energy: Math.round(ME.energy), home: ME.home, shop: ME.shop, acc: ME.acc, wear: ME.wear, m: ME.m, x: Math.round(ME.x), y: Math.round(ME.y), name: ME.name, color: ME.color, job: ME.job });
+  update(ref(db, 'players/' + myId), { v: 3, money: Math.floor(ME.money), energy: Math.round(ME.energy), home: ME.home, shop: ME.shop, acc: ME.acc, wear: ME.wear, m: ME.m, x: Math.round(ME.x), y: Math.round(ME.y), name: ME.name, color: ME.color, job: ME.job });
 }
 setInterval(() => { if (ME) { ME.energy = Math.min(100, ME.energy + 1); saveMe(); hud(); } }, 30000);
 function stat(k, v = 1) { const m = MK(); ME.m = ME.m || {}; ME.m[m] = ME.m[m] || {}; ME.m[m][k] = (ME.m[m][k] || 0) + v; }
@@ -534,9 +547,9 @@ setInterval(electionTick, 10000);
 const EV_NAMES = { yangin: '🔥 YANGIN', soygun: '🚨 SOYGUN', festival: '🎉 FESTİVAL' };
 function evStart() { if (EV && !EV.done) { const b = BMAP[EV.b]; toast(`${EV_NAMES[EV.type]}${b ? ' — ' + b.n : ''}!`, 5000); } }
 function robberPos(i, t) {
-  const b = BMAP[EV.b], bx = Math.floor(b.x / 10) * 10, by = Math.floor(b.y / 10) * 10;
-  const pts = [[bx, by], [bx + 10, by], [bx + 10, by + 10], [bx, by + 10]].map(([x, y]) => [Math.min(59, x) + 0.5, Math.min(59, y) + 0.5]);
-  const per = 40, s = ((t - EV.t0) / 1000 * 2.2 + i * per / 3) % per, seg = Math.floor(s / 10), f = (s % 10) / 10;
+  const b = BMAP[EV.b], bx = Math.floor(b.x / BLK) * BLK, by = Math.floor(b.y / BLK) * BLK;
+  const pts = [[bx, by], [bx + BLK, by], [bx + BLK, by + BLK], [bx, by + BLK]].map(([x, y]) => [x + 1, y + 1]);
+  const per = 4 * BLK, s = ((t - EV.t0) / 1000 * 2.2 + i * per / 3) % per, seg = Math.floor(s / BLK), f = (s % BLK) / BLK;
   const [a, c] = [pts[seg], pts[(seg + 1) % 4]];
   return { x: (a[0] + (c[0] - a[0]) * f) * T, y: (a[1] + (c[1] - a[1]) * f) * T };
 }
@@ -585,6 +598,12 @@ const labelsEl = document.getElementById('labels');
 const matCache = {};
 const mat = (c) => matCache[c] || (matCache[c] = new THREE.MeshLambertMaterial({ color: c }));
 let boxG;
+function boxIn(w, h, d, color, x, y, z, parent, cast, m) { return box(w, h, d, color, x, y, z, parent, cast, m); }
+function addOcc(g, x0, x1, z0, z1, H) {
+  const mats = [];
+  g.traverse(o => { if (o.isMesh) { const nm = o.material.clone(); if (o.material === winMat) winMats.push(nm); o.material = nm; mats.push(nm); } });
+  const e = { g, x0, x1, z0, z1, H, mats, a: 1 }; occ.push(e); return e;
+}
 function box(w, h, d, color, x, y, z, parent, cast = true, m) {
   const me = new THREE.Mesh(boxG, m || mat(color)); me.scale.set(w, h, d); me.position.set(x, y, z);
   me.castShadow = cast; me.receiveShadow = true; (parent || scene).add(me); return me;
@@ -627,29 +646,34 @@ async function init3D() {
   winMat = new THREE.MeshLambertMaterial({ color: '#6fb6d8', emissive: '#ffd27a', emissiveIntensity: 0 });
   lampMat = new THREE.MeshLambertMaterial({ color: '#fffbe0', emissive: '#ffe08a', emissiveIntensity: 0 });
 
-  groundMesh = new THREE.Mesh(new THREE.PlaneGeometry(WN + 60, WN + 60), mat('#7cc06a'));
+  groundMesh = new THREE.Mesh(new THREE.PlaneGeometry(WN + 80, WN + 80), mat('#7cc06a'));
   groundMesh.rotation.x = -Math.PI / 2; groundMesh.position.set(WN / 2, 0, WN / 2); groundMesh.receiveShadow = true; scene.add(groundMesh);
   const dashes = [], lamps = [];
-  for (let k = 0; k < WN; k += 10) {
-    box(WN, 0.04, 1, '#4a4f57', WN / 2, 0.02, k + 0.5, null, false);
-    box(1, 0.045, WN, '#4a4f57', k + 0.5, 0.022, WN / 2, null, false);
-    for (let i = 0; i < WN; i += 2) { if (i % 10) { dashes.push([i + 0.5, k + 0.5, 0]); dashes.push([k + 0.5, i + 0.5, 1]); } }
-    for (let i = 5; i < WN; i += 10) { lamps.push([i, k + 1.15]); lamps.push([k + 1.15, i]); }
+  for (let k = 0; k <= WN - RW; k += BLK) {
+    const c = k + RW / 2;
+    box(WN + 0.6, 0.06, RW + 0.6, '#c9c9c9', WN / 2, 0.03, c, null, false);
+    box(RW + 0.6, 0.065, WN + 0.6, '#c9c9c9', c, 0.032, WN / 2, null, false);
+    box(WN, 0.08, RW, '#4a4f57', WN / 2, 0.04, c, null, false);
+    box(RW, 0.085, WN, '#4a4f57', c, 0.042, WN / 2, null, false);
+    for (let i = 0; i < WN; i += 2) { if (i % BLK >= RW + 1 && i % BLK < BLK - 1) { dashes.push([i + 0.5, c, 0]); dashes.push([c, i + 0.5, 1]); } }
+    for (let i = 0; i < WN; i++) if (i % BLK === 6) { lamps.push([i, k + RW + 0.25]); lamps.push([k + RW + 0.25, i]); }
   }
   const o = new THREE.Object3D();
   const dm = new THREE.InstancedMesh(boxG, mat('#eeeeee'), dashes.length);
-  dashes.forEach(([x, z, r], i) => { o.position.set(x, 0.05, z); o.scale.set(r ? 0.08 : 0.6, 0.01, r ? 0.6 : 0.08); o.updateMatrix(); dm.setMatrixAt(i, o.matrix); });
+  dashes.forEach(([x, z, r], i) => { o.position.set(x, 0.09, z); o.scale.set(r ? 0.1 : 0.9, 0.01, r ? 0.9 : 0.1); o.updateMatrix(); dm.setMatrixAt(i, o.matrix); });
   scene.add(dm);
   const pole = new THREE.InstancedMesh(boxG, mat('#3a3f47'), lamps.length), bulb = new THREE.InstancedMesh(boxG, lampMat, lamps.length);
   lamps.forEach(([x, z], i) => { o.position.set(x, 1.1, z); o.scale.set(0.1, 2.2, 0.1); o.updateMatrix(); pole.setMatrixAt(i, o.matrix); o.position.set(x, 2.25, z); o.scale.set(0.32, 0.18, 0.32); o.updateMatrix(); bulb.setMatrixAt(i, o.matrix); });
   pole.castShadow = true; scene.add(pole, bulb);
+  winMats.push(winMat);
   BUILD.forEach(b => {
     const cxB = b.x + b.w / 2, czB = b.y + b.h / 2, H = b.H;
+    const bg = new THREE.Group(); scene.add(bg); const box = (w, h, d, c, x, y, z, p, cast, m) => boxIn(w, h, d, c, x, y, z, bg, cast, m);
     box(b.w - 0.2, H, b.h - 0.2, b.c, cxB, H / 2, czB);
     box(b.w + 0.3, 0.45, b.h + 0.3, b.r, cxB, H + 0.22, czB);
     if (b.id === 'cami') {
       const dome = new THREE.Mesh(new THREE.SphereGeometry(1.6, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), mat('#d4ac0d'));
-      dome.position.set(cxB, H + 0.4, czB); dome.castShadow = true; scene.add(dome);
+      dome.position.set(cxB, H + 0.4, czB); dome.castShadow = true; bg.add(dome);
       box(0.5, 6.5, 0.5, '#ecf0f1', b.x + b.w - 0.6, 3.25, b.y + 0.6);
     }
     if (b.id === 'belediye') { box(0.08, 2, 0.08, '#ccc', cxB, H + 1.4, czB); box(0.9, 0.55, 0.03, '#e30a17', cxB + 0.48, H + 2.1, czB, null, false); }
@@ -662,12 +686,13 @@ async function init3D() {
     box(1.3, 1.9, 0.08, '#5a3d2b', cxB, 0.95, fz + 0.03, null, false);
     if (b.id !== 'adalet') box(b.w + 0.2, 0.25, 1.2, b.r, cxB, 2.15, fz + 0.5, null, true);
     const sign = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 1.05), new THREE.MeshBasicMaterial({ map: signTex(b.n, '#ffffff', '#111111') }));
-    sign.position.set(cxB, H - 0.3, fz + (b.id === 'adalet' ? 0.5 : 0.09)); scene.add(sign);
+    sign.position.set(cxB, H - 0.3, fz + (b.id === 'adalet' ? 0.5 : 0.09)); bg.add(sign);
+    addOcc(bg, b.x, b.x + b.w, b.y, b.y + b.h + 1.2, b.id === 'cami' ? 6.5 : H + 1);
   });
   box(1.2, 1.4, 0.15, '#7f8c8d', JAIL_SPOT.x * S3, 0.7, JAIL_SPOT.y * S3 + 0.8);
   const trees = [];
   for (let gy = 0; gy < WN; gy++) for (let gx = 0; gx < WN; gx++) {
-    if (isRoad(gx, gy) || (gx * 7 + gy * 13) % 11 || ((gx % 10) === 1 && (gy % 10) === 5) || ((gy % 10) === 1 && (gx % 10) === 5)) continue;
+    if (isRoad(gx, gy) || isRoad(gx - 1, gy) || isRoad(gx, gy - 1) || isRoad(gx + 1, gy) || isRoad(gx, gy + 1) || (gx * 7 + gy * 13) % 9) continue;
     if (BUILD.some(b => gx >= b.x - 1 && gx <= b.x + b.w && gy >= b.y - 1 && gy <= b.y + b.h + 1)) continue;
     if (PLOTS.some(p => gx >= p.x - 1 && gx <= p.x + p.w && gy >= p.y - 1 && gy <= p.y + p.h)) continue;
     trees.push([gx + 0.5, gy + 0.5]);
@@ -694,16 +719,24 @@ async function init3D() {
     if (!ADMIN || !down || !(e.buttons || e.pointerType === 'touch')) return;
     const k = 0.045 * zoom; adm.cx = down.cx - (e.clientX - down.x) * k; adm.cz = down.cz - (e.clientY - down.y) * k; adm.follow = null;
   });
-  renderer.domElement.addEventListener('pointerup', e => {
-    const moved = down && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 8; down = null;
-    if (ADMIN || moved || !ME || ME.jail > now() || ME.ride) return;
-    msgIn.blur();
-    ndc.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
-    rayc.setFromCamera(ndc, camera3);
-    const hit = rayc.intersectObject(groundMesh)[0]; if (!hit) return;
-    target = { x: Math.max(10, Math.min(WORLD - 10, hit.point.x * T)), y: Math.max(10, Math.min(WORLD - 10, hit.point.z * T)) };
-    tgtMark.position.set(hit.point.x, 0.08, hit.point.z); tgtMark.visible = true;
+  renderer.domElement.addEventListener('pointerup', () => { down = null; });
+  // joystick (left half of the screen, appears where the thumb touches)
+  const joyEl = document.getElementById('joy'), knob = joyEl.firstChild;
+  renderer.domElement.addEventListener('pointerdown', e => {
+    if (ADMIN || !ME || joy.id !== null || e.clientX > innerWidth * 0.55) return;
+    msgIn.blur(); joy.id = e.pointerId; joy.ox = e.clientX; joy.oy = e.clientY; joy.x = 0; joy.y = 0;
+    joyEl.style.left = e.clientX + 'px'; joyEl.style.top = e.clientY + 'px'; joyEl.style.display = 'block'; knob.style.transform = '';
+    document.getElementById('joyHint').style.display = 'none';
+    try { renderer.domElement.setPointerCapture(e.pointerId); } catch (x) { }
   });
+  renderer.domElement.addEventListener('pointermove', e => {
+    if (e.pointerId !== joy.id) return;
+    let dx = e.clientX - joy.ox, dy = e.clientY - joy.oy; const d = Math.hypot(dx, dy), R0 = 50;
+    if (d > R0) { dx = dx / d * R0; dy = dy / d * R0; }
+    joy.x = dx / R0; joy.y = dy / R0; knob.style.transform = `translate(${dx}px,${dy}px)`;
+  });
+  const joyEnd = e => { if (e.pointerId !== joy.id) return; joy.id = null; joy.x = joy.y = 0; joyEl.style.display = 'none'; };
+  renderer.domElement.addEventListener('pointerup', joyEnd); renderer.domElement.addEventListener('pointercancel', joyEnd);
   tgtMark = new THREE.Mesh(new THREE.RingGeometry(0.25, 0.38, 24), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: .85 }));
   tgtMark.rotation.x = -Math.PI / 2; tgtMark.visible = false; scene.add(tgtMark);
   document.getElementById('zin').onclick = () => zoom = Math.max(0.5, zoom - 0.15);
@@ -711,6 +744,23 @@ async function init3D() {
   requestAnimationFrame(frame);
 }
 const tgtHide = () => tgtMark && (tgtMark.visible = false);
+const joy = { id: null, x: 0, y: 0 }, keys = {};
+addEventListener('keydown', e => { if (document.activeElement && document.activeElement.tagName === 'INPUT') return; keys[e.key.toLowerCase()] = 1; });
+addEventListener('keyup', e => { keys[e.key.toLowerCase()] = 0; });
+function inputVec() {
+  let x = joy.x, y = joy.y;
+  if (keys.a || keys.arrowleft) x -= 1; if (keys.d || keys.arrowright) x += 1; if (keys.w || keys.arrowup) y -= 1; if (keys.s || keys.arrowdown) y += 1;
+  const m = Math.hypot(x, y); if (m > 1) { x /= m; y /= m; } return [x, y, Math.min(1, m)];
+}
+// fullscreen + chat toggle
+document.getElementById('bFull').onclick = () => {
+  const el = document.documentElement, fs = document.fullscreenElement || document.webkitFullscreenElement;
+  if (fs) { (document.exitFullscreen || document.webkitExitFullscreen).call(document); return; }
+  const req = el.requestFullscreen || el.webkitRequestFullscreen;
+  if (req) { try { const p = req.call(el, { navigationUI: 'hide' }); if (p && p.catch) p.catch(iosFull); } catch (x) { iosFull(); } } else iosFull();
+};
+function iosFull() { modal('⛶ Tam ekran', [], '<p>iPhone\'da Safari tam ekrana izin vermiyor. Çözümü kolay:</p><p>1. Alttaki <b>Paylaş ⬆️</b> butonuna bas<br>2. <b>Ana Ekrana Ekle</b>\'yi seç<br>3. Oyunu ana ekrandaki <b>Komşukent</b> simgesinden aç</p><p>Oyun uygulama gibi tam ekran açılır 🎮 Telefonu yan çevirerek de oynayabilirsin.</p>'); }
+document.getElementById('bChat').onclick = () => { const b = document.getElementById('bottom'); b.classList.toggle('open'); if (b.classList.contains('open')) msgIn.focus(); };
 
 const SATILIK_TEX = () => SATILIK_TEX.t || (SATILIK_TEX.t = (() => {
   const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d');
@@ -746,7 +796,10 @@ function refreshPlots() {
       s.position.set(cxP, 1.9, czP + 0.97); g.add(s);
       label = makeLabel(); label.innerHTML = `<span class="nm${own.id === myId ? ' me' : ''}">${SHOPTYPES[own.shopType] || '🏪'} ${esc(own.shop)} • ${esc(own.name)}</span>`; label._p = [cxP, 3.1, czP];
     }
-    plotGroup.add(g); plotObjs[p.k] = { key, obj: g, label };
+    plotGroup.add(g);
+    if (cur && cur.oc) { const i = occ.indexOf(cur.oc); if (i >= 0) occ.splice(i, 1); cur.oc.mats.forEach(m => { const j = winMats.indexOf(m); if (j >= 0) winMats.splice(j, 1); }); }
+    const oc = own ? addOcc(g, p.x, p.x + p.w, p.y, p.y + p.h, 3) : null;
+    plotObjs[p.k] = { key, obj: g, label, oc };
   });
 }
 function personMesh(color, robber) {
@@ -833,6 +886,7 @@ function renderEvent(t) {
 
 // ================= LOOP =================
 const adm = { cx: WN / 2, cz: WN / 2, follow: null };
+const occ = [], winMats = [];
 let prev = performance.now(), lastActs = 0;
 let NIGHTC;
 function frame(t) {
@@ -842,17 +896,17 @@ function frame(t) {
     ME._mv = false;
     if (ME.jail > now()) { target = null; }
     if (ME.ride && others[ME.ride] && others[ME.ride].hasPos) { const d = others[ME.ride]; ME.x = d.x; ME.y = d.y; ME._mv = true; sendPos(); }
-    else if (target && !task) {
-      const sp = (ME.job === 'Taksici' ? 0.3 : 0.16) * dt;
-      const dx = target.x - ME.x, dy = target.y - ME.y, d = Math.hypot(dx, dy);
-      if (d < 3) { target = null; tgtHide(); sendPos(true); }
-      else {
-        const nx = ME.x + dx / d * Math.min(sp, d), ny = ME.y + dy / d * Math.min(sp, d);
-        if (!blocked(nx, ny)) { ME.x = nx; ME.y = ny; ME._mv = true; sendPos(); }
-        else if (!blocked(nx, ME.y)) { ME.x = nx; ME._mv = true; sendPos(); }
-        else if (!blocked(ME.x, ny)) { ME.y = ny; ME._mv = true; sendPos(); }
-        else { target = null; tgtHide(); sendPos(true); }
-      }
+    else if (!(ME.jail > now())) {
+      const [jx, jy, jm] = inputVec();
+      if (jm > 0.08) {
+        const sp = (ME.job === 'Taksici' ? 0.32 : 0.18) * dt * jm;
+        const nx = Math.max(10, Math.min(WORLD - 10, ME.x + jx * sp)), ny = Math.max(10, Math.min(WORLD - 10, ME.y + jy * sp));
+        if (!blocked(nx, ny)) { ME.x = nx; ME.y = ny; ME._mv = true; }
+        else if (!blocked(nx, ME.y)) { ME.x = nx; ME._mv = true; }
+        else if (!blocked(ME.x, ny)) { ME.y = ny; ME._mv = true; }
+        ME._face = Math.atan2(jx, jy);
+        sendPos(); ME._wasMv = true;
+      } else if (ME._wasMv) { ME._wasMv = false; sendPos(true); }
     }
     cam.x += (ME.x - cam.x) * 0.1; cam.y += (ME.y - cam.y) * 0.1;
     fx = cam.x * S3; fz = cam.y * S3;
@@ -868,7 +922,15 @@ function frame(t) {
   const nk = nightK();
   hemi.intensity = 1.1 - nk * 0.75; sun.intensity = 1.6 - nk * 1.45;
   scene.background.set('#9fd3ff').lerp(NIGHTC || (NIGHTC = new THREE.Color('#0b1530')), nk); scene.fog.color.copy(scene.background);
-  winMat.emissiveIntensity = nk * 0.9; lampMat.emissiveIntensity = nk * 1.5;
+  for (const m of winMats) m.emissiveIntensity = nk * 0.9; lampMat.emissiveIntensity = nk * 1.5;
+  // buildings between the camera and the player become see-through
+  const pp = ME ? [ME.x * S3, ME.y * S3] : null;
+  for (const e of occ) {
+    const hide = pp && pp[0] > e.x0 - 0.6 && pp[0] < e.x1 + 0.6 && pp[1] < e.z1 && pp[1] > e.z0 - e.H * 1.05 - 0.8;
+    const a = hide ? 0.28 : 1; if (Math.abs(e.a - a) < 0.01) continue;
+    e.a += (a - e.a) * 0.2; if (Math.abs(e.a - a) < 0.02) e.a = a;
+    for (const m of e.mats) { m.transparent = e.a < 0.99; m.opacity = e.a; m.depthWrite = e.a > 0.99; }
+  }
   // people
   for (const id in peopleMesh) peopleMesh[id].seen = false;
   if (ME) syncPerson(myId, ME, true, t);
@@ -884,10 +946,10 @@ function frame(t) {
 let adminOk = false;
 async function sha(s) { const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)); return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join(''); }
 function adminLogin() {
-  document.getElementById('login').innerHTML = `<h1>YÖNETİM</h1><p style="text-align:center">Kuş bakışı şehir paneli</p><label>Şifre</label><input id="apw" type="password" autocomplete="current-password"><button id="go">Giriş</button><div id="err"></div>`;
+  document.getElementById('login').innerHTML = `<h1>YÖNETİM</h1><p style="text-align:center">Kuş bakışı şehir paneli</p><label>Şifre</label><input id="apw" type="password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"><button id="go">Giriş</button><div id="err"></div>`;
   document.getElementById('go').onclick = async () => {
     const e = document.getElementById('err');
-    if (await sha(document.getElementById('apw').value) !== ADMIN_HASH) { e.textContent = 'Şifre yanlış'; return; }
+    if (await sha(document.getElementById('apw').value.trim().toLowerCase().replace(/[–—]/g, '-')) !== ADMIN_HASH) { e.textContent = 'Şifre yanlış'; return; }
     e.textContent = 'Bağlanılıyor…';
     try { await fbReady; } catch (x) { e.textContent = 'Bağlanamadı'; return; }
     adminOk = true; document.getElementById('panel').style.display = 'none';
@@ -895,7 +957,7 @@ function adminLogin() {
     document.getElementById('clock').style.display = '';
     document.getElementById('adminToggle').style.display = 'block';
     listenCommon();
-    const all = {}; for (let a = 0; a < 6; a++) for (let b = 0; b < 6; b++) all[a + '_' + b] = 1; syncZoneSubs(all);
+    const all = {}; for (let a = 0; a < NZ; a++) for (let b = 0; b < NZ; b++) all[a + '_' + b] = 1; syncZoneSubs(all);
     zoom = 1.8; adminUI(); setInterval(adminUI, 3000);
   };
 }
