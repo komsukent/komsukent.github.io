@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Komşukent</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overflow:hidden;background:#7cc06a;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#fff}
+canvas{display:block;touch-action:none}
+#hud{position:fixed;top:0;left:0;right:0;display:flex;gap:8px;padding:10px;align-items:center;pointer-events:none}
+.pill{background:rgba(15,25,45,.85);border-radius:20px;padding:7px 13px;font-weight:700;font-size:14px;pointer-events:auto}
+#money{color:#ffd23f}
+#online{margin-left:auto}
+#bottom{position:fixed;left:0;right:0;bottom:0;padding:10px;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+#log{font-size:13px;line-height:1.35;text-shadow:0 1px 2px #000;max-height:120px;overflow:hidden;pointer-events:none}
+#log b{color:#ffd23f}
+#bar{display:flex;gap:8px;pointer-events:auto}
+#msg{flex:1;border:0;border-radius:22px;padding:11px 15px;font-size:16px;background:rgba(255,255,255,.95);color:#222}
+button{border:0;border-radius:22px;padding:11px 16px;font-weight:800;font-size:15px;background:#2aa05a;color:#fff;cursor:pointer}
+button:disabled{opacity:.45}
+#act{position:fixed;left:50%;transform:translateX(-50%);bottom:80px;display:none;background:#e67e22;font-size:17px;padding:13px 22px;box-shadow:0 4px 14px rgba(0,0,0,.35)}
+#panel{position:fixed;inset:0;background:rgba(10,18,35,.92);display:flex;align-items:center;justify-content:center;z-index:9}
+.card{width:min(92vw,420px);background:#15233f;border-radius:22px;padding:22px;box-shadow:0 10px 40px rgba(0,0,0,.5)}
+.card h1{margin:0 0 4px;font-size:30px;color:#ffd23f;text-align:center}
+.card p{margin:0 0 14px;text-align:center;color:#c9d6f0;font-size:14px}
+.card label{display:block;font-size:13px;color:#9fb2d8;margin:12px 0 6px}
+.card input,.card select{width:100%;border:0;border-radius:12px;padding:12px;font-size:16px}
+#cols{display:flex;gap:8px;flex-wrap:wrap}
+.sw{width:36px;height:36px;border-radius:50%;border:3px solid transparent;cursor:pointer}
+.sw.on{border-color:#fff}
+#go{width:100%;margin-top:18px;font-size:18px;padding:14px}
+#err{color:#ff8a8a;text-align:center;font-size:13px;min-height:18px;margin-top:8px}
+#toast{position:fixed;top:56px;left:50%;transform:translateX(-50%);background:rgba(15,25,45,.92);padding:9px 16px;border-radius:18px;font-weight:700;font-size:14px;display:none;z-index:5;text-align:center}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud"><span class="pill" id="me">…</span><span class="pill" id="money">💰 0</span><span class="pill" id="online">🟢 0</span></div>
+<button id="act"></button>
+<div id="toast"></div>
+<div id="bottom"><div id="log"></div><div id="bar"><input id="msg" maxlength="60" placeholder="Komşulara bir şey yaz…"><button id="send">Gönder</button></div></div>
+
+<div id="panel"><div class="card">
+<h1>KOMŞUKENT</h1>
+<p>Şehre taşın, meslek seç, para kazan, evini al!</p>
+<label>Instagram kullanıcı adın</label>
+<input id="name" maxlength="24" placeholder="ör. komsukent" autocomplete="off" autocapitalize="off">
+<label>Meslek</label>
+<select id="job"></select>
+<label>Karakter rengi</label>
+<div id="cols"></div>
+<button id="go">Şehre gir 🏙️</button>
+<div id="err"></div>
+</div></div>
+
+<script>
+const CFG = {
+  apiKey: "AIzaSyAmabB91IL1CUiOJVDHd5KotQ7-egbEWyU",
+  authDomain: "komsukent.firebaseapp.com",
+  databaseURL: "https://komsukent-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "komsukent",
+  storageBucket: "komsukent.firebasestorage.app",
+  messagingSenderId: "734007209872",
+  appId: "1:734007209872:web:1b379478026d6f73de4d15"
+};
+let db, ref, set, update, get, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp;
+const fbReady = (async () => {
+  const A = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js");
+  const D = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js");
+  ({ ref, set, update, get, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp } = D);
+  db = D.getDatabase(A.initializeApp(CFG));
+})();
+fbReady.catch(() => {});
+
+// ---------- world
+const T = 40, WN = 60, WORLD = T * WN;            // 60x60 tiles
+const isRoad = (gx, gy) => gx % 10 === 0 || gy % 10 === 0;
+const BUILD = [
+  { id: 'belediye', n: 'Belediye', jobs: ['Belediye Başkanı', 'Muhtar', 'Memur'], c: '#3d5a80', r: '#c0392b', x: 22, y: 22, w: 6, h: 6 },
+  { id: 'market', n: 'Market', jobs: ['Marketçi', 'Kasiyer'], c: '#f5f5f5', r: '#d63a2f', x: 12, y: 2, w: 6, h: 6 },
+  { id: 'firin', n: 'Fırın', jobs: ['Fırıncı', 'Pastacı'], c: '#e9b872', r: '#9b3b2a', x: 32, y: 2, w: 6, h: 6 },
+  { id: 'hastane', n: 'Hastane', jobs: ['Doktor', 'Hemşire', 'Eczacı', 'Veteriner'], c: '#ffffff', r: '#2e86de', x: 42, y: 12, w: 6, h: 6 },
+  { id: 'polis', n: 'Karakol', jobs: ['Polis', 'Asker', 'Jandarma'], c: '#1f3a6b', r: '#111827', x: 2, y: 12, w: 6, h: 6 },
+  { id: 'okul', n: 'Okul', jobs: ['Öğretmen', 'Okul Müdürü'], c: '#f4d35e', r: '#8a4b2a', x: 12, y: 42, w: 6, h: 6 },
+  { id: 'sanayi', n: 'Sanayi', jobs: ['Tamirci', 'Kaportacı', 'Elektrikçi', 'Galerici'], c: '#9aa0a6', r: '#d35400', x: 2, y: 32, w: 6, h: 6 },
+  { id: 'kuafor', n: 'Güzellik Salonu', jobs: ['Kuaför', 'Berber', 'Manikürcü'], c: '#ffd6e8', r: '#d63384', x: 32, y: 42, w: 6, h: 6 },
+  { id: 'itfaiye', n: 'İtfaiye', jobs: ['İtfaiyeci'], c: '#c0151f', r: '#7a0d14', x: 52, y: 32, w: 6, h: 6 },
+  { id: 'cami', n: 'Cami', jobs: ['İmam'], c: '#ecf0f1', r: '#7f8c8d', x: 42, y: 2, w: 6, h: 6 },
+];
+const JOBS = [...new Set(BUILD.flatMap(b => b.jobs))].concat(['Dolandırıcı', 'Hırsız', 'Influencer', 'Şarkıcı']).sort((a, b) => a.localeCompare(b, 'tr'));
+const STREET = { 'Dolandırıcı': 1, 'Hırsız': 1, 'Influencer': 1, 'Şarkıcı': 1 };
+// house plots: every free 4x4 block area not used by buildings
+const PLOTS = [];
+for (let by = 0; by < 6; by++) for (let bx = 0; bx < 6; bx++) {
+  const ox = bx * 10 + 1, oy = by * 10 + 1;
+  if (BUILD.some(b => b.x < ox + 9 && b.x + b.w > ox && b.y < oy + 9 && b.y + b.h > oy)) continue;
+  for (const [dx, dy] of [[1, 1], [5, 1], [1, 5], [5, 5]]) PLOTS.push({ x: ox + dx, y: oy + dy, w: 3, h: 3 });
+}
+const HOUSE_PRICE = 300, WORK_PAY = 15, WORK_CD = 4000;
+
+// ---------- canvas
+const cv = document.getElementById('c'), cx = cv.getContext('2d');
+let VW, VH, DPR;
+function resize() { DPR = Math.min(2, devicePixelRatio || 1); VW = innerWidth; VH = innerHeight; cv.width = VW * DPR; cv.height = VH * DPR; cv.style.width = VW + 'px'; cv.style.height = VH + 'px'; }
+addEventListener('resize', resize); resize();
+
+// ---------- state
+const COLORS = ['#e74c3c', '#3498db', '#2ecc71', '#f1c40f', '#9b59b6', '#e67e22', '#1abc9c', '#ff6fb5', '#34495e'];
+let myColor = COLORS[Math.floor(Math.random() * COLORS.length)];
+let ME = null, myId = null;
+const others = {};         // id -> {x,y,tx,ty,name,color,job,msg,msgT}
+let plots = {};             // index -> {id,name}
+let target = null, lastSent = 0, lastWork = 0;
+const cam = { x: WORLD / 2, y: WORLD / 2 };
+
+function sid() {
+  try { let v = localStorage.getItem('kk_id'); if (!v) { v = 'p' + Math.random().toString(36).slice(2, 11); localStorage.setItem('kk_id', v); } return v; }
+  catch (e) { return 'p' + Math.random().toString(36).slice(2, 11); }
+}
+const clean = s => s.replace(/^@+/, '').replace(/[^\p{L}\p{N}._ ]/gu, '').trim().slice(0, 24);
+const toast = (t, ms = 2200) => { const e = document.getElementById('toast'); e.textContent = t; e.style.display = 'block'; clearTimeout(toast.h); toast.h = setTimeout(() => e.style.display = 'none', ms); };
+
+// ---------- login UI
+const sel = document.getElementById('job');
+JOBS.forEach(j => { const o = document.createElement('option'); o.textContent = j; sel.appendChild(o); });
+const cols = document.getElementById('cols');
+COLORS.forEach(c => { const d = document.createElement('div'); d.className = 'sw' + (c === myColor ? ' on' : ''); d.style.background = c; d.onclick = () => { myColor = c; [...cols.children].forEach(x => x.classList.remove('on')); d.classList.add('on'); }; cols.appendChild(d); });
+try { const s = JSON.parse(localStorage.getItem('kk_me') || 'null'); if (s) { document.getElementById('name').value = s.name; sel.value = s.job; myColor = s.color || myColor; } } catch (e) { }
+
+document.getElementById('go').onclick = async () => {
+  const name = clean(document.getElementById('name').value);
+  if (name.length < 2) { document.getElementById('err').textContent = 'Kullanıcı adını yaz'; return; }
+  document.getElementById('go').disabled = true; document.getElementById('err').textContent = 'Şehre bağlanılıyor…';
+  try {
+    await fbReady;
+    myId = sid();
+    const snap = await get(ref(db, 'players/' + myId));
+    const prev = snap.val() || {};
+    ME = { name, job: sel.value, color: myColor, money: prev.money ?? 100, house: prev.house ?? null,
+           x: prev.x ?? (WORLD / 2 + (Math.random() - .5) * 200), y: prev.y ?? (WORLD / 2 + 160) };
+    try { localStorage.setItem('kk_me', JSON.stringify({ name, job: ME.job, color: myColor })); } catch (e) { }
+    await update(ref(db, 'players/' + myId), { name, job: ME.job, color: myColor, money: ME.money, house: ME.house, seen: serverTimestamp() });
+    const on = ref(db, 'online/' + myId);
+    onDisconnect(on).remove();
+    await set(on, { x: Math.round(ME.x), y: Math.round(ME.y), name, color: myColor, job: ME.job, t: serverTimestamp() });
+    say(`<b>${esc(name)}</b> şehre taşındı 🏠`, true);
+    document.getElementById('panel').style.display = 'none';
+    cam.x = ME.x; cam.y = ME.y;
+    listen(); hud();
+  } catch (e) {
+    document.getElementById('go').disabled = false;
+    document.getElementById('err').textContent = 'Bağlanamadı: ' + (e.code || e.message);
+  }
+};
+
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+function hud() {
+  document.getElementById('me').textContent = '@' + ME.name + ' • ' + ME.job;
+  document.getElementById('money').textContent = '💰 ' + ME.money;
+  document.getElementById('online').textContent = '🟢 ' + (Object.keys(others).length + 1);
+}
+
+// ---------- realtime
+function listen() {
+  const oref = ref(db, 'online');
+  const upd = (s) => {
+    if (s.key === myId) return; const v = s.val(); if (!v) return;
+    const o = others[s.key] || (others[s.key] = { x: v.x, y: v.y });
+    Object.assign(o, { tx: v.x, ty: v.y, name: v.name, color: v.color, job: v.job });
+    if (v.msg && v.msgT !== o.msgT) { o.msg = v.msg; o.msgT = v.msgT; o.msgAt = performance.now(); }
+    hud();
+  };
+  onChildAdded(oref, upd); onChildChanged(oref, upd);
+  onChildRemoved(oref, s => { delete others[s.key]; hud(); });
+  onValue(ref(db, 'plots'), s => { plots = s.val() || {}; });
+  onChildAdded(query(ref(db, 'log'), limitToLast(6)), s => { const v = s.val(); if (v) addLog(v.h); });
+}
+function say(html, global) { if (global) push(ref(db, 'log'), { h: html, t: serverTimestamp() }); else addLog(html); }
+function addLog(h) { const l = document.getElementById('log'); const d = document.createElement('div'); d.innerHTML = h; l.appendChild(d); while (l.children.length > 6) l.removeChild(l.firstChild); }
+
+function sendPos(force) {
+  const now = performance.now();
+  if (!force && now - lastSent < 160) return; lastSent = now;
+  update(ref(db, 'online/' + myId), { x: Math.round(ME.x), y: Math.round(ME.y) });
+}
+function saveMe() { update(ref(db, 'players/' + myId), { money: ME.money, house: ME.house, x: Math.round(ME.x), y: Math.round(ME.y) }); }
+setInterval(() => { if (ME) saveMe(); }, 15000);
+
+// chat
+const msgIn = document.getElementById('msg');
+function sendMsg() {
+  const t = msgIn.value.trim().slice(0, 60); if (!t || !ME) return; msgIn.value = '';
+  ME.msg = t; ME.msgAt = performance.now();
+  update(ref(db, 'online/' + myId), { msg: t, msgT: Date.now() });
+  say(`<b>${esc(ME.name)}:</b> ${esc(t)}`, true);
+}
+document.getElementById('send').onclick = sendMsg;
+msgIn.addEventListener('keydown', e => { if (e.key === 'Enter') sendMsg(); });
+
+// ---------- input: tap to walk
+function screenToWorld(px, py) { return { x: px - VW / 2 + cam.x, y: py - VH / 2 + cam.y }; }
+cv.addEventListener('pointerdown', e => {
+  if (!ME) return; msgIn.blur();
+  const w = screenToWorld(e.clientX, e.clientY);
+  target = { x: Math.max(10, Math.min(WORLD - 10, w.x)), y: Math.max(10, Math.min(WORLD - 10, w.y)) };
+});
+
+// ---------- action button (work / buy house)
+const act = document.getElementById('act');
+let action = null;
+act.onclick = () => action && action();
+function nearRect(r, pad = 26) {
+  const x0 = r.x * T - pad, y0 = r.y * T - pad, x1 = (r.x + r.w) * T + pad, y1 = (r.y + r.h) * T + pad;
+  return ME.x > x0 && ME.x < x1 && ME.y > y0 && ME.y < y1;
+}
+function inside(r, x, y) { return x > r.x * T && x < (r.x + r.w) * T && y > r.y * T && y < (r.y + r.h) * T; }
+function blocked(x, y) { return BUILD.some(b => inside(b, x, y)); }
+function updateAction() {
+  action = null; let label = '';
+  const b = BUILD.find(b => nearRect(b));
+  const cd = Math.max(0, WORK_CD - (Date.now() - lastWork));
+  if (b && b.jobs.includes(ME.job)) {
+    label = cd ? `⏳ ${Math.ceil(cd / 1000)} sn` : `🔨 ${b.n}'da çalış (+${WORK_PAY})`;
+    if (!cd) action = () => work(b.n);
+  } else if (STREET[ME.job] && Object.keys(others).length && !b) {
+    label = cd ? `⏳ ${Math.ceil(cd / 1000)} sn` : (ME.job === 'Şarkıcı' || ME.job === 'Influencer' ? '🎤 Sokakta şov yap (+' + WORK_PAY + ')' : '🕶️ İş çevir (+' + WORK_PAY + ')');
+    if (!cd) action = () => work('sokak');
+  } else if (b) {
+    label = `${b.n} • iş: ${b.jobs.join(', ')}`;
+  } else {
+    const i = PLOTS.findIndex(p => nearRect(p, 10));
+    if (i >= 0) {
+      const own = plots[i];
+      if (!own && ME.house == null) { label = `🏠 Bu arsayı al (${HOUSE_PRICE} 💰)`; action = () => buy(i); }
+      else if (own) label = own.id === myId ? '🏡 Senin evin' : `🏡 ${own.name}'in evi`;
+      else label = 'Zaten bir evin var 🏡';
+    }
+  }
+  act.style.display = label ? 'block' : 'none'; act.textContent = label; act.disabled = !action;
+}
+function work(where) {
+  lastWork = Date.now(); ME.money += WORK_PAY; hud(); saveMe();
+  toast(where === 'sokak' ? (ME.job === 'Dolandırıcı' || ME.job === 'Hırsız' ? '🤫 Kimse görmedi… +' + WORK_PAY : '👏 Alkışlar! +' + WORK_PAY) : '💼 Mesai bitti! +' + WORK_PAY);
+}
+async function buy(i) {
+  if (ME.money < HOUSE_PRICE) { toast(`Para yetmiyor 😅 ${HOUSE_PRICE - ME.money} 💰 daha çalış`); return; }
+  const res = await runTransaction(ref(db, 'plots/' + i), cur => cur ? undefined : { id: myId, name: ME.name, color: ME.color });
+  if (!res.committed) { toast('Biri senden önce aldı 😬'); return; }
+  ME.money -= HOUSE_PRICE; ME.house = i; hud(); saveMe();
+  say(`<b>${esc(ME.name)}</b> Komşukent'te ev sahibi oldu 🏡🎉`, true);
+}
+
+// ---------- draw helpers
+function rr(x, y, w, h, r) { cx.beginPath(); cx.moveTo(x + r, y); cx.arcTo(x + w, y, x + w, y + h, r); cx.arcTo(x + w, y + h, x, y + h, r); cx.arcTo(x, y + h, x, y, r); cx.arcTo(x, y, x + w, y, r); cx.closePath(); }
+function label(t, x, y, bg = 'rgba(255,255,255,.92)', fg = '#1a1a1a', fs = 12) {
+  cx.font = `700 ${fs}px system-ui,sans-serif`; const w = cx.measureText(t).width + 12;
+  cx.fillStyle = bg; rr(x - w / 2, y - fs - 6, w, fs + 8, (fs + 8) / 2); cx.fill();
+  cx.fillStyle = fg; cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.fillText(t, x, y - fs / 2 - 2);
+}
+function bubble(t, x, y) {
+  cx.font = '600 13px system-ui,sans-serif'; const w = Math.min(200, cx.measureText(t).width + 16);
+  cx.fillStyle = '#fff'; rr(x - w / 2, y - 30, w, 24, 10); cx.fill();
+  cx.beginPath(); cx.moveTo(x - 5, y - 6); cx.lineTo(x + 5, y - 6); cx.lineTo(x, y); cx.fill();
+  cx.fillStyle = '#222'; cx.textAlign = 'center'; cx.textBaseline = 'middle';
+  let s = t; while (cx.measureText(s).width > w - 14 && s.length > 3) s = s.slice(0, -2); if (s !== t) s += '…';
+  cx.fillText(s, x, y - 18);
+}
+function person(p, x, y, t, me) {
+  const moving = p._mv; const bob = moving ? Math.sin(t / 90) * 2 : 0;
+  cx.fillStyle = 'rgba(0,0,0,.2)'; cx.beginPath(); cx.ellipse(x, y + 12, 11, 5, 0, 0, 7); cx.fill();
+  cx.fillStyle = '#2c3e50'; const lg = moving ? Math.sin(t / 90) * 4 : 0;
+  cx.fillRect(x - 6, y + 2 + lg * .3, 5, 10); cx.fillRect(x + 1, y + 2 - lg * .3, 5, 10);
+  cx.fillStyle = p.color || '#888'; rr(x - 9, y - 12 + bob, 18, 17, 5); cx.fill();
+  cx.fillStyle = '#f2c9a0'; cx.beginPath(); cx.arc(x, y - 19 + bob, 8, 0, 7); cx.fill();
+  cx.fillStyle = '#3b2a1e'; cx.beginPath(); cx.arc(x, y - 22 + bob, 8, Math.PI, 0); cx.fill();
+  if (me) { cx.strokeStyle = '#ffd23f'; cx.lineWidth = 2; cx.beginPath(); cx.arc(x, y + 12, 14, 0, 7); cx.stroke(); }
+  label((me ? '⭐ ' : '') + p.name, x, y - 32 + bob, me ? '#ffd23f' : 'rgba(255,255,255,.92)');
+  cx.font = '600 10px system-ui'; cx.fillStyle = 'rgba(0,0,0,.65)'; cx.textAlign = 'center'; cx.fillText(p.job || '', x, y + 24);
+  if (p.msg && performance.now() - (p.msgAt || 0) < 6000) bubble(p.msg, x, y - 50 + bob);
+}
+
+// ---------- loop
+let prev = performance.now();
+function frame(t) {
+  const dt = Math.min(50, t - prev); prev = t;
+  if (ME) {
+    ME._mv = false;
+    if (target) {
+      const dx = target.x - ME.x, dy = target.y - ME.y, d = Math.hypot(dx, dy), sp = 0.22 * dt;
+      if (d < 3) target = null;
+      else {
+        const nx = ME.x + dx / d * Math.min(sp, d), ny = ME.y + dy / d * Math.min(sp, d);
+        if (!blocked(nx, ny)) { ME.x = nx; ME.y = ny; ME._mv = true; sendPos(); }
+        else if (!blocked(nx, ME.y)) { ME.x = nx; ME._mv = true; sendPos(); }
+        else if (!blocked(ME.x, ny)) { ME.y = ny; ME._mv = true; sendPos(); }
+        else target = null;
+        if (!target) sendPos(true);
+      }
+    }
+    cam.x += (ME.x - cam.x) * 0.12; cam.y += (ME.y - cam.y) * 0.12;
+    for (const id in others) { const o = others[id]; const ox = o.x, oy = o.y; o.x += (o.tx - o.x) * 0.18; o.y += (o.ty - o.y) * 0.18; o._mv = Math.hypot(o.x - ox, o.y - oy) > 0.3; }
+    updateAction();
+  } else { cam.x = WORLD / 2 + Math.sin(t / 4000) * 300; cam.y = WORLD / 2 + Math.cos(t / 5000) * 300; }
+  draw(t);
+  requestAnimationFrame(frame);
+}
+function draw(t) {
+  cx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  cx.fillStyle = '#5a9e4b'; cx.fillRect(0, 0, VW, VH);
+  cx.save(); cx.translate(Math.round(VW / 2 - cam.x), Math.round(VH / 2 - cam.y));
+  const gx0 = Math.max(0, Math.floor((cam.x - VW / 2) / T)), gx1 = Math.min(WN, Math.ceil((cam.x + VW / 2) / T));
+  const gy0 = Math.max(0, Math.floor((cam.y - VH / 2) / T)), gy1 = Math.min(WN, Math.ceil((cam.y + VH / 2) / T));
+  cx.fillStyle = '#7cc06a'; cx.fillRect(0, 0, WORLD, WORLD);
+  for (let gy = gy0; gy < gy1; gy++) for (let gx = gx0; gx < gx1; gx++) {
+    if (isRoad(gx, gy)) {
+      cx.fillStyle = '#4a4f57'; cx.fillRect(gx * T, gy * T, T, T);
+      cx.fillStyle = '#e8e8e8';
+      if (gx % 10 === 0 && gy % 10 !== 0 && gy % 2 === 0) cx.fillRect(gx * T + T / 2 - 2, gy * T + 8, 4, T - 16);
+      if (gy % 10 === 0 && gx % 10 !== 0 && gx % 2 === 0) cx.fillRect(gx * T + 8, gy * T + T / 2 - 2, T - 16, 4);
+    } else if ((gx * 7 + gy * 13) % 23 === 0) {
+      cx.fillStyle = '#2e7d32'; cx.beginPath(); cx.arc(gx * T + 20, gy * T + 20, 11, 0, 7); cx.fill();
+    }
+  }
+  // plots
+  PLOTS.forEach((p, i) => {
+    const x = p.x * T, y = p.y * T, w = p.w * T, h = p.h * T, own = plots[i];
+    if (own) {
+      cx.fillStyle = 'rgba(0,0,0,.18)'; cx.fillRect(x + 6, y + 10, w, h);
+      cx.fillStyle = '#fbf6ec'; cx.fillRect(x + 8, y + 30, w - 16, h - 38);
+      cx.fillStyle = own.color || '#c0392b'; cx.beginPath(); cx.moveTo(x + 2, y + 34); cx.lineTo(x + w / 2, y + 4); cx.lineTo(x + w - 2, y + 34); cx.fill();
+      cx.fillStyle = '#6fb6d8'; cx.fillRect(x + 20, y + 50, 18, 16); cx.fillRect(x + w - 38, y + 50, 18, 16);
+      cx.fillStyle = '#5a3d2b'; cx.fillRect(x + w / 2 - 9, y + h - 34, 18, 26);
+      label(own.name, x + w / 2, y + h + 14, own.id === myId ? '#ffd23f' : 'rgba(255,255,255,.92)');
+    } else {
+      cx.strokeStyle = 'rgba(255,255,255,.55)'; cx.setLineDash([6, 6]); cx.lineWidth = 2; cx.strokeRect(x + 4, y + 4, w - 8, h - 8); cx.setLineDash([]);
+      cx.fillStyle = 'rgba(255,255,255,.75)'; cx.font = '700 12px system-ui'; cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.fillText('SATILIK', x + w / 2, y + h / 2);
+    }
+  });
+  // buildings
+  BUILD.forEach(b => {
+    const x = b.x * T, y = b.y * T, w = b.w * T, h = b.h * T;
+    cx.fillStyle = 'rgba(0,0,0,.2)'; cx.fillRect(x + 8, y + 12, w, h);
+    cx.fillStyle = b.c; cx.fillRect(x, y + 40, w, h - 40);
+    cx.fillStyle = b.r; cx.fillRect(x - 6, y + 6, w + 12, 40);
+    cx.fillStyle = 'rgba(111,182,216,.9)';
+    for (let i = 0; i < 4; i++) for (let j = 0; j < 3; j++) cx.fillRect(x + 22 + i * 52, y + 62 + j * 54, 28, 30);
+    cx.fillStyle = '#5a3d2b'; cx.fillRect(x + w / 2 - 16, y + h - 46, 32, 46);
+    label(b.n, x + w / 2, y + 34, '#fff', '#111', 15);
+  });
+  // people (sorted by y)
+  const list = Object.values(others).map(o => [o, false]); if (ME) list.push([ME, true]);
+  list.sort((a, b) => a[0].y - b[0].y).forEach(([p, me]) => person(p, p.x, p.y, t, me));
+  if (target) { cx.strokeStyle = 'rgba(255,255,255,.8)'; cx.lineWidth = 2; cx.beginPath(); cx.arc(target.x, target.y, 8 + Math.sin(t / 120) * 2, 0, 7); cx.stroke(); }
+  cx.restore();
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
