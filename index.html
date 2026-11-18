@@ -299,7 +299,15 @@ async function enter2(mode) {
     let nk = keyOf(name);
     let nr = await runTransaction(ref(db, 'names/' + nk), cur => (cur && cur !== myId) ? undefined : myId).catch(() => null);
     if ((!nr || !nr.committed) && isG && !isAdm) { name = name + U.uid.slice(-3); nk = keyOf(name); nr = await runTransaction(ref(db, 'names/' + nk), cur => (cur && cur !== myId) ? undefined : myId).catch(() => null); }
-    if (!nr || !nr.committed) throw { message: `"${name}" ismi başka bir oyuncuya ait 😕 Kendi kullanıcı adını yaz` };
+    let takeFrom = null;
+    if ((!nr || !nr.committed) && !isG) {   // guest came back on a new device/browser: take the name over if its old owner is offline
+      const owner = (await get(ref(db, 'names/' + nk))).val();
+      if (owner && owner !== myId && !(await get(ref(db, 'online/' + owner))).exists()) {
+        nr = await runTransaction(ref(db, 'names/' + nk), cur => (!cur || cur === myId || cur === owner) ? myId : undefined).catch(() => null);
+        if (nr && nr.committed) takeFrom = owner;
+      }
+    }
+    if (!nr || !nr.committed) throw { message: `"${name}" şu an oyunda olan başka bir oyuncuya ait 😕 O çıkınca tekrar dene ya da kendi kullanıcı adını yaz` };
     try { const old = (await get(ref(db, 'players/' + myId + '/nk'))).val(); if (old && old !== nk) remove(ref(db, 'names/' + old)); } catch (e) { }
     update(ref(db, 'players/' + myId), { nk });
     const job = sel.value;
@@ -309,7 +317,9 @@ async function enter2(mode) {
     let prev = (await get(ref(db, 'players/' + myId))).val();
     if (!prev) {   // carry over progress from the old (pre-login) version on this device
       let old = null; try { old = localStorage.getItem('kk_id'); } catch (e) { }
-      if (old && old !== myId) { const o = (await get(ref(db, 'players/' + old))).val(); if (o) prev = { money: Math.min(2000, o.money || 0), energy: o.energy, acc: o.acc, wear: o.wear, m: o.m }; }
+      if (takeFrom) old = takeFrom;
+      if (old && old !== myId) { const o = (await get(ref(db, 'players/' + old))).val(); if (o) prev = { money: Math.min(2000, o.money || 0), energy: o.energy, acc: o.acc, wear: o.wear, m: o.m, lvl: o.lvl, inv: o.inv, q: o.q, play: o.play, pd: o.pd, joined: o.joined, pleft: o.pleft }; }
+      if (takeFrom) setTimeout(() => toast('👋 Tekrar hoş geldin! Başka cihazdan girdiğin için ilerlemenin bir kısmı taşındı. Kaybetmemek için 👤 → Google\'a bağla', 7000), 3000);
     }
     prev = prev || {};
     ME = { name, job, color: myColor, money: prev.money ?? 100, energy: prev.energy ?? 100, home: prev.home ?? null, shop: prev.shop ?? null,
