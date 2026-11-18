@@ -163,7 +163,7 @@ const BUILD = [
   { id: 'kuafor', n: 'Güzellik Salonu', jobs: ['Kuaför', 'Berber', 'Manikürcü'], c: '#ffd6e8', r: '#d63384', ...BP(4, 4) },
   { id: 'itfaiye', n: 'İtfaiye', jobs: ['İtfaiyeci'], c: '#c0151f', r: '#7a0d14', ...BP(5, 3) },
   { id: 'cami', n: 'Cami', jobs: ['İmam'], c: '#ecf0f1', r: '#7f8c8d', ...BP(3, 4) },
-  { id: 'avm', n: 'KOMŞU AVM', jobs: ['AVM Çalışanı'], c: '#dfe6ee', r: '#6c3483', x: 51, y: 63, w: 8, h: 8, H: 8.2 },
+  { id: 'avm', n: 'KOMŞU AVM', jobs: ['AVM Çalışanı'], c: '#dfe6ee', r: '#6c3483', x: 51, y: 3, w: 8, h: 8, H: 8.2 },
 ].map(b => Object.assign({ w: 6, h: 6, H: 3.4 }, b));
 const BMAP = Object.fromEntries(BUILD.map(b => [b.id, b]));
 const ROLES = {
@@ -546,7 +546,16 @@ function techItems(owner) {
 }
 function goInside(bid) {
   ME.inside = bid; target = null; if (ME.drive) { ME.drive = null; }
-  pub({ inside: bid, drive: null }); toast(bid ? `🚪 ${BMAP[bid].n}'a girdin. Dışarıdan görünmüyorsun.` : '🚪 Dışarı çıktın');
+  pub({ inside: bid, drive: null }); if (bid) officeScreen(bid); else { closeModal(); toast('🚪 Dışarı çıktın'); }
+}
+const OFFICE = { adalet: '⚖️ Makam odası', belediye: '🏛 Belediye ofisi', polis: '🚔 Karakol ofisi', hastane: '🩺 Muayene odası', okul: '🏫 Öğretmenler odası', itfaiye: '🚒 İtfaiye istasyonu', avm: '🏬 AVM personel odası' };
+function officeScreen(bid) {
+  const b = BMAP[bid]; if (!b || ME.inside !== bid) return;
+  const items = computeActs().filter(a => a.fn && !/Dışarı/.test(a.label)).map(a => ({ e: a.label.split(' ')[0], n: a.label.split(' ').slice(1).join(' '), off: a.disabled, fn: () => { a.fn(); setTimeout(() => modalEl.style.display !== 'none' && officeScreen(bid), 300); }, stay: false }));
+  items.push({ e: '🚪', n: 'Dışarı çık', fn: () => goInside(null), stay: false });
+  let info = `Buradasın, dışarıdan kimse seni görmüyor. Mesaini buradan yap.`;
+  if (bid === 'adalet') { const cs = Object.values(cases).filter(c => c && c.until > now()); info = cs.length ? cs.map(c => `⛓ <b>${esc(c.name)}</b> • avukat ${esc(c.def || '-')} • savcı ${esc(c.pros || '-')}${c.decided ? ' • ✅ karar verildi' : ''}`).join('<br>') : 'Şu an görülen dava yok. Polis birini yakalayınca dava buraya düşer.'; }
+  shopScreen(`${OFFICE[bid] || '🏢 ' + b.n} • ${esc(ME.job)}`, '#34495e', [{ n: b.n, info, items }]);
 }
 const BMENU = {
   market: { btn: '🛒 Markete gir', open: () => shopScreen('🛒 Market', '#c0392b', [{ n: 'Ürünler', info: 'Aldıkların 🎒 çantana girer, yiyince enerji verir.', items: foodItems(['su', 'ekmek', 'sut', 'meyve']) }]) },
@@ -565,9 +574,33 @@ const BMENU = {
       ...(imam ? [{ e: '🕌', n: 'Cuma namazı kıldır', r: `cemaat ${n} kişi`, off: !fri || n < 1 || (ME.lastCuma || '') === new Date().toDateString(), fn: () => { ME.lastCuma = new Date().toDateString(); earn(Math.min(150, 40 + n * 20), '🕌 Cuma namazı kıldırdın'); } }] : [])] }]); } },
   sanayi: { btn: '🔧 Sanayiye gir', open: () => sanayi() },
   avm: { btn: '🏬 AVM\'ye gir', open: () => avmMenu() },
+  belediye: { btn: '🏛 Belediyeye gir', open: () => { const t = now(), open = Object.entries(elections).filter(([r, e]) => e && e.ends > t);
+    shopScreen('🏛 Komşukent Belediyesi', '#3d5a80', [
+      { n: '🗳 Seçimler', info: open.length ? `${open.length} seçim açık! Aday ol ya da oy ver.` : 'Şu an açık seçim yok. Bir makam boşalınca seçim otomatik açılır.', items: open.length ? [{ e: '🗳', n: 'Seçim sandığı', fn: voteMenu, stay: false }] : [] },
+      { n: '👑 Makamlar', info: Object.keys(ROLES).map(r => `<b>${ROLES[r].n}:</b> ${roles[r] && roles[r].until > t ? '👑 ' + esc(roles[r].name) : 'boş'}`).join('<br>'), items: [] },
+      { n: '🧾 Vergi', info: `Günlük vergin: araçlar %2, ev 30 💰, dükkan 60 💰. Her gün ilk girişte kesilir.<br>Senin günlük vergin: <b>${Math.round(Object.values(ME.veh).reduce((a, v) => a + VEH[v.t].p * 0.02, 0) + (ME.home ? 30 : 0) + (ME.shop ? 60 : 0))} 💰</b>`, items: [] },
+    ]); } },
+  polis: { btn: '🚔 Karakola gir', open: () => policeDesk() },
   adalet: { btn: '⚖️ Mahkemeyi izle', open: () => { const cs = Object.values(cases).filter(c => c && c.until > now());
     modal('⚖️ Adalet Sarayı', [], cs.length ? cs.map(c => `<p>⛓ <b>${esc(c.name)}</b> • yakalayan ${esc(c.by)} • avukat ${esc(c.def || '-')} • savcı ${esc(c.pros || '-')}${c.decided ? ' • ✅ karar: ' + esc(c.decided) : ' • ⏳ karar bekleniyor'}</p>`).join('') : '<p>Şu an görülen dava yok 🙂</p>'); } },
 };
+function policeDesk() {
+  const near = Object.entries(others).filter(([id, o]) => o.name);
+  const jailed = near.filter(([id, o]) => o.jail > now()), wanted = near.filter(([id, o]) => o.wanted > now());
+  shopScreen('🚔 Komşukent Karakolu', '#1f3a6b', [
+    { n: '📞 Şikayet / ihbar', info: 'Kimi şikayet etmek istiyorsun? Şikayetin polislere ve moderatörlere gider.', items: near.map(([id, o]) => ({ e: '👤', n: esc(o.name), r: esc(o.job), stay: false, fn: () => complain(id, o) })) },
+    { n: '🚨 Arananlar', info: wanted.length ? 'Bu kişiler şu an aranıyor:' : 'Şu an aranan kimse yok 👮', items: wanted.map(([id, o]) => ({ e: '🚨', n: esc(o.name), r: 'ARANIYOR', fn: () => { } })) },
+    { n: '⛓ Nezarettekiler', info: jailed.length ? '' : 'Nezarette kimse yok.', items: jailed.map(([id, o]) => ({ e: '⛓', n: esc(o.name), r: Math.ceil((o.jail - now()) / 1000) + ' sn', fn: () => { } })) },
+  ]);
+}
+function complain(id, o) {
+  modal(`📞 ${esc(o.name)} hakkında`, ['Hırsızlık yaptı', 'Dolandırdı', 'Hakaret etti', 'Rahatsız ediyor'].map(r => ({ label: r, fn: () => {
+    if ((ME.lastComp || 0) > now() - 60000) { toast('Dakikada bir şikayet yapabilirsin'); return; }
+    ME.lastComp = now(); push(ref(db, 'reports'), { by: myId, byName: ME.name, target: id, targetName: o.name, reason: '🚔 ' + r, t: now() });
+    Object.entries(others).filter(([pid, p]) => POLICE.includes(p.job)).forEach(([pid]) => notify(pid, `📞 İhbar: ${ME.name}, ${o.name} için "${r}" dedi`));
+    toast('📞 Şikayetin alındı, polislere iletildi 👮');
+  } })));
+}
 function sanayi() {
   const vs = Object.entries(ME.veh), brk = vs.filter(([id, v]) => v.br);
   shopScreen('🔧 Sanayi Sitesi', '#d35400', [
@@ -962,6 +995,25 @@ function signTex(text, bg, fg, w = 512, h = 128) {
   g.fillStyle = fg; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, w / 2, h / 2 + 2);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
 }
+let flagMesh = null, flagBase = null;
+function makeFlag(parent, x, y, z) {
+  const c = document.createElement('canvas'); c.width = 450; c.height = 300; const g = c.getContext('2d'), h = 300;
+  g.fillStyle = '#E30A17'; g.fillRect(0, 0, 450, 300);
+  g.fillStyle = '#fff'; g.beginPath(); g.arc(0.5 * h, 0.5 * h, 0.25 * h, 0, 7); g.fill();
+  g.fillStyle = '#E30A17'; g.beginPath(); g.arc(0.5625 * h, 0.5 * h, 0.2 * h, 0, 7); g.fill();
+  g.fillStyle = '#fff'; g.beginPath(); const sx = 0.8 * h, sy = 0.5 * h, R1 = 0.125 * h, R2 = R1 * 0.382;
+  for (let i = 0; i < 10; i++) { const a = Math.PI + i * Math.PI / 5, r = i % 2 ? R2 : R1; g.lineTo(sx + Math.cos(a) * r, sy + Math.sin(a) * r); } g.closePath(); g.fill();
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  const geo = new THREE.PlaneGeometry(2.4, 1.6, 16, 6); geo.translate(1.2, 0, 0);
+  flagMesh = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ map: t, side: THREE.DoubleSide }));
+  flagMesh.position.set(x, y, z); flagMesh.castShadow = true; parent.add(flagMesh);
+  flagBase = Float32Array.from(geo.attributes.position.array);
+}
+function waveFlag(t) {
+  if (!flagMesh) return; const p = flagMesh.geometry.attributes.position;
+  for (let i = 0; i < p.count; i++) { const x = flagBase[i * 3], y = flagBase[i * 3 + 1]; p.array[i * 3 + 2] = Math.sin(x * 2.6 - t / 260) * 0.18 * (x / 2.4); p.array[i * 3 + 1] = y - Math.sin(x * 2 - t / 300) * 0.05 * (x / 2.4); }
+  p.needsUpdate = true; flagMesh.geometry.computeVertexNormals();
+}
 function makeLabel() { const d = document.createElement('div'); d.className = 'lb'; labelsEl.appendChild(d); return d; }
 const _v = () => new THREE.Vector3();
 let PV;
@@ -1023,7 +1075,7 @@ async function init3D() {
       dome.position.set(cxB, H + 0.4, czB); dome.castShadow = true; bg.add(dome);
       box(0.5, 6.5, 0.5, '#ecf0f1', b.x + b.w - 0.6, 3.25, b.y + 0.6);
     }
-    if (b.id === 'belediye') { box(0.08, 2, 0.08, '#ccc', cxB, H + 1.4, czB); box(0.9, 0.55, 0.03, '#e30a17', cxB + 0.48, H + 2.1, czB, null, false); }
+    if (b.id === 'belediye') { box(0.12, 4.2, 0.12, '#dddddd', cxB, H + 2.4, czB + 1); makeFlag(bg, cxB + 0.06, H + 3.6, czB + 1); }
     if (b.id === 'avm') { for (let f = 1; f < 5; f++) box(b.w + 0.1, 0.18, b.h + 0.1, '#6c3483', cxB, f * 1.6, czB); box(b.w - 1, 2.2, 0.3, '#b9e3ff', cxB, 1.1, b.y + b.h + 0.02, null, false); }
     if (b.id === 'adalet') for (let i = 0; i < 5; i++) box(0.35, H - 0.6, 0.35, '#f5f0e6', b.x + 0.8 + i * 1.1, (H - 0.6) / 2, b.y + b.h + 0.15);
     const fz = b.y + b.h - 0.08;
@@ -1323,7 +1375,7 @@ function frame(t) {
   for (const id in others) if (others[id].hasPos && others[id].name) syncPerson(id, others[id], false, t);
   for (const id in peopleMesh) if (!peopleMesh[id].seen) { scene.remove(peopleMesh[id].g); if (peopleMesh[id].car) scene.remove(peopleMesh[id].car); peopleMesh[id].label.remove(); delete peopleMesh[id]; }
   for (const k in plotObjs) { const L = plotObjs[k].label; if (L) placeLabel(L, ...L._p); }
-  renderEvent(t);
+  renderEvent(t); waveFlag(t);
   renderer.render(scene, camera3);
   requestAnimationFrame(frame);
 }
