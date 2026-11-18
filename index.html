@@ -206,7 +206,7 @@ for (let by = 0; by < NBK; by++) for (let bx = 0; bx < NBK; bx++) {
 const PMAP = Object.fromEntries(PLOTS.map(p => [p.k, p]));
 const HOUSE_PRICE = 1500, SHOP_PRICE = 2500, SHIFT_MS = 45000, SHIFT_PAY = 40, SHIFT_E = 20, REST_MS = 20000;
 const JOBPAY = { Hakim: 70, Savcı: 70, Doktor: 70, Avukat: 55, Öğretmen: 55, Eczacı: 55, Veteriner: 55, Polis: 55, Jandarma: 55, Asker: 55, İtfaiyeci: 55, Elektrikçi: 50, Hemşire: 45, Memur: 45, Emlakçı: 45, Tamirci: 45, Kaportacı: 45, Galerici: 45, İnşaatçı: 45, İmam: 45, 'Güvenlik Görevlisi': 45 };
-const JAIL_MS = 90000, WANTED_MS = 90000, DAY_MS = 24 * 60000;
+const JAIL_MS = 90000, WANTED_MS = 90000, DAY_MS = 60 * 60000;
 const COURT_DOOR = { x: (BMAP.adalet.x + 3) * T, y: (BMAP.adalet.y + 6) * T + 30 }, JAIL_SPOT = { x: (BMAP.polis.x + 3) * T, y: (BMAP.polis.y + 6) * T + 30 };
 const SPAWN = { x: (3 * BLK + 7) * T, y: (4 * BLK + 1) * T };
 
@@ -355,7 +355,7 @@ function hud() {
   document.getElementById('me').textContent = '@' + ME.name + ' • ' + (r ? '👑 ' + ROLES[r].n : ME.job);
   document.getElementById('money').textContent = '💰 ' + Math.floor(ME.money);
   document.getElementById('energy').textContent = (ME.sick ? '🤒 ' : '⚡ ') + Math.floor(ME.energy);
-  document.getElementById('online').textContent = '🟢 ' + (Object.keys(others).length + 1);
+  document.getElementById('online').textContent = '🟢 ' + (Object.values(others).filter(o => o.name && live(o)).length + 1);
 }
 setInterval(() => { document.getElementById('clock').textContent = (isNight() ? '🌙 ' : '☀️ ') + gameClock(); }, 1000);
 
@@ -365,7 +365,7 @@ function listenCommon() {
   const oref = ref(db, 'online');
   const upd = s => {
     if (s.key === myId) return; const v = s.val(); if (!v) return;
-    const o = others[s.key] || (others[s.key] = {});
+    const o = others[s.key] || (others[s.key] = {}); o._seen = Date.now();
     if (v.msg && v.msgT !== o.msgT) o.msgAt = performance.now();
     Object.assign(o, v); hud();
   };
@@ -415,7 +415,7 @@ function syncZoneSubs(want) {
   for (const k in zoneSubs) if (!want[k]) { off(zoneSubs[k]); delete zoneSubs[k]; for (const id in others) if (others[id].pz === k) others[id].hasPos = false; }
   for (const k in want) if (!zoneSubs[k]) {
     const r = ref(db, 'pos/' + k); zoneSubs[k] = r;
-    const f = s => { if (s.key === myId) return; const v = s.val(); if (!v) return; const o = others[s.key] || (others[s.key] = {});
+    const f = s => { if (s.key === myId) return; const v = s.val(); if (!v) return; const o = others[s.key] || (others[s.key] = {}); o._seen = Date.now();
       if (!o.hasPos) { o.x = v.x; o.y = v.y; } o.tx = v.x; o.ty = v.y; o.pz = k; o.hasPos = true; };
     onChildAdded(r, f); onChildChanged(r, f);
     onChildRemoved(r, s => { const o = others[s.key]; if (o && o.pz === k) o.hasPos = false; });
@@ -825,7 +825,9 @@ function inside(r, x, y, pad = 0) { return x > r.x * T - pad && x < (r.x + r.w) 
 function blocked(x, y) { return BUILD.some(b => inside(b, x, y)) || PLOTS.some(p => plots[p.k] && inside(p, x, y, -12)); }
 const nearB = (b, pad = 30) => ME && inside(b, ME.x, ME.y, pad);
 const nearPlot = (p, pad = 14) => ME && inside(p, ME.x, ME.y, pad);
-function nearOthers(r) { return Object.entries(others).filter(([id, o]) => o.hasPos && o.name && dist(o, ME) < r); }
+function nearOthers(r) { return Object.entries(others).filter(([id, o]) => o.hasPos && o.name && live(o) && dist(o, ME) < r); }
+const live = o => Date.now() - (o._seen || 0) < 200000;   // no heartbeat or movement for ~3 min → hidden
+setInterval(() => { if (ME && !ME.sleep && db) pub({ hb: Date.now() }); }, 60000);
 
 // ================= ACTIONS =================
 const actsEl = document.getElementById('acts'); let actsKey = '';
@@ -1642,7 +1644,7 @@ function powersMenu() {
   modal('📜 Yetkilerim', items, `<p>Makamın: <b>${A.map(authTitle).join(', ')}</b><br>Herkes kendi alanında: Savcı yakalama emri çıkarır, Hakim tahliye eder, Emniyet Müdürü polisleri yönetir, Başkan belediyeyi.<br>Emirlerin ilgili kişilere bildirim olarak gider ve şehre duyurulur. Yetkini kötüye kullanırsan seçimde karnen düşer 😉</p>`);
 }
 function pickPlayer(title, filt, fn) {
-  const list = Object.entries(others).filter(([id, o]) => o.name && filt(o));
+  const list = Object.entries(others).filter(([id, o]) => o.name && live(o) && filt(o));
   modal(title, list.map(([id, o]) => ({ label: `${esc(o.name)} <small>${esc(o.job || '')}${o.wanted > now() ? ' • 🚨' : ''}${o.jail > now() ? ' • ⛓' : ''}</small>`, fn: () => fn(id, o) })), list.length ? '' : '<p>Şu an uygun oyuncu yok.</p>');
 }
 function warrant(a, id, o) {
@@ -1754,7 +1756,7 @@ document.getElementById('b155').onclick = call155;
 function chaseActs(L, t) {
   if (!(POLICE.includes(ME.job) || myRole() === 'emniyet')) return;
   if (CHASE) { const o = others[CHASE]; if (o) L.push({ label: `🏃 ${o.name} takip ediliyor • bırak`, cls: 'gray', fn: () => { CHASE = null; } }); return; }
-  Object.entries(others).filter(([, o]) => o.hasPos && o.wanted > t && !(o.jail > t)).slice(0, 2).forEach(([id, o]) => {
+  Object.entries(others).filter(([, o]) => o.hasPos && live(o) && o.wanted > t && !(o.jail > t)).slice(0, 2).forEach(([id, o]) => {
     if (Math.hypot(o.x - ME.x, o.y - ME.y) < 70) return;
     L.push({ label: `🚨 Aranan: ${o.name} • Takip et`, cls: 'red', fn: () => { CHASE = id; toast(`🏃 ${o.name}'in peşindesin! Yaklaşınca 🚔 Yakala çıkar`, 3500); } });
   });
@@ -2087,6 +2089,7 @@ async function adminCleanup() {
       if (wrong || dup) { await remove(ref(db, 'roles/' + r)).catch(() => { }); n++; say(`🎖 ${ROLES[r].n} makamı boşaltıldı (${wrong ? 'sadece ' + PROF[r] + 'lar olabilir' : 'bir kişi tek makam'}), yerine en kıdemli ${PROF[r] || ''} geçecek`, true, 'ann'); }
       else { seen.add(h.id); if (PROF[r] && h.until < now() + 30 * 864e5) await update(ref(db, 'roles/' + r), { until: now() + FOREVER }).catch(() => { }); }
     }
+    for (const id in others) { const o = others[id]; if (o && o.name && Date.now() - (o._seen || 0) > 300000) { remove(ref(db, 'online/' + id)).catch(() => { }); delete others[id]; } }
     if (n) setTimeout(autoAppoint, 2000);
   } catch (e) { } finally { adminCleanup.busy = 0; }
 }
@@ -2547,7 +2550,7 @@ function frame(t) {
   // people
   for (const id in peopleMesh) peopleMesh[id].seen = false;
   if (ME) syncPerson(myId, ME, true, t);
-  for (const id in others) if (others[id].hasPos && others[id].name) syncPerson(id, others[id], false, t);
+  for (const id in others) if (others[id].hasPos && others[id].name && live(others[id])) syncPerson(id, others[id], false, t);
   for (const id in peopleMesh) if (!peopleMesh[id].seen) { scene.remove(peopleMesh[id].g); if (peopleMesh[id].car) scene.remove(peopleMesh[id].car); peopleMesh[id].label.remove(); delete peopleMesh[id]; }
   for (const k in plotObjs) { const L = plotObjs[k].label; if (L) placeLabel(L, ...L._p); }
   renderEvent(t); waveFlag(t); waveRally(t);
