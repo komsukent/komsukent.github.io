@@ -7,7 +7,15 @@
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;overflow:hidden;background:#7cc06a;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#fff}
-canvas{display:block;touch-action:none}
+canvas{display:block;touch-action:none;position:fixed;inset:0}
+#labels{position:fixed;inset:0;pointer-events:none;overflow:hidden}
+.lb{position:absolute;left:0;top:0;white-space:nowrap;transform-origin:50% 100%;will-change:transform}
+.nm{background:rgba(255,255,255,.93);color:#1a1a1a;font:700 12px system-ui;padding:3px 8px;border-radius:10px;display:inline-block}
+.nm.me{background:#ffd23f}
+.jb{font:600 10px system-ui;color:#fff;text-shadow:0 1px 2px #000;text-align:center}
+.bb{background:#fff;color:#222;font:600 13px system-ui;padding:5px 9px;border-radius:10px;max-width:200px;overflow:hidden;text-overflow:ellipsis;margin-bottom:4px;text-align:center}
+#zoom{position:fixed;right:10px;top:60px;display:flex;flex-direction:column;gap:6px}
+#zoom button{width:40px;height:40px;padding:0;border-radius:50%;background:rgba(15,25,45,.85);font-size:20px}
 #hud{position:fixed;top:0;left:0;right:0;display:flex;gap:8px;padding:10px;align-items:center;pointer-events:none}
 .pill{background:rgba(15,25,45,.85);border-radius:20px;padding:7px 13px;font-weight:700;font-size:14px;pointer-events:auto}
 #money{color:#ffd23f}
@@ -35,8 +43,9 @@ button:disabled{opacity:.45}
 </style>
 </head>
 <body>
-<canvas id="c"></canvas>
+<div id="labels"></div>
 <div id="hud"><span class="pill" id="me">…</span><span class="pill" id="money">💰 0</span><span class="pill" id="online">🟢 0</span></div>
+<div id="zoom"><button id="zin">＋</button><button id="zout">－</button></div>
 <button id="act"></button>
 <div id="toast"></div>
 <div id="bottom"><div id="log"></div><div id="bar"><input id="msg" maxlength="60" placeholder="Komşulara bir şey yaz…"><button id="send">Gönder</button></div></div>
@@ -98,12 +107,6 @@ for (let by = 0; by < 6; by++) for (let bx = 0; bx < 6; bx++) {
   for (const [dx, dy] of [[1, 1], [5, 1], [1, 5], [5, 5]]) PLOTS.push({ x: ox + dx, y: oy + dy, w: 3, h: 3 });
 }
 const HOUSE_PRICE = 300, WORK_PAY = 15, WORK_CD = 4000;
-
-// ---------- canvas
-const cv = document.getElementById('c'), cx = cv.getContext('2d');
-let VW, VH, DPR;
-function resize() { DPR = Math.min(2, devicePixelRatio || 1); VW = innerWidth; VH = innerHeight; cv.width = VW * DPR; cv.height = VH * DPR; cv.style.width = VW + 'px'; cv.style.height = VH + 'px'; }
-addEventListener('resize', resize); resize();
 
 // ---------- state
 const COLORS = ['#e74c3c', '#3498db', '#2ecc71', '#f1c40f', '#9b59b6', '#e67e22', '#1abc9c', '#ff6fb5', '#34495e'];
@@ -173,7 +176,7 @@ function listen() {
   };
   onChildAdded(oref, upd); onChildChanged(oref, upd);
   onChildRemoved(oref, s => { delete others[s.key]; hud(); });
-  onValue(ref(db, 'plots'), s => { plots = s.val() || {}; });
+  onValue(ref(db, 'plots'), s => { plots = s.val() || {}; refreshPlots(); });
   onChildAdded(query(ref(db, 'log'), limitToLast(6)), s => { const v = s.val(); if (v) addLog(v.h); });
 }
 function say(html, global) { if (global) push(ref(db, 'log'), { h: html, t: serverTimestamp() }); else addLog(html); }
@@ -197,14 +200,6 @@ function sendMsg() {
 }
 document.getElementById('send').onclick = sendMsg;
 msgIn.addEventListener('keydown', e => { if (e.key === 'Enter') sendMsg(); });
-
-// ---------- input: tap to walk
-function screenToWorld(px, py) { return { x: px - VW / 2 + cam.x, y: py - VH / 2 + cam.y }; }
-cv.addEventListener('pointerdown', e => {
-  if (!ME) return; msgIn.blur();
-  const w = screenToWorld(e.clientX, e.clientY);
-  target = { x: Math.max(10, Math.min(WORLD - 10, w.x)), y: Math.max(10, Math.min(WORLD - 10, w.y)) };
-});
 
 // ---------- action button (work / buy house)
 const act = document.getElementById('act');
@@ -251,110 +246,222 @@ async function buy(i) {
   say(`<b>${esc(ME.name)}</b> Komşukent'te ev sahibi oldu 🏡🎉`, true);
 }
 
-// ---------- draw helpers
-function rr(x, y, w, h, r) { cx.beginPath(); cx.moveTo(x + r, y); cx.arcTo(x + w, y, x + w, y + h, r); cx.arcTo(x + w, y + h, x, y + h, r); cx.arcTo(x, y + h, x, y, r); cx.arcTo(x, y, x + w, y, r); cx.closePath(); }
-function label(t, x, y, bg = 'rgba(255,255,255,.92)', fg = '#1a1a1a', fs = 12) {
-  cx.font = `700 ${fs}px system-ui,sans-serif`; const w = cx.measureText(t).width + 12;
-  cx.fillStyle = bg; rr(x - w / 2, y - fs - 6, w, fs + 8, (fs + 8) / 2); cx.fill();
-  cx.fillStyle = fg; cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.fillText(t, x, y - fs / 2 - 2);
+// ---------- 3D (Three.js)
+let THREE = null, renderer, scene, camera3, sun, groundMesh, plotGroup, rayc, ndc;
+let zoom = 1;
+const S3 = 1 / T;                         // world px -> 3D units (1 unit = 1 tile)
+const P3 = (x, y) => [x * S3, y * S3];
+const peopleMesh = {};                   // id -> {g, legs:[], label}
+const plotObjs = {};                     // index -> {key, obj, label}
+const labelsEl = document.getElementById('labels');
+const matCache = {};
+const mat = (c, o = {}) => { const k = c + JSON.stringify(o); return matCache[k] || (matCache[k] = new THREE.MeshLambertMaterial(Object.assign({ color: c }, o))); };
+let boxG;
+function box(w, h, d, color, x, y, z, parent, cast = true) {
+  const m = new THREE.Mesh(boxG, mat(color)); m.scale.set(w, h, d); m.position.set(x, y, z);
+  m.castShadow = cast; m.receiveShadow = true; (parent || scene).add(m); return m;
 }
-function bubble(t, x, y) {
-  cx.font = '600 13px system-ui,sans-serif'; const w = Math.min(200, cx.measureText(t).width + 16);
-  cx.fillStyle = '#fff'; rr(x - w / 2, y - 30, w, 24, 10); cx.fill();
-  cx.beginPath(); cx.moveTo(x - 5, y - 6); cx.lineTo(x + 5, y - 6); cx.lineTo(x, y); cx.fill();
-  cx.fillStyle = '#222'; cx.textAlign = 'center'; cx.textBaseline = 'middle';
-  let s = t; while (cx.measureText(s).width > w - 14 && s.length > 3) s = s.slice(0, -2); if (s !== t) s += '…';
-  cx.fillText(s, x, y - 18);
+function signTex(text, bg, fg, w = 512, h = 128) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d');
+  g.fillStyle = bg; g.fillRect(0, 0, w, h); let fs = h * 0.55;
+  do { g.font = `800 ${fs}px system-ui,sans-serif`; fs -= 2; } while (g.measureText(text).width > w * 0.9 && fs > 10);
+  g.fillStyle = fg; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, w / 2, h / 2 + 2);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
 }
-function person(p, x, y, t, me) {
-  const moving = p._mv; const bob = moving ? Math.sin(t / 90) * 2 : 0;
-  cx.fillStyle = 'rgba(0,0,0,.2)'; cx.beginPath(); cx.ellipse(x, y + 12, 11, 5, 0, 0, 7); cx.fill();
-  cx.fillStyle = '#2c3e50'; const lg = moving ? Math.sin(t / 90) * 4 : 0;
-  cx.fillRect(x - 6, y + 2 + lg * .3, 5, 10); cx.fillRect(x + 1, y + 2 - lg * .3, 5, 10);
-  cx.fillStyle = p.color || '#888'; rr(x - 9, y - 12 + bob, 18, 17, 5); cx.fill();
-  cx.fillStyle = '#f2c9a0'; cx.beginPath(); cx.arc(x, y - 19 + bob, 8, 0, 7); cx.fill();
-  cx.fillStyle = '#3b2a1e'; cx.beginPath(); cx.arc(x, y - 22 + bob, 8, Math.PI, 0); cx.fill();
-  if (me) { cx.strokeStyle = '#ffd23f'; cx.lineWidth = 2; cx.beginPath(); cx.arc(x, y + 12, 14, 0, 7); cx.stroke(); }
-  label((me ? '⭐ ' : '') + p.name, x, y - 32 + bob, me ? '#ffd23f' : 'rgba(255,255,255,.92)');
-  cx.font = '600 10px system-ui'; cx.fillStyle = 'rgba(0,0,0,.65)'; cx.textAlign = 'center'; cx.fillText(p.job || '', x, y + 24);
-  if (p.msg && performance.now() - (p.msgAt || 0) < 6000) bubble(p.msg, x, y - 50 + bob);
+function makeLabel() { const d = document.createElement('div'); d.className = 'lb'; labelsEl.appendChild(d); return d; }
+function placeLabel(el, x, y, z) {
+  const v = new THREE.Vector3(x, y, z).project(camera3);
+  if (v.z > 1 || v.x < -1.3 || v.x > 1.3 || v.y < -1.3 || v.y > 1.3) { el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  const sx = (v.x + 1) / 2 * innerWidth, sy = (1 - v.y) / 2 * innerHeight;
+  el.style.transform = `translate(${sx - el.offsetWidth / 2}px,${sy - el.offsetHeight}px)`;
+}
+
+async function init3D() {
+  THREE = await import('https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js');
+  boxG = new THREE.BoxGeometry(1, 1, 1);
+  renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1));
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  document.body.insertBefore(renderer.domElement, document.body.firstChild);
+  scene = new THREE.Scene(); scene.background = new THREE.Color('#9fd3ff'); scene.fog = new THREE.Fog('#9fd3ff', 45, 90);
+  camera3 = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.5, 200);
+  scene.add(new THREE.HemisphereLight('#ffffff', '#5a7d4a', 1.1));
+  sun = new THREE.DirectionalLight('#fff4e0', 1.6); sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048); const sc = sun.shadow.camera; sc.left = -22; sc.right = 22; sc.top = 22; sc.bottom = -22; sc.near = 1; sc.far = 80;
+  sun.shadow.bias = -0.0008; scene.add(sun, sun.target);
+  addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight); camera3.aspect = innerWidth / innerHeight; camera3.updateProjectionMatrix(); });
+  rayc = new THREE.Raycaster(); ndc = new THREE.Vector2();
+
+  // ground
+  groundMesh = new THREE.Mesh(new THREE.PlaneGeometry(WN + 40, WN + 40), mat('#7cc06a'));
+  groundMesh.rotation.x = -Math.PI / 2; groundMesh.position.set(WN / 2, 0, WN / 2); groundMesh.receiveShadow = true; scene.add(groundMesh);
+  // roads + sidewalks + dashes
+  const dashes = [];
+  for (let k = 0; k < WN; k += 10) {
+    box(WN, 0.04, 1, '#4a4f57', WN / 2, 0.02, k + 0.5, null, false);
+    box(1, 0.045, WN, '#4a4f57', k + 0.5, 0.022, WN / 2, null, false);
+    for (let i = 0; i < WN; i += 2) { if (i % 10) { dashes.push([i + 0.5, k + 0.5, 0]); dashes.push([k + 0.5, i + 0.5, 1]); } }
+  }
+  const dm = new THREE.InstancedMesh(boxG, mat('#eeeeee'), dashes.length), o = new THREE.Object3D();
+  dashes.forEach(([x, z, r], i) => { o.position.set(x, 0.05, z); o.scale.set(r ? 0.08 : 0.6, 0.01, r ? 0.6 : 0.08); o.updateMatrix(); dm.setMatrixAt(i, o.matrix); });
+  scene.add(dm);
+  // buildings
+  BUILD.forEach(b => {
+    const cxB = b.x + b.w / 2, czB = b.y + b.h / 2, H = b.id === 'belediye' ? 5 : (b.id === 'hastane' ? 4.5 : 3.4);
+    box(b.w - 0.2, H, b.h - 0.2, b.c, cxB, H / 2, czB);
+    box(b.w + 0.3, 0.45, b.h + 0.3, b.r, cxB, H + 0.22, czB);
+    if (b.id === 'cami') {
+      const dome = new THREE.Mesh(new THREE.SphereGeometry(1.6, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), mat('#d4ac0d'));
+      dome.position.set(cxB, H + 0.4, czB); dome.castShadow = true; scene.add(dome);
+      box(0.5, 6.5, 0.5, '#ecf0f1', b.x + b.w - 0.6, 3.25, b.y + 0.6);
+    }
+    if (b.id === 'belediye') box(0.08, 2, 0.08, '#ccc', cxB, H + 1.4, czB), box(0.9, 0.55, 0.03, '#e30a17', cxB + 0.48, H + 2.1, czB, null, false);
+    const fz = b.y + b.h - 0.08;
+    for (let i = 0; i < 4; i++) for (let j = 0; j < Math.floor(H / 1.3); j++) {
+      if (j === 0 && (i === 1 || i === 2)) continue;
+      box(0.75, 0.7, 0.06, '#6fb6d8', b.x + 0.9 + i * ((b.w - 1.8) / 3), H - 0.9 - j * 1.25, fz + 0.02, null, false);
+    }
+    box(1.3, 1.9, 0.08, '#5a3d2b', cxB, 0.95, fz + 0.03, null, false);
+    box(b.w + 0.2, 0.25, 1.2, b.r, cxB, 2.15, fz + 0.5, null, true);
+    const sign = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 1.05), new THREE.MeshBasicMaterial({ map: signTex(b.n, '#ffffff', '#111111') }));
+    sign.position.set(cxB, H - 0.3, fz + 0.09); scene.add(sign);
+  });
+  // trees (instanced)
+  const trees = [];
+  for (let gy = 0; gy < WN; gy++) for (let gx = 0; gx < WN; gx++) {
+    if (isRoad(gx, gy) || (gx * 7 + gy * 13) % 11) continue;
+    if (BUILD.some(b => gx >= b.x - 1 && gx <= b.x + b.w && gy >= b.y - 1 && gy <= b.y + b.h + 1)) continue;
+    if (PLOTS.some(p => gx >= p.x - 1 && gx <= p.x + p.w && gy >= p.y - 1 && gy <= p.y + p.h)) continue;
+    trees.push([gx + 0.5, gy + 0.5]);
+  }
+  const trunk = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.12, 0.15, 1, 6), mat('#6b4423'), trees.length);
+  const crown = new THREE.InstancedMesh(new THREE.ConeGeometry(0.75, 1.9, 7), mat('#2e7d32'), trees.length);
+  trees.forEach(([x, z], i) => {
+    o.position.set(x, 0.5, z); o.scale.set(1, 1, 1); o.updateMatrix(); trunk.setMatrixAt(i, o.matrix);
+    o.position.set(x, 1.85, z); o.updateMatrix(); crown.setMatrixAt(i, o.matrix);
+  });
+  trunk.castShadow = crown.castShadow = true; scene.add(trunk, crown);
+  plotGroup = new THREE.Group(); scene.add(plotGroup);
+  refreshPlots();
+
+  // tap to walk
+  renderer.domElement.addEventListener('pointerdown', e => {
+    if (!ME) return; msgIn.blur();
+    ndc.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+    rayc.setFromCamera(ndc, camera3);
+    const hit = rayc.intersectObject(groundMesh)[0]; if (!hit) return;
+    target = { x: Math.max(10, Math.min(WORLD - 10, hit.point.x * T)), y: Math.max(10, Math.min(WORLD - 10, hit.point.z * T)) };
+    tgtMark.position.set(hit.point.x, 0.08, hit.point.z); tgtMark.visible = true;
+  });
+  tgtMark = new THREE.Mesh(new THREE.RingGeometry(0.25, 0.38, 24), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: .85 }));
+  tgtMark.rotation.x = -Math.PI / 2; tgtMark.visible = false; scene.add(tgtMark);
+  document.getElementById('zin').onclick = () => zoom = Math.max(0.55, zoom - 0.15);
+  document.getElementById('zout').onclick = () => zoom = Math.min(1.8, zoom + 0.15);
+  requestAnimationFrame(frame);
+}
+let tgtMark;
+
+const SATILIK_TEX = () => SATILIK_TEX.t || (SATILIK_TEX.t = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d');
+  g.fillStyle = '#8fcf7c'; g.fillRect(0, 0, 256, 256); g.strokeStyle = '#ffffff'; g.lineWidth = 8; g.setLineDash([22, 14]); g.strokeRect(10, 10, 236, 236);
+  g.fillStyle = '#ffffff'; g.font = '800 44px system-ui'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('SATILIK', 128, 128);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+})());
+function refreshPlots() {
+  if (!THREE) return;
+  PLOTS.forEach((p, i) => {
+    const own = plots[i]; const key = own ? own.id + own.color + own.name : '-';
+    const cur = plotObjs[i]; if (cur && cur.key === key) return;
+    if (cur) { plotGroup.remove(cur.obj); if (cur.label) cur.label.remove(); }
+    const g = new THREE.Group(); const cxP = p.x + p.w / 2, czP = p.y + p.h / 2; let label = null;
+    if (!own) {
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(p.w, p.h), new THREE.MeshLambertMaterial({ map: SATILIK_TEX() }));
+      m.rotation.x = -Math.PI / 2; m.position.set(cxP, 0.03, czP); m.receiveShadow = true; g.add(m);
+    } else {
+      box(p.w, 0.06, p.h, '#a8d88f', cxP, 0.03, czP, g, false);
+      box(2.4, 1.7, 2.0, '#fbf6ec', cxP, 0.85, czP - 0.1, g);
+      const roof = new THREE.Mesh(new THREE.ConeGeometry(1.9, 1.2, 4), mat(own.color || '#c0392b'));
+      roof.rotation.y = Math.PI / 4; roof.position.set(cxP, 2.3, czP - 0.1); roof.castShadow = true; g.add(roof);
+      box(0.5, 0.9, 0.05, '#5a3d2b', cxP, 0.45, czP + 0.92, g, false);
+      box(0.5, 0.45, 0.05, '#6fb6d8', cxP - 0.75, 1.0, czP + 0.92, g, false);
+      box(0.5, 0.45, 0.05, '#6fb6d8', cxP + 0.75, 1.0, czP + 0.92, g, false);
+      label = makeLabel(); label.innerHTML = `<span class="nm${own.id === myId ? ' me' : ''}">🏡 ${esc(own.name)}</span>`;
+      label._p = [cxP, 3.3, czP];
+    }
+    plotGroup.add(g); plotObjs[i] = { key, obj: g, label };
+  });
+}
+
+function personMesh(color) {
+  const g = new THREE.Group();
+  const legL = box(0.22, 0.6, 0.24, '#2c3e50', -0.14, 0.3, 0, g), legR = box(0.22, 0.6, 0.24, '#2c3e50', 0.14, 0.3, 0, g);
+  box(0.62, 0.7, 0.36, color, 0, 0.95, 0, g);
+  const armL = box(0.16, 0.6, 0.2, color, -0.4, 0.95, 0, g), armR = box(0.16, 0.6, 0.2, color, 0.4, 0.95, 0, g);
+  box(0.46, 0.46, 0.44, '#f2c9a0', 0, 1.55, 0, g);
+  box(0.5, 0.16, 0.48, '#3b2a1e', 0, 1.82, -0.02, g);
+  box(0.08, 0.08, 0.02, '#222', -0.1, 1.58, 0.225, g, false); box(0.08, 0.08, 0.02, '#222', 0.1, 1.58, 0.225, g, false);
+  scene.add(g); return { g, legL, legR, armL, armR, color };
+}
+function syncPerson(id, p, me, t) {
+  let m = peopleMesh[id];
+  if (!m || m.color !== p.color) {
+    if (m) { scene.remove(m.g); m.label.remove(); }
+    m = peopleMesh[id] = personMesh(p.color || '#888'); m.label = makeLabel();
+  }
+  const [x, z] = P3(p.x, p.y);
+  if (p._px !== undefined) { const dx = x - p._px, dz = z - p._pz; if (Math.abs(dx) + Math.abs(dz) > 0.003) m.g.rotation.y = Math.atan2(dx, dz); }
+  p._px = x; p._pz = z;
+  m.g.position.set(x, 0, z);
+  const sw = p._mv ? Math.sin(t / 110) * 0.6 : 0;
+  m.legL.rotation.x = sw; m.legR.rotation.x = -sw; m.armL.rotation.x = -sw * 0.8; m.armR.rotation.x = sw * 0.8;
+  m.g.position.y = p._mv ? Math.abs(Math.sin(t / 110)) * 0.06 : 0;
+  const bub = p.msg && performance.now() - (p.msgAt || 0) < 6000 ? `<div class="bb">${esc(p.msg)}</div>` : '';
+  const html = `${bub}<div style="text-align:center"><span class="nm${me ? ' me' : ''}">${me ? '⭐ ' : ''}${esc(p.name || '')}</span></div><div class="jb">${esc(p.job || '')}</div>`;
+  if (m.label._h !== html) { m.label.innerHTML = html; m.label._h = html; }
+  placeLabel(m.label, x, 2.2, z);
+  m.seen = true;
 }
 
 // ---------- loop
 let prev = performance.now();
 function frame(t) {
   const dt = Math.min(50, t - prev); prev = t;
+  let fx = WN / 2, fz = WN / 2;
   if (ME) {
     ME._mv = false;
     if (target) {
-      const dx = target.x - ME.x, dy = target.y - ME.y, d = Math.hypot(dx, dy), sp = 0.22 * dt;
-      if (d < 3) target = null;
+      const dx = target.x - ME.x, dy = target.y - ME.y, d = Math.hypot(dx, dy), sp = 0.16 * dt;
+      if (d < 3) { target = null; tgtMark.visible = false; }
       else {
         const nx = ME.x + dx / d * Math.min(sp, d), ny = ME.y + dy / d * Math.min(sp, d);
         if (!blocked(nx, ny)) { ME.x = nx; ME.y = ny; ME._mv = true; sendPos(); }
         else if (!blocked(nx, ME.y)) { ME.x = nx; ME._mv = true; sendPos(); }
         else if (!blocked(ME.x, ny)) { ME.y = ny; ME._mv = true; sendPos(); }
-        else target = null;
+        else { target = null; tgtMark.visible = false; }
         if (!target) sendPos(true);
       }
     }
-    cam.x += (ME.x - cam.x) * 0.12; cam.y += (ME.y - cam.y) * 0.12;
+    cam.x += (ME.x - cam.x) * 0.1; cam.y += (ME.y - cam.y) * 0.1;
+    fx = cam.x * S3; fz = cam.y * S3;
     for (const id in others) { const o = others[id]; const ox = o.x, oy = o.y; o.x += (o.tx - o.x) * 0.18; o.y += (o.ty - o.y) * 0.18; o._mv = Math.hypot(o.x - ox, o.y - oy) > 0.3; }
     updateAction();
-  } else { cam.x = WORLD / 2 + Math.sin(t / 4000) * 300; cam.y = WORLD / 2 + Math.cos(t / 5000) * 300; }
-  draw(t);
+  } else { const a = t / 9000; fx = WN / 2 + Math.sin(a) * 8; fz = WN / 2 + Math.cos(a) * 8; }
+  // camera: angled like the videos
+  const dist = 15 * zoom; camera3.position.set(fx, dist * 1.05, fz + dist * 0.95); camera3.lookAt(fx, 0.8, fz);
+  sun.position.set(fx + 12, 25, fz + 8); sun.target.position.set(fx, 0, fz);
+  // people
+  for (const id in peopleMesh) peopleMesh[id].seen = false;
+  if (ME) syncPerson(myId, ME, true, t);
+  for (const id in others) syncPerson(id, others[id], false, t);
+  for (const id in peopleMesh) if (!peopleMesh[id].seen) { scene.remove(peopleMesh[id].g); peopleMesh[id].label.remove(); delete peopleMesh[id]; }
+  for (const i in plotObjs) { const L = plotObjs[i].label; if (L) placeLabel(L, ...L._p); }
+  renderer.render(scene, camera3);
   requestAnimationFrame(frame);
 }
-function draw(t) {
-  cx.setTransform(DPR, 0, 0, DPR, 0, 0);
-  cx.fillStyle = '#5a9e4b'; cx.fillRect(0, 0, VW, VH);
-  cx.save(); cx.translate(Math.round(VW / 2 - cam.x), Math.round(VH / 2 - cam.y));
-  const gx0 = Math.max(0, Math.floor((cam.x - VW / 2) / T)), gx1 = Math.min(WN, Math.ceil((cam.x + VW / 2) / T));
-  const gy0 = Math.max(0, Math.floor((cam.y - VH / 2) / T)), gy1 = Math.min(WN, Math.ceil((cam.y + VH / 2) / T));
-  cx.fillStyle = '#7cc06a'; cx.fillRect(0, 0, WORLD, WORLD);
-  for (let gy = gy0; gy < gy1; gy++) for (let gx = gx0; gx < gx1; gx++) {
-    if (isRoad(gx, gy)) {
-      cx.fillStyle = '#4a4f57'; cx.fillRect(gx * T, gy * T, T, T);
-      cx.fillStyle = '#e8e8e8';
-      if (gx % 10 === 0 && gy % 10 !== 0 && gy % 2 === 0) cx.fillRect(gx * T + T / 2 - 2, gy * T + 8, 4, T - 16);
-      if (gy % 10 === 0 && gx % 10 !== 0 && gx % 2 === 0) cx.fillRect(gx * T + 8, gy * T + T / 2 - 2, T - 16, 4);
-    } else if ((gx * 7 + gy * 13) % 23 === 0) {
-      cx.fillStyle = '#2e7d32'; cx.beginPath(); cx.arc(gx * T + 20, gy * T + 20, 11, 0, 7); cx.fill();
-    }
-  }
-  // plots
-  PLOTS.forEach((p, i) => {
-    const x = p.x * T, y = p.y * T, w = p.w * T, h = p.h * T, own = plots[i];
-    if (own) {
-      cx.fillStyle = 'rgba(0,0,0,.18)'; cx.fillRect(x + 6, y + 10, w, h);
-      cx.fillStyle = '#fbf6ec'; cx.fillRect(x + 8, y + 30, w - 16, h - 38);
-      cx.fillStyle = own.color || '#c0392b'; cx.beginPath(); cx.moveTo(x + 2, y + 34); cx.lineTo(x + w / 2, y + 4); cx.lineTo(x + w - 2, y + 34); cx.fill();
-      cx.fillStyle = '#6fb6d8'; cx.fillRect(x + 20, y + 50, 18, 16); cx.fillRect(x + w - 38, y + 50, 18, 16);
-      cx.fillStyle = '#5a3d2b'; cx.fillRect(x + w / 2 - 9, y + h - 34, 18, 26);
-      label(own.name, x + w / 2, y + h + 14, own.id === myId ? '#ffd23f' : 'rgba(255,255,255,.92)');
-    } else {
-      cx.strokeStyle = 'rgba(255,255,255,.55)'; cx.setLineDash([6, 6]); cx.lineWidth = 2; cx.strokeRect(x + 4, y + 4, w - 8, h - 8); cx.setLineDash([]);
-      cx.fillStyle = 'rgba(255,255,255,.75)'; cx.font = '700 12px system-ui'; cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.fillText('SATILIK', x + w / 2, y + h / 2);
-    }
-  });
-  // buildings
-  BUILD.forEach(b => {
-    const x = b.x * T, y = b.y * T, w = b.w * T, h = b.h * T;
-    cx.fillStyle = 'rgba(0,0,0,.2)'; cx.fillRect(x + 8, y + 12, w, h);
-    cx.fillStyle = b.c; cx.fillRect(x, y + 40, w, h - 40);
-    cx.fillStyle = b.r; cx.fillRect(x - 6, y + 6, w + 12, 40);
-    cx.fillStyle = 'rgba(111,182,216,.9)';
-    for (let i = 0; i < 4; i++) for (let j = 0; j < 3; j++) cx.fillRect(x + 22 + i * 52, y + 62 + j * 54, 28, 30);
-    cx.fillStyle = '#5a3d2b'; cx.fillRect(x + w / 2 - 16, y + h - 46, 32, 46);
-    label(b.n, x + w / 2, y + 34, '#fff', '#111', 15);
-  });
-  // people (sorted by y)
-  const list = Object.values(others).map(o => [o, false]); if (ME) list.push([ME, true]);
-  list.sort((a, b) => a[0].y - b[0].y).forEach(([p, me]) => person(p, p.x, p.y, t, me));
-  if (target) { cx.strokeStyle = 'rgba(255,255,255,.8)'; cx.lineWidth = 2; cx.beginPath(); cx.arc(target.x, target.y, 8 + Math.sin(t / 120) * 2, 0, 7); cx.stroke(); }
-  cx.restore();
-}
-requestAnimationFrame(frame);
+init3D().catch(e => { document.getElementById('err').textContent = '3D yüklenemedi: ' + e.message; });
+
 </script>
 </body>
 </html>
