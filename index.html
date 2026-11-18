@@ -143,7 +143,7 @@ const CFG = {
   messagingSenderId: "734007209872",
   appId: "1:734007209872:web:1b379478026d6f73de4d15"
 };
-const APP_V = '2026111814';   // bump on every upload (yyyymmddNN)
+const APP_V = '2026111815';   // bump on every upload (yyyymmddNN)
 const ADMIN = location.hash === '#yonetim';
 let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off;
 let auth = null, AU = {}, authResolve; const authReady = new Promise(r => authResolve = r);
@@ -802,11 +802,12 @@ function afterLogin() {
 // players list (admin + mods)
 async function playersMenu() {
   const all = (await get(ref(db, 'players'))).val() || {}, day = new Date().toISOString().slice(0, 10);
-  const rows = Object.entries(all).filter(([id, p]) => p && p.name).map(([id, p]) => ({ id, p, on: !!others[id] || id === myId, today: ((p.pd || {})[day] || 0) / 60000, tot: (p.play || 0) / 3600000 }))
-    .sort((a, b) => (b.on - a.on) || (b.today - a.today) || (b.tot - a.tot)).slice(0, 150);
+  const rows = Object.entries(all).filter(([id, p]) => p && p.name).map(([id, p]) => ({ id, p, on: (!!others[id] && live(others[id])) || id === myId, today: ((p.pd || {})[day] || 0) / 60000, tot: (p.play || 0) / 3600000 }))
+    .sort((a, b) => (b.on - a.on) || (b.today - a.today) || (b.tot - a.tot));
+  const TOTAL = rows.length; rows.splice(400);
   const devN = {}; Object.values(all).forEach(p => { if (p && p.dev) devN[p.dev] = (devN[p.dev] || 0) + 1; });
   mcard.className = 'card shop';
-  mcard.innerHTML = `<h2>👥 Oyuncular (${rows.filter(r => r.on).length} çevrimiçi / ${rows.length})</h2><table class="pl"><tr><td></td><td><b>Oyuncu</b></td><td><b>Bugün</b></td><td><b>Toplam</b></td><td><b>Katıldı</b></td><td></td></tr>` +
+  mcard.innerHTML = `<h2>👥 Oyuncular (${rows.filter(r => r.on).length} çevrimiçi / toplam ${TOTAL} kayıtlı)</h2><table class="pl"><tr><td></td><td><b>Oyuncu</b></td><td><b>Bugün</b></td><td><b>Toplam</b></td><td><b>Katıldı</b></td><td></td></tr>` +
     rows.map(r => `<tr><td>${r.on ? '🟢' : '⚪'}</td><td>${mods[r.id] ? '🛡 ' : ''}${esc(r.p.name)}${r.p.dev && devN[r.p.dev] > 1 ? ' <span title="aynı cihaz">⚠️</span>' : ''}<br><span style="opacity:.6">${esc(r.p.job || '')}</span></td><td>${Math.round(r.today)} dk</td><td>${r.tot.toFixed(1)} sa</td><td>${r.p.joined ? new Date(r.p.joined).toLocaleDateString('tr') : '-'}</td><td>${IS_ADMIN && r.id !== myId ? `<button data-m="${r.id}" style="padding:5px 8px;font-size:12px;background:${mods[r.id] ? '#c0392b' : '#2aa05a'}">${mods[r.id] ? 'Mod al' : 'Mod yap'}</button>${IS_ADMIN && r.id !== myId ? `<button data-del="${r.id}" style="padding:5px 8px;font-size:12px;background:#7f1d1d;margin-left:4px">🗑</button>` : ''}` : ''}</td></tr>`).join('') + '</table><button class="mi" style="justify-content:center;background:#3a4a6b" id="mclose">Kapat</button>';
   mcard.querySelectorAll('[data-m]').forEach(b => b.onclick = async () => { const id = b.dataset.m; if (mods[id]) await remove(ref(db, 'mods/' + id)); else { await set(ref(db, 'mods/' + id), { name: all[id].name, t: now() }); say(`🛡 <b>${esc(all[id].name)}</b> artık moderatör!`, true, 'ann'); } setTimeout(playersMenu, 400); });
   mcard.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
