@@ -6,53 +6,71 @@
 <title>Komşukent</title>
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;height:100%;overflow:hidden;background:#7cc06a;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#fff}
+html,body{margin:0;height:100%;overflow:hidden;background:#7cc06a;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#fff;-webkit-user-select:none;user-select:none}
 canvas{display:block;touch-action:none;position:fixed;inset:0}
 #labels{position:fixed;inset:0;pointer-events:none;overflow:hidden}
-.lb{position:absolute;left:0;top:0;white-space:nowrap;transform-origin:50% 100%;will-change:transform}
+.lb{position:absolute;left:0;top:0;white-space:nowrap;will-change:transform}
 .nm{background:rgba(255,255,255,.93);color:#1a1a1a;font:700 12px system-ui;padding:3px 8px;border-radius:10px;display:inline-block}
-.nm.me{background:#ffd23f}
+.nm.me{background:#ffd23f}.nm.role{background:#8e44ad;color:#fff}.nm.bad{background:#e74c3c;color:#fff}.nm.jail{background:#555;color:#fff}
 .jb{font:600 10px system-ui;color:#fff;text-shadow:0 1px 2px #000;text-align:center}
-.bb{background:#fff;color:#222;font:600 13px system-ui;padding:5px 9px;border-radius:10px;max-width:200px;overflow:hidden;text-overflow:ellipsis;margin-bottom:4px;text-align:center}
-#zoom{position:fixed;right:10px;top:60px;display:flex;flex-direction:column;gap:6px}
-#zoom button{width:40px;height:40px;padding:0;border-radius:50%;background:rgba(15,25,45,.85);font-size:20px}
-#hud{position:fixed;top:0;left:0;right:0;display:flex;gap:8px;padding:10px;align-items:center;pointer-events:none}
-.pill{background:rgba(15,25,45,.85);border-radius:20px;padding:7px 13px;font-weight:700;font-size:14px;pointer-events:auto}
-#money{color:#ffd23f}
-#online{margin-left:auto}
-#bottom{position:fixed;left:0;right:0;bottom:0;padding:10px;display:flex;flex-direction:column;gap:8px;pointer-events:none}
-#log{font-size:13px;line-height:1.35;text-shadow:0 1px 2px #000;max-height:120px;overflow:hidden;pointer-events:none}
+.bb{background:#fff;color:#222;font:600 13px system-ui;padding:5px 9px;border-radius:10px;max-width:200px;overflow:hidden;text-overflow:ellipsis;margin:0 auto 4px;text-align:center;width:max-content}
+.ui{position:fixed;z-index:3}
+#hud{top:0;left:0;right:0;display:flex;gap:6px;padding:8px;align-items:center;flex-wrap:wrap;pointer-events:none}
+.pill{background:rgba(15,25,45,.85);border-radius:18px;padding:6px 11px;font-weight:700;font-size:13px;pointer-events:auto}
+#money{color:#ffd23f}#energy{color:#7CFC9a}
+#side{right:8px;top:92px;display:flex;flex-direction:column;gap:6px}
+#side button{width:42px;height:42px;padding:0;border-radius:50%;background:rgba(15,25,45,.85);font-size:19px}
+#bottom{left:0;right:0;bottom:0;padding:10px;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+#log{font-size:13px;line-height:1.35;text-shadow:0 1px 2px #000;max-height:110px;overflow:hidden}
 #log b{color:#ffd23f}
 #bar{display:flex;gap:8px;pointer-events:auto}
-#msg{flex:1;border:0;border-radius:22px;padding:11px 15px;font-size:16px;background:rgba(255,255,255,.95);color:#222}
-button{border:0;border-radius:22px;padding:11px 16px;font-weight:800;font-size:15px;background:#2aa05a;color:#fff;cursor:pointer}
+#msg{flex:1;border:0;border-radius:22px;padding:11px 15px;font-size:16px;background:rgba(255,255,255,.95);color:#222;-webkit-user-select:text;user-select:text}
+button{border:0;border-radius:22px;padding:11px 16px;font-weight:800;font-size:15px;background:#2aa05a;color:#fff;cursor:pointer;font-family:inherit}
 button:disabled{opacity:.45}
-#act{position:fixed;left:50%;transform:translateX(-50%);bottom:80px;display:none;background:#e67e22;font-size:17px;padding:13px 22px;box-shadow:0 4px 14px rgba(0,0,0,.35)}
-#panel{position:fixed;inset:0;background:rgba(10,18,35,.92);display:flex;align-items:center;justify-content:center;z-index:9}
-.card{width:min(92vw,420px);background:#15233f;border-radius:22px;padding:22px;box-shadow:0 10px 40px rgba(0,0,0,.5)}
+#acts{left:50%;transform:translateX(-50%);bottom:178px;display:flex;flex-direction:column;gap:7px;align-items:center;width:max-content;max-width:94vw}
+#acts button{background:#e67e22;font-size:15px;padding:11px 18px;box-shadow:0 4px 14px rgba(0,0,0,.35)}
+#acts button.blue{background:#2e86de}#acts button.red{background:#c0392b}#acts button.gray{background:rgba(15,25,45,.85);font-weight:700}
+#panel,#modal{position:fixed;inset:0;background:rgba(10,18,35,.9);display:flex;align-items:center;justify-content:center;z-index:9}
+#modal{display:none;background:rgba(10,18,35,.75)}
+.card{width:min(92vw,420px);max-height:86vh;overflow:auto;background:#15233f;border-radius:22px;padding:20px;box-shadow:0 10px 40px rgba(0,0,0,.5)}
 .card h1{margin:0 0 4px;font-size:30px;color:#ffd23f;text-align:center}
-.card p{margin:0 0 14px;text-align:center;color:#c9d6f0;font-size:14px}
+.card h2{margin:0 0 12px;font-size:20px;color:#ffd23f}
+.card p{margin:0 0 12px;color:#c9d6f0;font-size:14px}
 .card label{display:block;font-size:13px;color:#9fb2d8;margin:12px 0 6px}
-.card input,.card select{width:100%;border:0;border-radius:12px;padding:12px;font-size:16px}
+.card input,.card select{width:100%;border:0;border-radius:12px;padding:12px;font-size:16px;-webkit-user-select:text;user-select:text}
+.mi{display:flex;width:100%;margin:6px 0;justify-content:space-between;align-items:center;background:#24365e;border-radius:14px;font-weight:700;padding:12px 14px;text-align:left}
+.mi span{color:#ffd23f;font-size:13px}
+.row{display:flex;gap:8px;flex-wrap:wrap}.row button{flex:1}
 #cols{display:flex;gap:8px;flex-wrap:wrap}
-.sw{width:36px;height:36px;border-radius:50%;border:3px solid transparent;cursor:pointer}
-.sw.on{border-color:#fff}
+.sw{width:34px;height:34px;border-radius:50%;border:3px solid transparent;cursor:pointer}.sw.on{border-color:#fff}
 #go{width:100%;margin-top:18px;font-size:18px;padding:14px}
 #err{color:#ff8a8a;text-align:center;font-size:13px;min-height:18px;margin-top:8px}
-#toast{position:fixed;top:56px;left:50%;transform:translateX(-50%);background:rgba(15,25,45,.92);padding:9px 16px;border-radius:18px;font-weight:700;font-size:14px;display:none;z-index:5;text-align:center}
+#toast{top:96px;left:50%;transform:translateX(-50%);background:rgba(15,25,45,.94);padding:9px 16px;border-radius:18px;font-weight:700;font-size:14px;display:none;text-align:center;max-width:90vw}
+#ann{top:140px;left:50%;transform:translateX(-50%);background:#8e44ad;padding:12px 18px;border-radius:16px;font-weight:800;font-size:16px;display:none;text-align:center;max-width:92vw;box-shadow:0 6px 20px rgba(0,0,0,.4)}
+#admin{top:0;left:0;bottom:0;width:min(300px,82vw);background:rgba(10,18,35,.93);padding:12px;overflow:auto;display:none;z-index:4}
+#admin h3{margin:12px 0 6px;color:#ffd23f;font-size:15px}
+#admin button{width:100%;margin:3px 0;font-size:14px;padding:9px}
+#admin select,#admin input{width:100%;border-radius:10px;border:0;padding:8px;margin:3px 0;font-size:14px}
+#admin .pl{display:block;background:#24365e;text-align:left;font-weight:600}
+#adminToggle{top:8px;left:8px;display:none;z-index:5;background:rgba(15,25,45,.9);padding:8px 12px}
+.rec .ui:not(#adminToggle){display:none!important}
 </style>
 </head>
 <body>
 <div id="labels"></div>
-<div id="hud"><span class="pill" id="me">…</span><span class="pill" id="money">💰 0</span><span class="pill" id="online">🟢 0</span></div>
-<div id="zoom"><button id="zin">＋</button><button id="zout">－</button></div>
-<button id="act"></button>
-<div id="toast"></div>
-<div id="bottom"><div id="log"></div><div id="bar"><input id="msg" maxlength="60" placeholder="Komşulara bir şey yaz…"><button id="send">Gönder</button></div></div>
+<div id="hud" class="ui"><span class="pill" id="me">…</span><span class="pill" id="money">💰 0</span><span class="pill" id="energy">⚡ 100</span><span class="pill" id="clock">🕐</span><span class="pill" id="online">🟢 0</span></div>
+<div id="side" class="ui"><button id="zin">＋</button><button id="zout">－</button><button id="bRank">🏆</button><button id="bWard">👕</button></div>
+<div id="acts" class="ui"></div>
+<div id="toast" class="ui"></div>
+<div id="ann" class="ui"></div>
+<div id="bottom" class="ui"><div id="log"></div><div id="bar"><input id="msg" maxlength="60" placeholder="Komşulara bir şey yaz…"><button id="send">Gönder</button></div></div>
+<button id="adminToggle" class="ui">☰ Yönetim</button>
+<div id="admin" class="ui"></div>
+<div id="modal"><div class="card" id="mcard"></div></div>
 
-<div id="panel"><div class="card">
+<div id="panel"><div class="card" id="login">
 <h1>KOMŞUKENT</h1>
-<p>Şehre taşın, meslek seç, para kazan, evini al!</p>
+<p style="text-align:center">Şehre taşın, meslek seç, para kazan, evini al!</p>
 <label>Instagram kullanıcı adın</label>
 <input id="name" maxlength="24" placeholder="ör. komsukent" autocomplete="off" autocapitalize="off">
 <label>Meslek</label>
@@ -73,193 +91,503 @@ const CFG = {
   messagingSenderId: "734007209872",
   appId: "1:734007209872:web:1b379478026d6f73de4d15"
 };
-let db, ref, set, update, get, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp;
+const ADMIN_HASH = "11fbedea9816839ca638e3762a73fdc43cd95150747bf7a2a35f74051a61b639";
+const ADMIN = location.hash === '#yonetim';
+let db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off;
 const fbReady = (async () => {
   const A = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js");
   const D = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js");
-  ({ ref, set, update, get, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp } = D);
+  ({ ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off } = D);
   db = D.getDatabase(A.initializeApp(CFG));
 })();
 fbReady.catch(() => {});
 
-// ---------- world
-const T = 40, WN = 60, WORLD = T * WN;            // 60x60 tiles
+// ================= WORLD =================
+const T = 40, WN = 60, WORLD = T * WN, ZS = 400;           // zone = 10 tiles
 const isRoad = (gx, gy) => gx % 10 === 0 || gy % 10 === 0;
 const BUILD = [
-  { id: 'belediye', n: 'Belediye', jobs: ['Belediye Başkanı', 'Muhtar', 'Memur'], c: '#3d5a80', r: '#c0392b', x: 22, y: 22, w: 6, h: 6 },
-  { id: 'market', n: 'Market', jobs: ['Marketçi', 'Kasiyer'], c: '#f5f5f5', r: '#d63a2f', x: 12, y: 2, w: 6, h: 6 },
-  { id: 'firin', n: 'Fırın', jobs: ['Fırıncı', 'Pastacı'], c: '#e9b872', r: '#9b3b2a', x: 32, y: 2, w: 6, h: 6 },
-  { id: 'hastane', n: 'Hastane', jobs: ['Doktor', 'Hemşire', 'Eczacı', 'Veteriner'], c: '#ffffff', r: '#2e86de', x: 42, y: 12, w: 6, h: 6 },
-  { id: 'polis', n: 'Karakol', jobs: ['Polis', 'Asker', 'Jandarma'], c: '#1f3a6b', r: '#111827', x: 2, y: 12, w: 6, h: 6 },
-  { id: 'okul', n: 'Okul', jobs: ['Öğretmen', 'Okul Müdürü'], c: '#f4d35e', r: '#8a4b2a', x: 12, y: 42, w: 6, h: 6 },
-  { id: 'sanayi', n: 'Sanayi', jobs: ['Tamirci', 'Kaportacı', 'Elektrikçi', 'Galerici'], c: '#9aa0a6', r: '#d35400', x: 2, y: 32, w: 6, h: 6 },
-  { id: 'kuafor', n: 'Güzellik Salonu', jobs: ['Kuaför', 'Berber', 'Manikürcü'], c: '#ffd6e8', r: '#d63384', x: 32, y: 42, w: 6, h: 6 },
-  { id: 'itfaiye', n: 'İtfaiye', jobs: ['İtfaiyeci'], c: '#c0151f', r: '#7a0d14', x: 52, y: 32, w: 6, h: 6 },
-  { id: 'cami', n: 'Cami', jobs: ['İmam'], c: '#ecf0f1', r: '#7f8c8d', x: 42, y: 2, w: 6, h: 6 },
-];
-const JOBS = [...new Set(BUILD.flatMap(b => b.jobs))].concat(['Dolandırıcı', 'Hırsız', 'Influencer', 'Şarkıcı']).sort((a, b) => a.localeCompare(b, 'tr'));
-const STREET = { 'Dolandırıcı': 1, 'Hırsız': 1, 'Influencer': 1, 'Şarkıcı': 1 };
-// house plots: every free 4x4 block area not used by buildings
+  { id: 'belediye', n: 'Belediye', jobs: ['Memur'], c: '#3d5a80', r: '#c0392b', x: 22, y: 22, H: 5 },
+  { id: 'market', n: 'Market', jobs: ['Marketçi', 'Kasiyer'], c: '#f5f5f5', r: '#d63a2f', x: 12, y: 2 },
+  { id: 'firin', n: 'Fırın', jobs: ['Fırıncı', 'Pastacı'], c: '#e9b872', r: '#9b3b2a', x: 32, y: 2 },
+  { id: 'adalet', n: 'Adalet Sarayı', jobs: ['Hakim', 'Savcı', 'Avukat'], c: '#d9cfc1', r: '#5d4037', x: 22, y: 2, H: 4.4 },
+  { id: 'hastane', n: 'Hastane', jobs: ['Doktor', 'Hemşire', 'Eczacı', 'Veteriner'], c: '#ffffff', r: '#2e86de', x: 42, y: 12, H: 4.5 },
+  { id: 'polis', n: 'Karakol', jobs: ['Polis', 'Asker', 'Jandarma'], c: '#1f3a6b', r: '#111827', x: 2, y: 12 },
+  { id: 'okul', n: 'Okul', jobs: ['Öğretmen'], c: '#f4d35e', r: '#8a4b2a', x: 12, y: 42 },
+  { id: 'sanayi', n: 'Sanayi', jobs: ['Tamirci', 'Kaportacı', 'Elektrikçi', 'Galerici'], c: '#9aa0a6', r: '#d35400', x: 2, y: 32 },
+  { id: 'kuafor', n: 'Güzellik Salonu', jobs: ['Kuaför', 'Berber', 'Manikürcü'], c: '#ffd6e8', r: '#d63384', x: 32, y: 42 },
+  { id: 'itfaiye', n: 'İtfaiye', jobs: ['İtfaiyeci'], c: '#c0151f', r: '#7a0d14', x: 52, y: 32 },
+  { id: 'cami', n: 'Cami', jobs: ['İmam'], c: '#ecf0f1', r: '#7f8c8d', x: 42, y: 2 },
+].map(b => Object.assign({ w: 6, h: 6, H: 3.4 }, b));
+const BMAP = Object.fromEntries(BUILD.map(b => [b.id, b]));
+const ROLES = {
+  baskan: { n: 'Belediye Başkanı', b: 'belediye' }, muhtar: { n: 'Muhtar', b: 'belediye' },
+  emniyet: { n: 'Emniyet Müdürü', b: 'polis' }, bashekim: { n: 'Başhekim', b: 'hastane' }, okulmuduru: { n: 'Okul Müdürü', b: 'okul' },
+};
+const STREET = ['Taksici', 'Hırsız', 'Dolandırıcı', 'Şarkıcı', 'Influencer'];
+const JOBS = [...new Set(BUILD.flatMap(b => b.jobs))].concat(STREET).sort((a, b) => a.localeCompare(b, 'tr'));
+const QUOTA = { Hakim: 2, Savcı: 3, Avukat: 5, İmam: 2 }; const QDEF = 8;
+const POLICE = ['Polis', 'Jandarma', 'Asker'];
+const ACC = {
+  sapka: { n: 'Şapka', p: 200, s: 'h' }, kep: { n: 'Kep', p: 150, s: 'h' }, fiyonk: { n: 'Fiyonk', p: 250, s: 'h' },
+  kovboy: { n: 'Kovboy şapkası', p: 800, s: 'h' }, tac: { n: 'Taç 👑', p: 5000, s: 'h' }, gozluk: { n: 'Güneş gözlüğü', p: 300, s: 'e' },
+};
+const SHOPTYPES = { Market: '🛒', Kafe: '☕', Restoran: '🍔', Butik: '👗' };
+// plots: keyed by coordinates
 const PLOTS = [];
 for (let by = 0; by < 6; by++) for (let bx = 0; bx < 6; bx++) {
   const ox = bx * 10 + 1, oy = by * 10 + 1;
   if (BUILD.some(b => b.x < ox + 9 && b.x + b.w > ox && b.y < oy + 9 && b.y + b.h > oy)) continue;
-  for (const [dx, dy] of [[1, 1], [5, 1], [1, 5], [5, 5]]) PLOTS.push({ x: ox + dx, y: oy + dy, w: 3, h: 3 });
+  for (const [dx, dy] of [[1, 1], [5, 1], [1, 5], [5, 5]]) PLOTS.push({ k: (ox + dx) + '_' + (oy + dy), x: ox + dx, y: oy + dy, w: 3, h: 3 });
 }
-const HOUSE_PRICE = 300, WORK_PAY = 15, WORK_CD = 4000;
+const PMAP = Object.fromEntries(PLOTS.map(p => [p.k, p]));
+const HOUSE_PRICE = 1500, SHOP_PRICE = 2500, SHIFT_MS = 45000, SHIFT_PAY = 40, SHIFT_E = 20, REST_MS = 20000;
+const JAIL_MS = 90000, WANTED_MS = 90000, DAY_MS = 24 * 60000;
+const COURT_DOOR = { x: (22 + 3) * T, y: (2 + 6) * T + 30 }, JAIL_SPOT = { x: (2 + 3) * T, y: (12 + 6) * T + 30 };
 
-// ---------- state
+// ================= STATE =================
 const COLORS = ['#e74c3c', '#3498db', '#2ecc71', '#f1c40f', '#9b59b6', '#e67e22', '#1abc9c', '#ff6fb5', '#34495e'];
 let myColor = COLORS[Math.floor(Math.random() * COLORS.length)];
-let ME = null, myId = null;
-const others = {};         // id -> {x,y,tx,ty,name,color,job,msg,msgT}
-let plots = {};             // index -> {id,name}
-let target = null, lastSent = 0, lastWork = 0;
+let ME = null, myId = null, myZone = null;
+const others = {};               // id -> profile + x,y,tx,ty
+let plots = {}, roles = {}, elections = {}, EV = null, cases = {};
+let target = null, lastSent = 0, sentX = 0, sentY = 0, task = null;
 const cam = { x: WORLD / 2, y: WORLD / 2 };
-
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const clean = s => s.replace(/^@+/, '').replace(/[^\p{L}\p{N}._ ]/gu, '').trim().slice(0, 24);
+const now = () => Date.now();
+const MK = () => new Date().toISOString().slice(0, 7);
+const zoneOf = (x, y) => Math.max(0, Math.min(5, Math.floor(x / ZS))) + '_' + Math.max(0, Math.min(5, Math.floor(y / ZS)));
+const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+const toast = (t, ms = 2600) => { const e = document.getElementById('toast'); e.innerHTML = t; e.style.display = 'block'; clearTimeout(toast.h); toast.h = setTimeout(() => e.style.display = 'none', ms); };
 function sid() {
   try { let v = localStorage.getItem('kk_id'); if (!v) { v = 'p' + Math.random().toString(36).slice(2, 11); localStorage.setItem('kk_id', v); } return v; }
   catch (e) { return 'p' + Math.random().toString(36).slice(2, 11); }
 }
-const clean = s => s.replace(/^@+/, '').replace(/[^\p{L}\p{N}._ ]/gu, '').trim().slice(0, 24);
-const toast = (t, ms = 2200) => { const e = document.getElementById('toast'); e.textContent = t; e.style.display = 'block'; clearTimeout(toast.h); toast.h = setTimeout(() => e.style.display = 'none', ms); };
+function dayPhase() { return (now() % DAY_MS) / DAY_MS; }                  // 0..1, 0 = 06:00
+function gameClock() { const m = Math.floor(dayPhase() * 1440 + 360) % 1440; return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); }
+function nightK() { const h = (dayPhase() * 24 + 6) % 24; if (h >= 21 || h < 5) return 1; if (h >= 19) return (h - 19) / 2; if (h < 7) return 1 - (h - 5) / 2; return 0; }
+const isNight = () => nightK() > 0.5;
+function myRole() { for (const r in roles) if (roles[r] && roles[r].id === myId && roles[r].until > now()) return r; return null; }
+function roleOf(id) { for (const r in roles) if (roles[r] && roles[r].id === id && roles[r].until > now()) return r; return null; }
 
-// ---------- login UI
+// ================= MODAL =================
+const modalEl = document.getElementById('modal'), mcard = document.getElementById('mcard');
+function modal(title, items, extra = '') {
+  mcard.innerHTML = `<h2>${title}</h2>${extra}<div id="mitems"></div><button class="mi" style="justify-content:center;background:#3a4a6b" id="mclose">Kapat</button>`;
+  const box = mcard.querySelector('#mitems');
+  (items || []).forEach(it => {
+    const b = document.createElement('button'); b.className = 'mi'; b.innerHTML = `${it.label}${it.right ? `<span>${it.right}</span>` : ''}`;
+    if (it.disabled) b.disabled = true; b.onclick = () => { if (!it.keep) closeModal(); it.fn && it.fn(); }; box.appendChild(b);
+  });
+  mcard.querySelector('#mclose').onclick = closeModal; modalEl.style.display = 'flex';
+}
+function closeModal() { modalEl.style.display = 'none'; }
+modalEl.addEventListener('pointerdown', e => { if (e.target === modalEl) closeModal(); });
+
+// ================= LOGIN =================
 const sel = document.getElementById('job');
 JOBS.forEach(j => { const o = document.createElement('option'); o.textContent = j; sel.appendChild(o); });
 const cols = document.getElementById('cols');
 COLORS.forEach(c => { const d = document.createElement('div'); d.className = 'sw' + (c === myColor ? ' on' : ''); d.style.background = c; d.onclick = () => { myColor = c; [...cols.children].forEach(x => x.classList.remove('on')); d.classList.add('on'); }; cols.appendChild(d); });
-try { const s = JSON.parse(localStorage.getItem('kk_me') || 'null'); if (s) { document.getElementById('name').value = s.name; sel.value = s.job; myColor = s.color || myColor; } } catch (e) { }
+try { const s = JSON.parse(localStorage.getItem('kk_me') || 'null'); if (s) { document.getElementById('name').value = s.name; if (JOBS.includes(s.job)) sel.value = s.job; myColor = s.color || myColor; [...cols.children].forEach(x => x.classList.toggle('on', x.style.background && x.style.backgroundColor === hexToRgb(myColor))); } } catch (e) { }
+function hexToRgb(h) { const n = parseInt(h.slice(1), 16); return `rgb(${n >> 16}, ${(n >> 8) & 255}, ${n & 255})`; }
+const errEl = document.getElementById('err');
 
 document.getElementById('go').onclick = async () => {
   const name = clean(document.getElementById('name').value);
-  if (name.length < 2) { document.getElementById('err').textContent = 'Kullanıcı adını yaz'; return; }
-  document.getElementById('go').disabled = true; document.getElementById('err').textContent = 'Şehre bağlanılıyor…';
+  if (name.length < 2) { errEl.textContent = 'Kullanıcı adını yaz'; return; }
+  document.getElementById('go').disabled = true; errEl.textContent = 'Şehre bağlanılıyor…';
   try {
     await fbReady;
     myId = sid();
-    const snap = await get(ref(db, 'players/' + myId));
-    const prev = snap.val() || {};
-    ME = { name, job: sel.value, color: myColor, money: prev.money ?? 100, house: prev.house ?? null,
-           x: prev.x ?? (WORLD / 2 + (Math.random() - .5) * 200), y: prev.y ?? (WORLD / 2 + 160) };
-    try { localStorage.setItem('kk_me', JSON.stringify({ name, job: ME.job, color: myColor })); } catch (e) { }
-    await update(ref(db, 'players/' + myId), { name, job: ME.job, color: myColor, money: ME.money, house: ME.house, seen: serverTimestamp() });
-    const on = ref(db, 'online/' + myId);
-    onDisconnect(on).remove();
-    await set(on, { x: Math.round(ME.x), y: Math.round(ME.y), name, color: myColor, job: ME.job, t: serverTimestamp() });
-    say(`<b>${esc(name)}</b> şehre taşındı 🏠`, true);
+    const job = sel.value;
+    const on = (await get(ref(db, 'online'))).val() || {};
+    const cnt = Object.entries(on).filter(([id, v]) => id !== myId && v && v.job === job).length;
+    if (cnt >= (QUOTA[job] || QDEF)) { errEl.textContent = `${job} kadrosu dolu 😬 Başka bir meslek seç`; document.getElementById('go').disabled = false; return; }
+    const prev = (await get(ref(db, 'players/' + myId))).val() || {};
+    ME = { name, job, color: myColor, money: prev.money ?? 100, energy: prev.energy ?? 100, home: prev.home ?? null, shop: prev.shop ?? null,
+      acc: prev.acc || {}, wear: prev.wear || {}, m: prev.m || {},
+      x: prev.x ?? (WORLD / 2 + (Math.random() - .5) * 200), y: prev.y ?? (WORLD / 2 + 300), wanted: 0, jail: 0, ride: null };
+    if (blocked(ME.x, ME.y)) { ME.x = WORLD / 2; ME.y = WORLD / 2 + 300; }
+    try { localStorage.setItem('kk_me', JSON.stringify({ name, job, color: myColor })); } catch (e) { }
+    await update(ref(db, 'players/' + myId), { name, job, color: myColor, money: ME.money, energy: ME.energy, seen: serverTimestamp() });
+    const oref = ref(db, 'online/' + myId);
+    onDisconnect(oref).remove();
+    await set(oref, profile());
+    setZone(true);
+    say(`<b>${esc(name)}</b> şehre taşındı 🏠 (${esc(job)})`, true);
     document.getElementById('panel').style.display = 'none';
     cam.x = ME.x; cam.y = ME.y;
-    listen(); hud();
+    listenCommon(); listenPlayer(); hud();
   } catch (e) {
     document.getElementById('go').disabled = false;
-    document.getElementById('err').textContent = 'Bağlanamadı: ' + (e.code || e.message);
+    errEl.textContent = 'Bağlanamadı: ' + (e.code || e.message);
   }
 };
+function profile() { return { name: ME.name, color: ME.color, job: ME.job, wear: ME.wear || {}, wanted: ME.wanted || 0, jail: ME.jail || 0, ride: ME.ride || null, t: serverTimestamp() }; }
 
-const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 function hud() {
-  document.getElementById('me').textContent = '@' + ME.name + ' • ' + ME.job;
-  document.getElementById('money').textContent = '💰 ' + ME.money;
+  if (!ME) return;
+  const r = myRole();
+  document.getElementById('me').textContent = '@' + ME.name + ' • ' + (r ? '👑 ' + ROLES[r].n : ME.job);
+  document.getElementById('money').textContent = '💰 ' + Math.floor(ME.money);
+  document.getElementById('energy').textContent = '⚡ ' + Math.floor(ME.energy);
   document.getElementById('online').textContent = '🟢 ' + (Object.keys(others).length + 1);
 }
+setInterval(() => { document.getElementById('clock').textContent = (isNight() ? '🌙 ' : '☀️ ') + gameClock(); }, 1000);
 
-// ---------- realtime
-function listen() {
+// ================= REALTIME =================
+function listenCommon() {
   const oref = ref(db, 'online');
-  const upd = (s) => {
+  const upd = s => {
     if (s.key === myId) return; const v = s.val(); if (!v) return;
-    const o = others[s.key] || (others[s.key] = { x: v.x, y: v.y });
-    Object.assign(o, { tx: v.x, ty: v.y, name: v.name, color: v.color, job: v.job });
-    if (v.msg && v.msgT !== o.msgT) { o.msg = v.msg; o.msgT = v.msgT; o.msgAt = performance.now(); }
-    hud();
+    const o = others[s.key] || (others[s.key] = {});
+    if (v.msg && v.msgT !== o.msgT) o.msgAt = performance.now();
+    Object.assign(o, v); hud();
   };
   onChildAdded(oref, upd); onChildChanged(oref, upd);
   onChildRemoved(oref, s => { delete others[s.key]; hud(); });
-  onValue(ref(db, 'plots'), s => { plots = s.val() || {}; refreshPlots(); });
+  onValue(ref(db, 'plots2'), s => { plots = s.val() || {}; refreshPlots(); });
+  onValue(ref(db, 'roles'), s => { roles = s.val() || {}; hud(); });
+  onValue(ref(db, 'elections'), s => { elections = s.val() || {}; });
+  onValue(ref(db, 'event'), s => { const prevEv = EV; EV = s.val(); if (EV && (!prevEv || prevEv.t0 !== EV.t0)) evStart(); });
+  onValue(ref(db, 'cases'), s => { cases = s.val() || {}; });
   onChildAdded(query(ref(db, 'log'), limitToLast(6)), s => { const v = s.val(); if (v) addLog(v.h); });
+  onValue(ref(db, 'announce'), s => { const a = s.val(); if (a && now() - a.t < 15000) showAnn(a); });
 }
-function say(html, global) { if (global) push(ref(db, 'log'), { h: html, t: serverTimestamp() }); else addLog(html); }
-function addLog(h) { const l = document.getElementById('log'); const d = document.createElement('div'); d.innerHTML = h; l.appendChild(d); while (l.children.length > 6) l.removeChild(l.firstChild); }
-
+function listenPlayer() {
+  onValue(ref(db, 'online/' + myId), s => {
+    const v = s.val(); if (!v || !ME) return;
+    if (v.jail && v.jail > now() && !(ME.jail > now())) { ME.jail = v.jail; ME.wanted = 0; ME.ride = null; ME.x = JAIL_SPOT.x; ME.y = JAIL_SPOT.y; target = null; task = null; toast('🚔 Yakalandın! Mahkemeye sevk edildin ⛓'); sendPos(true); }
+    else if (v.jail !== ME.jail) ME.jail = v.jail || 0;
+  });
+  onChildAdded(ref(db, 'notify/' + myId), s => { const v = s.val(); if (v) { toast(v.m, 4000); if (v.money) { ME.money = Math.max(0, ME.money + v.money); hud(); } } remove(s.ref); });
+  onValue(ref(db, 'players/' + myId + '/money'), s => { const v = s.val(); if (typeof v === 'number' && Math.abs(v - ME.money) > 0.5) { ME.money = v; hud(); } });
+}
+// zone-based position sharing (saves bandwidth)
+const zoneSubs = {};
+function setZone(force) {
+  const z = zoneOf(ME.x, ME.y); if (!force && z === myZone) return;
+  const old = myZone; myZone = z;
+  if (old) { const r = ref(db, 'pos/' + old + '/' + myId); onDisconnect(r).cancel(); remove(r); }
+  const r = ref(db, 'pos/' + z + '/' + myId); onDisconnect(r).remove(); set(r, { x: Math.round(ME.x), y: Math.round(ME.y) });
+  update(ref(db, 'online/' + myId), { z });
+  const [zx, zy] = z.split('_').map(Number), want = {};
+  for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) { const a = zx + dx, b = zy + dy; if (a >= 0 && b >= 0 && a < 6 && b < 6) want[a + '_' + b] = 1; }
+  syncZoneSubs(want);
+}
+function syncZoneSubs(want) {
+  for (const k in zoneSubs) if (!want[k]) { off(zoneSubs[k]); delete zoneSubs[k]; for (const id in others) if (others[id].pz === k) others[id].hasPos = false; }
+  for (const k in want) if (!zoneSubs[k]) {
+    const r = ref(db, 'pos/' + k); zoneSubs[k] = r;
+    const f = s => { if (s.key === myId) return; const v = s.val(); if (!v) return; const o = others[s.key] || (others[s.key] = {});
+      if (!o.hasPos) { o.x = v.x; o.y = v.y; } o.tx = v.x; o.ty = v.y; o.pz = k; o.hasPos = true; };
+    onChildAdded(r, f); onChildChanged(r, f);
+    onChildRemoved(r, s => { const o = others[s.key]; if (o && o.pz === k) o.hasPos = false; });
+  }
+}
 function sendPos(force) {
-  const now = performance.now();
-  if (!force && now - lastSent < 160) return; lastSent = now;
-  update(ref(db, 'online/' + myId), { x: Math.round(ME.x), y: Math.round(ME.y) });
+  const t = performance.now();
+  if (!force && (t - lastSent < 250 || Math.hypot(ME.x - sentX, ME.y - sentY) < 6)) return;
+  lastSent = t; sentX = ME.x; sentY = ME.y;
+  setZone(false);
+  set(ref(db, 'pos/' + myZone + '/' + myId), { x: Math.round(ME.x), y: Math.round(ME.y) });
 }
-function saveMe() { update(ref(db, 'players/' + myId), { money: ME.money, house: ME.house, x: Math.round(ME.x), y: Math.round(ME.y) }); }
-setInterval(() => { if (ME) saveMe(); }, 15000);
+function saveMe() {
+  if (!ME) return;
+  update(ref(db, 'players/' + myId), { money: Math.floor(ME.money), energy: Math.round(ME.energy), home: ME.home, shop: ME.shop, acc: ME.acc, wear: ME.wear, m: ME.m, x: Math.round(ME.x), y: Math.round(ME.y), name: ME.name, color: ME.color, job: ME.job });
+}
+setInterval(() => { if (ME) { ME.energy = Math.min(100, ME.energy + 1); saveMe(); hud(); } }, 30000);
+function stat(k, v = 1) { const m = MK(); ME.m = ME.m || {}; ME.m[m] = ME.m[m] || {}; ME.m[m][k] = (ME.m[m][k] || 0) + v; }
+function earn(a, why) { ME.money += a; stat('earned', a); hud(); saveMe(); if (why) toast(why + ` +${a} 💰`); }
+function payTo(id, amount) { if (amount > 0) runTransaction(ref(db, 'players/' + id + '/money'), m => (m || 0) + amount); }
+function notify(id, m, extra = {}) { push(ref(db, 'notify/' + id), Object.assign({ m }, extra)); }
+function say(html, global) { if (global && db) push(ref(db, 'log'), { h: html, t: serverTimestamp() }); else addLog(html); }
+function addLog(h) { const l = document.getElementById('log'); const d = document.createElement('div'); d.innerHTML = h; l.appendChild(d); while (l.children.length > 6) l.removeChild(l.firstChild); }
+function showAnn(a) { const e = document.getElementById('ann'); e.innerHTML = `📢 ${esc(a.by)}: ${esc(a.text)}`; e.style.display = 'block'; clearTimeout(showAnn.h); showAnn.h = setTimeout(() => e.style.display = 'none', 9000); }
 
 // chat
 const msgIn = document.getElementById('msg');
 function sendMsg() {
   const t = msgIn.value.trim().slice(0, 60); if (!t || !ME) return; msgIn.value = '';
   ME.msg = t; ME.msgAt = performance.now();
-  update(ref(db, 'online/' + myId), { msg: t, msgT: Date.now() });
+  update(ref(db, 'online/' + myId), { msg: t, msgT: now() });
   say(`<b>${esc(ME.name)}:</b> ${esc(t)}`, true);
 }
 document.getElementById('send').onclick = sendMsg;
 msgIn.addEventListener('keydown', e => { if (e.key === 'Enter') sendMsg(); });
 
-// ---------- action button (work / buy house)
-const act = document.getElementById('act');
-let action = null;
-act.onclick = () => action && action();
-function nearRect(r, pad = 26) {
-  const x0 = r.x * T - pad, y0 = r.y * T - pad, x1 = (r.x + r.w) * T + pad, y1 = (r.y + r.h) * T + pad;
-  return ME.x > x0 && ME.x < x1 && ME.y > y0 && ME.y < y1;
+// ================= GEOMETRY HELPERS =================
+function inside(r, x, y, pad = 0) { return x > r.x * T - pad && x < (r.x + r.w) * T + pad && y > r.y * T - pad && y < (r.y + r.h) * T + pad; }
+function blocked(x, y) { return BUILD.some(b => inside(b, x, y)) || PLOTS.some(p => plots[p.k] && inside(p, x, y, -12)); }
+const nearB = (b, pad = 30) => ME && inside(b, ME.x, ME.y, pad);
+const nearPlot = (p, pad = 14) => ME && inside(p, ME.x, ME.y, pad);
+function nearOthers(r) { return Object.entries(others).filter(([id, o]) => o.hasPos && o.name && dist(o, ME) < r); }
+
+// ================= ACTIONS =================
+const actsEl = document.getElementById('acts'); let actsKey = '';
+function setActs(list) {
+  const key = list.map((a, i) => (a.dyn ? 'D' + i + (a.cls || '') : a.label) + (a.disabled ? 1 : 0)).join('|');
+  if (key === actsKey) { [...actsEl.children].forEach((b, i) => { if (list[i] && list[i].dyn && b.textContent !== list[i].label) b.textContent = list[i].label; }); return; }
+  actsKey = key; actsEl.innerHTML = '';
+  list.forEach(a => { const b = document.createElement('button'); b.textContent = a.label; b.className = a.cls || ''; b.disabled = !!a.disabled; b.onclick = () => a.fn && a.fn(); actsEl.appendChild(b); });
 }
-function inside(r, x, y) { return x > r.x * T && x < (r.x + r.w) * T && y > r.y * T && y < (r.y + r.h) * T; }
-function blocked(x, y) { return BUILD.some(b => inside(b, x, y)); }
-function updateAction() {
-  action = null; let label = '';
-  const b = BUILD.find(b => nearRect(b));
-  const cd = Math.max(0, WORK_CD - (Date.now() - lastWork));
-  if (b && b.jobs.includes(ME.job)) {
-    label = cd ? `⏳ ${Math.ceil(cd / 1000)} sn` : `🔨 ${b.n}'da çalış (+${WORK_PAY})`;
-    if (!cd) action = () => work(b.n);
-  } else if (STREET[ME.job] && Object.keys(others).length && !b) {
-    label = cd ? `⏳ ${Math.ceil(cd / 1000)} sn` : (ME.job === 'Şarkıcı' || ME.job === 'Influencer' ? '🎤 Sokakta şov yap (+' + WORK_PAY + ')' : '🕶️ İş çevir (+' + WORK_PAY + ')');
-    if (!cd) action = () => work('sokak');
-  } else if (b) {
-    label = `${b.n} • iş: ${b.jobs.join(', ')}`;
-  } else {
-    const i = PLOTS.findIndex(p => nearRect(p, 10));
-    if (i >= 0) {
-      const own = plots[i];
-      if (!own && ME.house == null) { label = `🏠 Bu arsayı al (${HOUSE_PRICE} 💰)`; action = () => buy(i); }
-      else if (own) label = own.id === myId ? '🏡 Senin evin' : `🏡 ${own.name}'in evi`;
-      else label = 'Zaten bir evin var 🏡';
+function startTask(kind, ms, where, done, label) { task = { kind, t0: now(), ms, where, done, label }; target = null; tgtHide(); }
+function computeActs() {
+  const L = [];
+  if (!ME) return L;
+  const t = now();
+  if (ME.jail > t) {
+    const c = cases[myId];
+    L.push({ label: `⛓ Hapiste: ${Math.ceil((ME.jail - t) / 1000)} sn${c && c.decided ? ' (karar verildi)' : ''}`, cls: 'gray', dyn: 1 });
+    return L;
+  } else if (ME.jail) { ME.jail = 0; update(ref(db, 'online/' + myId), { jail: 0 }); ME.x = COURT_DOOR.x; ME.y = COURT_DOOR.y; sendPos(true); toast('🔓 Serbestsin! Bir daha yapma 😅'); }
+  if (task) {
+    const p = Math.min(1, (t - task.t0) / task.ms);
+    if (task.where && !task.where()) { toast('❌ Uzaklaştın, iş yarıda kaldı'); task = null; }
+    else if (p >= 1) { const d = task.done; task = null; d(); }
+    else { L.push({ label: `${task.label} %${Math.floor(p * 100)}`, cls: 'gray', dyn: 1 }); L.push({ label: 'İptal', cls: 'red', fn: () => task = null }); return L; }
+  }
+  // riding taxi
+  if (ME.ride) {
+    const d = others[ME.ride];
+    if (!d || !d.hasPos) { ME.ride = null; update(ref(db, 'online/' + myId), { ride: null }); }
+    else { L.push({ label: '🚕 Taksiden in', cls: 'blue', fn: leaveTaxi }); return L; }
+  }
+  const role = myRole();
+  // building work
+  const b = BUILD.find(b => nearB(b));
+  if (b) {
+    const roleHere = role && ROLES[role].b === b.id;
+    if (b.jobs.includes(ME.job) || roleHere) {
+      const pay = Math.round(SHIFT_PAY * (roleHere ? 2 : 1) * (isNight() && ['Polis', 'Jandarma', 'İtfaiyeci', 'Doktor', 'Hemşire'].includes(ME.job) ? 1.5 : 1));
+      L.push({ label: `🔨 ${b.n}'da mesai (+${pay} 💰, -${SHIFT_E}⚡)`, disabled: ME.energy < SHIFT_E, fn: () => startTask('work', SHIFT_MS, () => nearB(b, 60), () => { ME.energy -= SHIFT_E; stat('worked'); earn(pay, '💼 Mesai bitti!'); }, '💼 Mesai') });
+    }
+    if (b.id === 'belediye') {
+      const open = Object.entries(elections).filter(([r, e]) => e && e.ends > t);
+      if (open.length) L.push({ label: '🗳 Seçim sandığı', cls: 'blue', fn: voteMenu });
+    }
+    if (b.id === 'adalet') courtActs(L);
+  }
+  if (role === 'baskan' || role === 'muhtar') L.push({ label: '📢 Şehre duyuru yap', cls: 'blue', fn: announceMenu });
+  // plots: home / shop
+  const p = PLOTS.find(p => nearPlot(p));
+  if (p) {
+    const own = plots[p.k];
+    if (!own) {
+      L.push({ label: `🏗 Arsa: ev ${HOUSE_PRICE} / dükkan ${SHOP_PRICE} 💰`, fn: () => plotMenu(p) });
+    } else if (own.id === myId) {
+      if (own.type === 'ev') L.push({ label: '😴 Evinde dinlen (⚡ dolsun)', disabled: ME.energy >= 100, fn: () => startTask('rest', REST_MS, () => nearPlot(p, 30), () => { ME.energy = 100; hud(); saveMe(); toast('😴 Dinlendin, enerji full!'); }, '😴 Dinleniyor') });
+      else L.push({ label: `🧾 Dükkanında çalış (+50 💰, -${SHIFT_E}⚡)`, disabled: ME.energy < SHIFT_E, fn: () => startTask('work', SHIFT_MS, () => nearPlot(p, 40), () => { ME.energy -= SHIFT_E; stat('worked'); earn(50, '🧾 Dükkan kapandı, kasa dolu!'); }, '🧾 Dükkanda') });
+    } else if (own.type !== 'ev') {
+      if (own.shopType === 'Butik') L.push({ label: `👗 ${own.shop}'den alışveriş`, fn: () => wardrobe(own) });
+      else L.push({ label: `${SHOPTYPES[own.shopType] || '🛍'} ${own.shop}: ye-iç (20 💰, +30⚡)`, disabled: ME.money < 20 || ME.energy >= 100, fn: () => { ME.money -= 20; ME.energy = Math.min(100, ME.energy + 30); payTo(own.id, 20); notify(own.id, `💸 ${ME.name} dükkanından alışveriş yaptı`); hud(); saveMe(); toast('😋 Afiyet olsun! +30⚡'); } });
     }
   }
-  act.style.display = label ? 'block' : 'none'; act.textContent = label; act.disabled = !action;
+  // street jobs
+  const near = nearOthers(70);
+  if ((ME.job === 'Şarkıcı' || ME.job === 'Influencer') && !b && !p) {
+    const fest = EV && EV.type === 'festival' && t < EV.t0 + 300000;
+    const pay = fest ? 60 : 25;
+    L.push({ label: `🎤 Sokak şovu (+${pay} 💰${fest ? ' 🎉' : ''})`, disabled: ME.energy < 10, fn: () => startTask('work', 30000, () => true, () => { ME.energy -= 10; stat('worked'); earn(pay, '👏 Alkışlar yağdı!'); }, '🎤 Şov') });
+  }
+  if (ME.job === 'Taksici' && !b) L.push({ label: '🚕 Müşterilerin sana binebilir', cls: 'gray' });
+  // thief / con man
+  if ((ME.job === 'Hırsız' && isNight()) || ME.job === 'Dolandırıcı') {
+    const cd = (ME.lastSteal || 0) + 30000 - t;
+    near.filter(([id, o]) => !(o.jail > t)).slice(0, 2).forEach(([id, o]) => {
+      L.push({ label: cd > 0 ? `⏳ ${Math.ceil(cd / 1000)} sn bekle` : (ME.job === 'Hırsız' ? `🤏 ${o.name}'in cebini boşalt` : `🃏 ${o.name}'e sahte tapu sat`), cls: 'red', disabled: cd > 0, dyn: cd > 0, fn: () => steal(id, o) });
+    });
+  } else if (ME.job === 'Hırsız' && near.length) L.push({ label: '🌞 Gündüz çalamazsın, gece bekle', cls: 'gray' });
+  // police
+  if (POLICE.includes(ME.job) || role === 'emniyet') {
+    near.filter(([id, o]) => o.wanted > t && !(o.jail > t)).slice(0, 2).forEach(([id, o]) => L.push({ label: `🚔 ${o.name}'i yakala`, cls: 'blue', fn: () => arrest(id, o) }));
+  }
+  // taxi ride
+  if (ME.job !== 'Taksici') near.filter(([id, o]) => o.job === 'Taksici').slice(0, 1).forEach(([id, o]) => L.push({ label: `🚕 ${o.name}'in taksisine bin`, cls: 'blue', fn: () => { ME.ride = id; ME.rideFrom = { x: ME.x, y: ME.y }; update(ref(db, 'online/' + myId), { ride: id }); notify(id, `🚕 ${ME.name} taksine bindi!`); target = null; } }));
+  // events
+  if (EV && t < EV.t0 + 300000 && !EV.done) evActs(L);
+  return L;
 }
-function work(where) {
-  lastWork = Date.now(); ME.money += WORK_PAY; hud(); saveMe();
-  toast(where === 'sokak' ? (ME.job === 'Dolandırıcı' || ME.job === 'Hırsız' ? '🤫 Kimse görmedi… +' + WORK_PAY : '👏 Alkışlar! +' + WORK_PAY) : '💼 Mesai bitti! +' + WORK_PAY);
+function leaveTaxi() {
+  const d = Math.hypot(ME.x - ME.rideFrom.x, ME.y - ME.rideFrom.y), fare = Math.max(10, Math.min(80, Math.round(d / 40)));
+  const pay = Math.min(fare, Math.floor(ME.money)); ME.money -= pay; payTo(ME.ride, pay);
+  notify(ME.ride, `🚕 ${ME.name} indi, ${pay} 💰 ödedi`); ME.ride = null; update(ref(db, 'online/' + myId), { ride: null }); hud(); saveMe(); toast(`🚕 Taksi ücreti: ${pay} 💰`);
 }
-async function buy(i) {
-  if (ME.money < HOUSE_PRICE) { toast(`Para yetmiyor 😅 ${HOUSE_PRICE - ME.money} 💰 daha çalış`); return; }
-  const res = await runTransaction(ref(db, 'plots/' + i), cur => cur ? undefined : { id: myId, name: ME.name, color: ME.color });
+async function steal(id, o) {
+  ME.lastSteal = now();
+  const thief = ME.job === 'Hırsız', pct = thief ? 0.2 : 0.1, cap = thief ? 100 : 60;
+  let taken = 0;
+  const r = await runTransaction(ref(db, 'players/' + id + '/money'), m => { m = m || 0; taken = Math.min(cap, Math.floor(m * pct)); return m - taken; });
+  if (!r.committed || taken <= 0) { toast('Cebi boş çıktı 😅'); return; }
+  ME.wanted = now() + WANTED_MS; update(ref(db, 'online/' + myId), { wanted: ME.wanted });
+  stat('stolen', taken); earn(taken, thief ? '🤏 Kimse görmedi...' : '🃏 Tapu satıldı!');
+  notify(id, thief ? `😱 Cebinden ${taken} 💰 çalındı! Hırsız: ${ME.name}. Polisi çağır!` : `🃏 ${ME.name} sana sahte tapu sattı, ${taken} 💰 gitti!`, { money: -taken });
+  say(`🚨 <b>${esc(ME.name)}</b> aranıyor! (${thief ? 'hırsızlık' : 'dolandırıcılık'})`, true);
+}
+async function arrest(id, o) {
+  const until = now() + JAIL_MS;
+  await update(ref(db, 'online/' + id), { jail: until, wanted: 0, ride: null });
+  await set(ref(db, 'cases/' + id), { name: o.name, until, by: ME.name, t: now(), def: 0, pros: 0, decided: 0 });
+  stat('arrests'); earn(50, '🚔 Yakaladın!');
+  const fine = await runTransaction(ref(db, 'players/' + id + '/money'), m => Math.max(0, (m || 0) - Math.min(100, Math.floor((m || 0) * 0.25))));
+  say(`🚔 <b>${esc(ME.name)}</b>, <b>${esc(o.name)}</b>'i yakaladı! Mahkemeye sevk edildi ⚖️`, true);
+}
+function courtActs(L) {
+  const t = now();
+  Object.entries(cases).filter(([id, c]) => c && !c.decided && c.until > t).slice(0, 2).forEach(([id, c]) => {
+    if (ME.job === 'Avukat' && !c.def) L.push({ label: `🧑‍⚖️ ${c.name}'i savun (-30 sn, +25 💰)`, cls: 'blue', fn: () => caseMod(id, -30000, 'def', 25, `🧑‍⚖️ Avukat <b>${esc(ME.name)}</b>, ${esc(c.name)}'i savundu`) });
+    if (ME.job === 'Savcı' && !c.pros) L.push({ label: `📜 ${c.name}'i suçla (+30 sn, +25 💰)`, cls: 'red', fn: () => caseMod(id, 30000, 'pros', 25, `📜 Savcı <b>${esc(ME.name)}</b>, ${esc(c.name)} için ceza istedi`) });
+    if (ME.job === 'Hakim') L.push({ label: `⚖️ ${c.name} davasında karar ver`, fn: () => judgeMenu(id, c) });
+  });
+}
+async function caseMod(id, delta, field, pay, msg) {
+  const c = cases[id]; if (!c) return;
+  const until = Math.max(now() + 5000, c.until + delta);
+  await update(ref(db, 'cases/' + id), { until, [field]: ME.name }); await update(ref(db, 'online/' + id), { jail: until });
+  earn(pay); say(msg, true);
+}
+function judgeMenu(id, c) {
+  const fin = async (until, txt) => {
+    await update(ref(db, 'cases/' + id), { until, decided: ME.name }); await update(ref(db, 'online/' + id), { jail: until });
+    earn(40, '⚖️ Karar verildi!'); say(`⚖️ Hakim <b>${esc(ME.name)}</b>: ${esc(c.name)} ${txt}`, true);
+  };
+  modal(`⚖️ ${esc(c.name)} davası`, [
+    { label: '✅ Beraat (hemen serbest)', fn: () => fin(now() + 3000, 'BERAAT etti!') },
+    { label: '⛓ Suçlu (normal ceza)', fn: () => fin(Math.max(c.until, now() + 30000), 'SUÇLU bulundu!') },
+    { label: '⛓⛓ Ağır ceza (+60 sn)', fn: () => fin(c.until + 60000, 'AĞIR CEZA aldı!') },
+  ], `<p>Avukat: ${esc(c.def || 'yok')} • Savcı: ${esc(c.pros || 'yok')}<br>Yakalayan: ${esc(c.by)}</p>`);
+}
+function plotMenu(p) {
+  modal('🏗 Satılık arsa', [
+    { label: '🏠 Ev yap', right: HOUSE_PRICE + ' 💰', disabled: ME.home || ME.money < HOUSE_PRICE, fn: () => buyPlot(p, 'ev') },
+    { label: '🏪 Dükkan aç', right: SHOP_PRICE + ' 💰', disabled: ME.shop || ME.money < SHOP_PRICE, fn: () => shopNameMenu(p) },
+  ], `<p>${ME.home ? 'Zaten bir evin var. ' : ''}${ME.shop ? 'Zaten bir dükkanın var. ' : ''}Paran: ${Math.floor(ME.money)} 💰</p>`);
+}
+function shopNameMenu(p) {
+  modal('🏪 Dükkanın adı ne olsun?', Object.keys(SHOPTYPES).map(ty => ({ label: `${SHOPTYPES[ty]} ${ty}`, fn: () => { const n = clean(document.getElementById('shopname').value || ''); if (n.length < 2) { toast('Dükkan adını yaz'); return; } buyPlot(p, 'dukkan', n, ty); } })),
+    `<input id="shopname" maxlength="20" placeholder="ör. Azra Market"><p style="margin-top:10px">Dükkan türünü seç:</p>`);
+}
+async function buyPlot(p, type, shop, shopType) {
+  const price = type === 'ev' ? HOUSE_PRICE : SHOP_PRICE;
+  if (ME.money < price) { toast(`Para yetmiyor 😅 ${price - Math.floor(ME.money)} 💰 daha lazım`); return; }
+  const val = { id: myId, name: ME.name, color: ME.color, type }; if (shop) Object.assign(val, { shop, shopType });
+  const res = await runTransaction(ref(db, 'plots2/' + p.k), cur => cur ? undefined : val);
   if (!res.committed) { toast('Biri senden önce aldı 😬'); return; }
-  ME.money -= HOUSE_PRICE; ME.house = i; hud(); saveMe();
-  say(`<b>${esc(ME.name)}</b> Komşukent'te ev sahibi oldu 🏡🎉`, true);
+  ME.money -= price; if (type === 'ev') ME.home = p.k; else ME.shop = p.k; hud(); saveMe();
+  say(type === 'ev' ? `🏡 <b>${esc(ME.name)}</b> ev sahibi oldu!` : `🏪 <b>${esc(ME.name)}</b> dükkan açtı: <b>${esc(shop)}</b> ${SHOPTYPES[shopType]}`, true);
 }
+function wardrobe(butik) {
+  const items = Object.entries(ACC).map(([k, a]) => {
+    const owned = ME.acc[k], worn = ME.wear[a.s] === k;
+    return { label: `${a.n}${worn ? ' ✅' : ''}`, right: owned ? (worn ? 'Çıkar' : 'Giy') : a.p + ' 💰', disabled: !owned && ME.money < a.p, fn: () => {
+      if (!owned) { ME.money -= a.p; ME.acc[k] = 1; if (butik && butik.id) payTo(butik.id, Math.round(a.p * 0.2)); toast(`🛍 ${a.n} aldın!`); }
+      ME.wear[a.s] = worn ? null : k; update(ref(db, 'online/' + myId), { wear: ME.wear }); hud(); saveMe(); wardrobe(butik);
+    } };
+  });
+  modal(butik && butik.shop ? `👗 ${esc(butik.shop)}` : '👕 Gardırop', items, '<p>Aldığın şeyler sende kalır, istediğin zaman giy.</p>');
+}
+function voteMenu() {
+  const t = now(), items = [];
+  Object.entries(elections).forEach(([r, e]) => {
+    if (!e || e.ends <= t) return;
+    const voted = e.voters && e.voters[myId], cands = e.cands || {};
+    Object.entries(cands).forEach(([cid, c]) => items.push({ label: `${ROLES[r].n}: ${esc(c.name)}`, right: (c.votes || 0) + ' oy', disabled: !!voted, fn: () => vote(r, cid) }));
+    if (!cands[myId] && !myRole()) items.push({ label: `✋ ${ROLES[r].n} adayı ol`, right: '100 💰', disabled: ME.money < 100, fn: () => candidate(r) });
+  });
+  modal('🗳 Seçim sandığı', items, `<p>Her seçimde 1 oy hakkın var. Sonuçlar süre bitince açıklanır.</p>`);
+}
+async function vote(r, cid) {
+  const res = await runTransaction(ref(db, 'elections/' + r), e => { if (!e || e.ends < now() || (e.voters && e.voters[myId])) return; e.voters = e.voters || {}; e.voters[myId] = 1; e.cands[cid].votes = (e.cands[cid].votes || 0) + 1; return e; });
+  toast(res.committed ? '🗳 Oyun sandıkta!' : 'Oy verilemedi');
+}
+async function candidate(r) {
+  const res = await runTransaction(ref(db, 'elections/' + r + '/cands/' + myId), c => c ? undefined : { name: ME.name, votes: 0 });
+  if (res.committed) { ME.money -= 100; hud(); saveMe(); say(`✋ <b>${esc(ME.name)}</b> ${ROLES[r].n} adayı oldu!`, true); }
+}
+function announceMenu() {
+  modal('📢 Şehre duyuru', [{ label: 'Gönder', fn: () => { const v = (document.getElementById('anntext').value || '').trim().slice(0, 80); if (v) set(ref(db, 'announce'), { text: v, by: (ROLES[myRole()] || {}).n + ' ' + ME.name, t: now() }); } }],
+    '<input id="anntext" maxlength="80" placeholder="Duyurunu yaz">');
+}
+// elections housekeeping: auto-open vacant roles, finish ended ones
+async function electionTick() {
+  if (!db || (!ME && !ADMIN)) return;
+  const t = now();
+  for (const r in ROLES) {
+    const e = elections[r], holder = roles[r];
+    if (e && e.ends < t && !e.done) {
+      const res = await runTransaction(ref(db, 'elections/' + r + '/done'), d => d ? undefined : 1);
+      if (res.committed) {
+        const best = Object.entries(e.cands || {}).sort((a, b) => (b[1].votes || 0) - (a[1].votes || 0))[0];
+        if (best && (best[1].votes || 0) > 0) { await set(ref(db, 'roles/' + r), { id: best[0], name: best[1].name, until: t + 7 * 864e5 }); say(`🎉 Yeni ${ROLES[r].n}: <b>${esc(best[1].name)}</b> (${best[1].votes} oy)!`, true); }
+        else say(`🗳 ${ROLES[r].n} seçimine kimse oy vermedi, seçim yenilenecek`, true);
+        await remove(ref(db, 'elections/' + r));
+      }
+    } else if (!e && (!holder || holder.until < t) && !ADMIN) {
+      await runTransaction(ref(db, 'elections/' + r), cur => cur ? undefined : { ends: t + 30 * 60000, cands: {} });
+    }
+  }
+}
+setInterval(electionTick, 10000);
 
-// ---------- 3D (Three.js)
-let THREE = null, renderer, scene, camera3, sun, groundMesh, plotGroup, rayc, ndc;
+// ================= EVENTS =================
+const EV_NAMES = { yangin: '🔥 YANGIN', soygun: '🚨 SOYGUN', festival: '🎉 FESTİVAL' };
+function evStart() { if (EV && !EV.done) { const b = BMAP[EV.b]; toast(`${EV_NAMES[EV.type]}${b ? ' — ' + b.n : ''}!`, 5000); } }
+function robberPos(i, t) {
+  const b = BMAP[EV.b], bx = Math.floor(b.x / 10) * 10, by = Math.floor(b.y / 10) * 10;
+  const pts = [[bx, by], [bx + 10, by], [bx + 10, by + 10], [bx, by + 10]].map(([x, y]) => [Math.min(59, x) + 0.5, Math.min(59, y) + 0.5]);
+  const per = 40, s = ((t - EV.t0) / 1000 * 2.2 + i * per / 3) % per, seg = Math.floor(s / 10), f = (s % 10) / 10;
+  const [a, c] = [pts[seg], pts[(seg + 1) % 4]];
+  return { x: (a[0] + (c[0] - a[0]) * f) * T, y: (a[1] + (c[1] - a[1]) * f) * T };
+}
+function evActs(L) {
+  const t = now(), b = BMAP[EV.b];
+  if (EV.type === 'yangin' && b && nearB(b, 90)) {
+    const cd = (ME.lastHose || 0) + 1500 - t;
+    if (ME.job === 'İtfaiyeci') L.push({ label: `🚒 Söndür! (yangın %${Math.max(0, EV.hp || 0)})`, cls: 'blue', dyn: 1, disabled: cd > 0, fn: hose });
+    else L.push({ label: `🔥 ${b.n} yanıyor! İtfaiyeyi bekle`, cls: 'gray', dyn: 1 });
+  }
+  if (EV.type === 'soygun' && (POLICE.includes(ME.job) || myRole() === 'emniyet')) {
+    for (let i = 0; i < 3; i++) if (!(EV.caught && EV.caught[i]) && dist(robberPos(i, t), ME) < 90) L.push({ label: `🚔 Soyguncu ${i + 1}'i yakala (+60 💰)`, cls: 'blue', fn: () => catchRobber(i) });
+  }
+  if (EV.type === 'festival' && nearB(BMAP.belediye, 260)) L.push({ label: '🎉 Festivaldesin! Her 10 sn +3 💰', cls: 'gray' });
+}
+async function hose() {
+  ME.lastHose = now();
+  const r = await runTransaction(ref(db, 'event'), e => { if (!e || e.done || e.type !== 'yangin') return; e.hp = Math.max(0, (e.hp ?? 100) - 5); e.help = e.help || {}; e.help[myId] = ME.name; if (e.hp <= 0) e.done = 1; return e; });
+  if (r.committed) { earn(10); const e = r.snapshot.val(); if (e.done) say(`🚒 Yangın söndürüldü! Kahramanlar: <b>${esc(Object.values(e.help).join(', '))}</b>`, true); }
+}
+async function catchRobber(i) {
+  const r = await runTransaction(ref(db, 'event/caught/' + i), c => c ? undefined : ME.name);
+  if (r.committed) { stat('arrests'); earn(60, '🚔 Soyguncu yakalandı!'); say(`🚔 <b>${esc(ME.name)}</b> bir soyguncuyu yakaladı!`, true);
+    const e = (await get(ref(db, 'event'))).val(); if (e && e.caught && Object.keys(e.caught).length >= 3) { update(ref(db, 'event'), { done: 1 }); say('🚨 Bütün soyguncular yakalandı! Şehir güvende 👮', true); } }
+}
+setInterval(() => { if (ME && EV && EV.type === 'festival' && !EV.done && now() < EV.t0 + 300000 && nearB(BMAP.belediye, 260)) earn(3); }, 10000);
+
+// ================= RANKING =================
+async function rankMenu() {
+  const all = (await get(ref(db, 'players'))).val() || {}, m = MK();
+  const arr = Object.values(all).filter(p => p && p.name);
+  const top = (f, n = 5) => arr.map(p => [p.name, f(p)]).filter(x => x[1] > 0).sort((a, b) => b[1] - a[1]).slice(0, n);
+  const sec = (title, list, unit) => `<h3 style="color:#ffd23f;margin:12px 0 4px">${title}</h3>` + (list.length ? list.map(([n, v], i) => `<div>${['🥇', '🥈', '🥉', '4.', '5.'][i]} ${esc(n)} — <b>${Math.floor(v)}</b> ${unit}</div>`).join('') : '<div style="opacity:.6">Henüz kimse yok</div>');
+  const g = (p, k) => (p.m && p.m[m] && p.m[m][k]) || 0;
+  modal('🏆 Bu ayın yıldızları', [], sec('💰 En zengin', top(p => p.money || 0), '💰') + sec('💼 En çalışkan', top(p => g(p, 'worked')), 'mesai') + sec('🚔 En çok yakalayan', top(p => g(p, 'arrests')), 'yakalama') + sec('🤏 En azılı hırsız', top(p => g(p, 'stolen')), '💰'));
+}
+document.getElementById('bRank').onclick = () => db && rankMenu();
+document.getElementById('bWard').onclick = () => ME && wardrobe(null);
+
+// ================= 3D =================
+let THREE = null, renderer, scene, camera3, sun, hemi, groundMesh, plotGroup, rayc, ndc, tgtMark, winMat, lampMat, fireGroup, robberMeshes = [], confetti;
 let zoom = 1;
-const S3 = 1 / T;                         // world px -> 3D units (1 unit = 1 tile)
-const P3 = (x, y) => [x * S3, y * S3];
-const peopleMesh = {};                   // id -> {g, legs:[], label}
-const plotObjs = {};                     // index -> {key, obj, label}
+const S3 = 1 / T;
+const peopleMesh = {}, plotObjs = {};
 const labelsEl = document.getElementById('labels');
 const matCache = {};
-const mat = (c, o = {}) => { const k = c + JSON.stringify(o); return matCache[k] || (matCache[k] = new THREE.MeshLambertMaterial(Object.assign({ color: c }, o))); };
+const mat = (c) => matCache[c] || (matCache[c] = new THREE.MeshLambertMaterial({ color: c }));
 let boxG;
-function box(w, h, d, color, x, y, z, parent, cast = true) {
-  const m = new THREE.Mesh(boxG, mat(color)); m.scale.set(w, h, d); m.position.set(x, y, z);
-  m.castShadow = cast; m.receiveShadow = true; (parent || scene).add(m); return m;
+function box(w, h, d, color, x, y, z, parent, cast = true, m) {
+  const me = new THREE.Mesh(boxG, m || mat(color)); me.scale.set(w, h, d); me.position.set(x, y, z);
+  me.castShadow = cast; me.receiveShadow = true; (parent || scene).add(me); return me;
 }
 function signTex(text, bg, fg, w = 512, h = 128) {
   const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d');
@@ -269,47 +597,54 @@ function signTex(text, bg, fg, w = 512, h = 128) {
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
 }
 function makeLabel() { const d = document.createElement('div'); d.className = 'lb'; labelsEl.appendChild(d); return d; }
+const _v = () => new THREE.Vector3();
+let PV;
 function placeLabel(el, x, y, z) {
-  const v = new THREE.Vector3(x, y, z).project(camera3);
-  if (v.z > 1 || v.x < -1.3 || v.x > 1.3 || v.y < -1.3 || v.y > 1.3) { el.style.display = 'none'; return; }
-  el.style.display = 'block';
-  const sx = (v.x + 1) / 2 * innerWidth, sy = (1 - v.y) / 2 * innerHeight;
-  el.style.transform = `translate(${sx - el.offsetWidth / 2}px,${sy - el.offsetHeight}px)`;
+  PV.set(x, y, z).project(camera3);
+  if (PV.z > 1 || PV.x < -1.2 || PV.x > 1.2 || PV.y < -1.2 || PV.y > 1.2) { if (el.style.display !== 'none') el.style.display = 'none'; return; }
+  if (el.style.display === 'none') el.style.display = 'block';
+  const sx = (PV.x + 1) / 2 * innerWidth, sy = (1 - PV.y) / 2 * innerHeight;
+  el.style.transform = `translate(${(sx - el.offsetWidth / 2) | 0}px,${(sy - el.offsetHeight) | 0}px)`;
 }
 
 async function init3D() {
   THREE = await import('https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js');
+  PV = new THREE.Vector3();
   boxG = new THREE.BoxGeometry(1, 1, 1);
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1));
   renderer.setSize(innerWidth, innerHeight);
   renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   document.body.insertBefore(renderer.domElement, document.body.firstChild);
-  scene = new THREE.Scene(); scene.background = new THREE.Color('#9fd3ff'); scene.fog = new THREE.Fog('#9fd3ff', 45, 90);
-  camera3 = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.5, 200);
-  scene.add(new THREE.HemisphereLight('#ffffff', '#5a7d4a', 1.1));
+  scene = new THREE.Scene(); scene.background = new THREE.Color('#9fd3ff'); scene.fog = new THREE.Fog('#9fd3ff', 45, 95);
+  camera3 = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.5, 220);
+  hemi = new THREE.HemisphereLight('#ffffff', '#5a7d4a', 1.1); scene.add(hemi);
   sun = new THREE.DirectionalLight('#fff4e0', 1.6); sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048); const sc = sun.shadow.camera; sc.left = -22; sc.right = 22; sc.top = 22; sc.bottom = -22; sc.near = 1; sc.far = 80;
+  sun.shadow.mapSize.set(2048, 2048); const sc = sun.shadow.camera; sc.left = -24; sc.right = 24; sc.top = 24; sc.bottom = -24; sc.near = 1; sc.far = 90;
   sun.shadow.bias = -0.0008; scene.add(sun, sun.target);
   addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight); camera3.aspect = innerWidth / innerHeight; camera3.updateProjectionMatrix(); });
   rayc = new THREE.Raycaster(); ndc = new THREE.Vector2();
+  winMat = new THREE.MeshLambertMaterial({ color: '#6fb6d8', emissive: '#ffd27a', emissiveIntensity: 0 });
+  lampMat = new THREE.MeshLambertMaterial({ color: '#fffbe0', emissive: '#ffe08a', emissiveIntensity: 0 });
 
-  // ground
-  groundMesh = new THREE.Mesh(new THREE.PlaneGeometry(WN + 40, WN + 40), mat('#7cc06a'));
+  groundMesh = new THREE.Mesh(new THREE.PlaneGeometry(WN + 60, WN + 60), mat('#7cc06a'));
   groundMesh.rotation.x = -Math.PI / 2; groundMesh.position.set(WN / 2, 0, WN / 2); groundMesh.receiveShadow = true; scene.add(groundMesh);
-  // roads + sidewalks + dashes
-  const dashes = [];
+  const dashes = [], lamps = [];
   for (let k = 0; k < WN; k += 10) {
     box(WN, 0.04, 1, '#4a4f57', WN / 2, 0.02, k + 0.5, null, false);
     box(1, 0.045, WN, '#4a4f57', k + 0.5, 0.022, WN / 2, null, false);
     for (let i = 0; i < WN; i += 2) { if (i % 10) { dashes.push([i + 0.5, k + 0.5, 0]); dashes.push([k + 0.5, i + 0.5, 1]); } }
+    for (let i = 5; i < WN; i += 10) { lamps.push([i, k + 1.15]); lamps.push([k + 1.15, i]); }
   }
-  const dm = new THREE.InstancedMesh(boxG, mat('#eeeeee'), dashes.length), o = new THREE.Object3D();
+  const o = new THREE.Object3D();
+  const dm = new THREE.InstancedMesh(boxG, mat('#eeeeee'), dashes.length);
   dashes.forEach(([x, z, r], i) => { o.position.set(x, 0.05, z); o.scale.set(r ? 0.08 : 0.6, 0.01, r ? 0.6 : 0.08); o.updateMatrix(); dm.setMatrixAt(i, o.matrix); });
   scene.add(dm);
-  // buildings
+  const pole = new THREE.InstancedMesh(boxG, mat('#3a3f47'), lamps.length), bulb = new THREE.InstancedMesh(boxG, lampMat, lamps.length);
+  lamps.forEach(([x, z], i) => { o.position.set(x, 1.1, z); o.scale.set(0.1, 2.2, 0.1); o.updateMatrix(); pole.setMatrixAt(i, o.matrix); o.position.set(x, 2.25, z); o.scale.set(0.32, 0.18, 0.32); o.updateMatrix(); bulb.setMatrixAt(i, o.matrix); });
+  pole.castShadow = true; scene.add(pole, bulb);
   BUILD.forEach(b => {
-    const cxB = b.x + b.w / 2, czB = b.y + b.h / 2, H = b.id === 'belediye' ? 5 : (b.id === 'hastane' ? 4.5 : 3.4);
+    const cxB = b.x + b.w / 2, czB = b.y + b.h / 2, H = b.H;
     box(b.w - 0.2, H, b.h - 0.2, b.c, cxB, H / 2, czB);
     box(b.w + 0.3, 0.45, b.h + 0.3, b.r, cxB, H + 0.22, czB);
     if (b.id === 'cami') {
@@ -317,38 +652,52 @@ async function init3D() {
       dome.position.set(cxB, H + 0.4, czB); dome.castShadow = true; scene.add(dome);
       box(0.5, 6.5, 0.5, '#ecf0f1', b.x + b.w - 0.6, 3.25, b.y + 0.6);
     }
-    if (b.id === 'belediye') box(0.08, 2, 0.08, '#ccc', cxB, H + 1.4, czB), box(0.9, 0.55, 0.03, '#e30a17', cxB + 0.48, H + 2.1, czB, null, false);
+    if (b.id === 'belediye') { box(0.08, 2, 0.08, '#ccc', cxB, H + 1.4, czB); box(0.9, 0.55, 0.03, '#e30a17', cxB + 0.48, H + 2.1, czB, null, false); }
+    if (b.id === 'adalet') for (let i = 0; i < 5; i++) box(0.35, H - 0.6, 0.35, '#f5f0e6', b.x + 0.8 + i * 1.1, (H - 0.6) / 2, b.y + b.h + 0.15);
     const fz = b.y + b.h - 0.08;
     for (let i = 0; i < 4; i++) for (let j = 0; j < Math.floor(H / 1.3); j++) {
       if (j === 0 && (i === 1 || i === 2)) continue;
-      box(0.75, 0.7, 0.06, '#6fb6d8', b.x + 0.9 + i * ((b.w - 1.8) / 3), H - 0.9 - j * 1.25, fz + 0.02, null, false);
+      box(0.75, 0.7, 0.06, '', b.x + 0.9 + i * ((b.w - 1.8) / 3), H - 0.9 - j * 1.25, fz + 0.02, null, false, winMat);
     }
     box(1.3, 1.9, 0.08, '#5a3d2b', cxB, 0.95, fz + 0.03, null, false);
-    box(b.w + 0.2, 0.25, 1.2, b.r, cxB, 2.15, fz + 0.5, null, true);
+    if (b.id !== 'adalet') box(b.w + 0.2, 0.25, 1.2, b.r, cxB, 2.15, fz + 0.5, null, true);
     const sign = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 1.05), new THREE.MeshBasicMaterial({ map: signTex(b.n, '#ffffff', '#111111') }));
-    sign.position.set(cxB, H - 0.3, fz + 0.09); scene.add(sign);
+    sign.position.set(cxB, H - 0.3, fz + (b.id === 'adalet' ? 0.5 : 0.09)); scene.add(sign);
   });
-  // trees (instanced)
+  box(1.2, 1.4, 0.15, '#7f8c8d', JAIL_SPOT.x * S3, 0.7, JAIL_SPOT.y * S3 + 0.8);
   const trees = [];
   for (let gy = 0; gy < WN; gy++) for (let gx = 0; gx < WN; gx++) {
-    if (isRoad(gx, gy) || (gx * 7 + gy * 13) % 11) continue;
+    if (isRoad(gx, gy) || (gx * 7 + gy * 13) % 11 || ((gx % 10) === 1 && (gy % 10) === 5) || ((gy % 10) === 1 && (gx % 10) === 5)) continue;
     if (BUILD.some(b => gx >= b.x - 1 && gx <= b.x + b.w && gy >= b.y - 1 && gy <= b.y + b.h + 1)) continue;
     if (PLOTS.some(p => gx >= p.x - 1 && gx <= p.x + p.w && gy >= p.y - 1 && gy <= p.y + p.h)) continue;
     trees.push([gx + 0.5, gy + 0.5]);
   }
   const trunk = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.12, 0.15, 1, 6), mat('#6b4423'), trees.length);
   const crown = new THREE.InstancedMesh(new THREE.ConeGeometry(0.75, 1.9, 7), mat('#2e7d32'), trees.length);
-  trees.forEach(([x, z], i) => {
-    o.position.set(x, 0.5, z); o.scale.set(1, 1, 1); o.updateMatrix(); trunk.setMatrixAt(i, o.matrix);
-    o.position.set(x, 1.85, z); o.updateMatrix(); crown.setMatrixAt(i, o.matrix);
-  });
+  trees.forEach(([x, z], i) => { o.position.set(x, 0.5, z); o.scale.set(1, 1, 1); o.updateMatrix(); trunk.setMatrixAt(i, o.matrix); o.position.set(x, 1.85, z); o.updateMatrix(); crown.setMatrixAt(i, o.matrix); });
   trunk.castShadow = crown.castShadow = true; scene.add(trunk, crown);
   plotGroup = new THREE.Group(); scene.add(plotGroup);
+  fireGroup = new THREE.Group(); scene.add(fireGroup);
+  for (let i = 0; i < 14; i++) { const f = box(0.5, 1, 0.5, '', 0, 0, 0, fireGroup, false, new THREE.MeshBasicMaterial({ color: i % 2 ? '#ff9f1a' : '#ffd23f' })); }
+  for (let i = 0; i < 8; i++) box(1, 1, 1, i % 2 ? '#555' : '#777', 0, 0, 0, fireGroup, false);
+  fireGroup.visible = false;
+  for (let i = 0; i < 3; i++) { const m = personMesh('#111111', true); m.g.visible = false; robberMeshes.push(m); }
+  confetti = new THREE.InstancedMesh(boxG, new THREE.MeshBasicMaterial({ vertexColors: false, color: '#ffffff' }), 160);
+  const cc = ['#e74c3c', '#f1c40f', '#2ecc71', '#3498db', '#ff6fb5', '#9b59b6'];
+  for (let i = 0; i < 160; i++) confetti.setColorAt(i, new THREE.Color(cc[i % cc.length]));
+  confetti.visible = false; scene.add(confetti);
   refreshPlots();
 
-  // tap to walk
-  renderer.domElement.addEventListener('pointerdown', e => {
-    if (!ME) return; msgIn.blur();
+  let down = null;
+  renderer.domElement.addEventListener('pointerdown', e => { down = { x: e.clientX, y: e.clientY, cx: adm.cx, cz: adm.cz }; });
+  renderer.domElement.addEventListener('pointermove', e => {
+    if (!ADMIN || !down || !(e.buttons || e.pointerType === 'touch')) return;
+    const k = 0.045 * zoom; adm.cx = down.cx - (e.clientX - down.x) * k; adm.cz = down.cz - (e.clientY - down.y) * k; adm.follow = null;
+  });
+  renderer.domElement.addEventListener('pointerup', e => {
+    const moved = down && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 8; down = null;
+    if (ADMIN || moved || !ME || ME.jail > now() || ME.ride) return;
+    msgIn.blur();
     ndc.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
     rayc.setFromCamera(ndc, camera3);
     const hit = rayc.intersectObject(groundMesh)[0]; if (!hit) return;
@@ -357,11 +706,11 @@ async function init3D() {
   });
   tgtMark = new THREE.Mesh(new THREE.RingGeometry(0.25, 0.38, 24), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: .85 }));
   tgtMark.rotation.x = -Math.PI / 2; tgtMark.visible = false; scene.add(tgtMark);
-  document.getElementById('zin').onclick = () => zoom = Math.max(0.55, zoom - 0.15);
-  document.getElementById('zout').onclick = () => zoom = Math.min(1.8, zoom + 0.15);
+  document.getElementById('zin').onclick = () => zoom = Math.max(0.5, zoom - 0.15);
+  document.getElementById('zout').onclick = () => zoom = Math.min(ADMIN ? 4 : 1.8, zoom + 0.15);
   requestAnimationFrame(frame);
 }
-let tgtMark;
+const tgtHide = () => tgtMark && (tgtMark.visible = false);
 
 const SATILIK_TEX = () => SATILIK_TEX.t || (SATILIK_TEX.t = (() => {
   const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d');
@@ -371,97 +720,221 @@ const SATILIK_TEX = () => SATILIK_TEX.t || (SATILIK_TEX.t = (() => {
 })());
 function refreshPlots() {
   if (!THREE) return;
-  PLOTS.forEach((p, i) => {
-    const own = plots[i]; const key = own ? own.id + own.color + own.name : '-';
-    const cur = plotObjs[i]; if (cur && cur.key === key) return;
+  PLOTS.forEach(p => {
+    const own = plots[p.k]; const key = own ? JSON.stringify(own) : '-';
+    const cur = plotObjs[p.k]; if (cur && cur.key === key) return;
     if (cur) { plotGroup.remove(cur.obj); if (cur.label) cur.label.remove(); }
     const g = new THREE.Group(); const cxP = p.x + p.w / 2, czP = p.y + p.h / 2; let label = null;
     if (!own) {
       const m = new THREE.Mesh(new THREE.PlaneGeometry(p.w, p.h), new THREE.MeshLambertMaterial({ map: SATILIK_TEX() }));
       m.rotation.x = -Math.PI / 2; m.position.set(cxP, 0.03, czP); m.receiveShadow = true; g.add(m);
-    } else {
+    } else if (own.type === 'ev') {
       box(p.w, 0.06, p.h, '#a8d88f', cxP, 0.03, czP, g, false);
       box(2.4, 1.7, 2.0, '#fbf6ec', cxP, 0.85, czP - 0.1, g);
       const roof = new THREE.Mesh(new THREE.ConeGeometry(1.9, 1.2, 4), mat(own.color || '#c0392b'));
       roof.rotation.y = Math.PI / 4; roof.position.set(cxP, 2.3, czP - 0.1); roof.castShadow = true; g.add(roof);
       box(0.5, 0.9, 0.05, '#5a3d2b', cxP, 0.45, czP + 0.92, g, false);
-      box(0.5, 0.45, 0.05, '#6fb6d8', cxP - 0.75, 1.0, czP + 0.92, g, false);
-      box(0.5, 0.45, 0.05, '#6fb6d8', cxP + 0.75, 1.0, czP + 0.92, g, false);
-      label = makeLabel(); label.innerHTML = `<span class="nm${own.id === myId ? ' me' : ''}">🏡 ${esc(own.name)}</span>`;
-      label._p = [cxP, 3.3, czP];
+      box(0.5, 0.45, 0.05, '', cxP - 0.75, 1.0, czP + 0.92, g, false, winMat); box(0.5, 0.45, 0.05, '', cxP + 0.75, 1.0, czP + 0.92, g, false, winMat);
+      label = makeLabel(); label.innerHTML = `<span class="nm${own.id === myId ? ' me' : ''}">🏡 ${esc(own.name)}</span>`; label._p = [cxP, 3.3, czP];
+    } else {
+      box(p.w, 0.06, p.h, '#c9c9c9', cxP, 0.03, czP, g, false);
+      box(2.7, 2.0, 2.2, '#fbf6ec', cxP, 1.0, czP - 0.15, g);
+      box(2.9, 0.25, 2.4, own.color || '#2e86de', cxP, 2.12, czP - 0.15, g);
+      box(2.8, 0.12, 0.8, own.color || '#2e86de', cxP, 1.55, czP + 1.25, g);
+      box(1.6, 0.9, 0.05, '', cxP, 0.85, czP + 0.96, g, false, winMat);
+      const s = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 0.55), new THREE.MeshBasicMaterial({ map: signTex(own.shop || 'Dükkan', '#ffffff', '#111') }));
+      s.position.set(cxP, 1.9, czP + 0.97); g.add(s);
+      label = makeLabel(); label.innerHTML = `<span class="nm${own.id === myId ? ' me' : ''}">${SHOPTYPES[own.shopType] || '🏪'} ${esc(own.shop)} • ${esc(own.name)}</span>`; label._p = [cxP, 3.1, czP];
     }
-    plotGroup.add(g); plotObjs[i] = { key, obj: g, label };
+    plotGroup.add(g); plotObjs[p.k] = { key, obj: g, label };
   });
 }
-
-function personMesh(color) {
+function personMesh(color, robber) {
   const g = new THREE.Group();
   const legL = box(0.22, 0.6, 0.24, '#2c3e50', -0.14, 0.3, 0, g), legR = box(0.22, 0.6, 0.24, '#2c3e50', 0.14, 0.3, 0, g);
   box(0.62, 0.7, 0.36, color, 0, 0.95, 0, g);
   const armL = box(0.16, 0.6, 0.2, color, -0.4, 0.95, 0, g), armR = box(0.16, 0.6, 0.2, color, 0.4, 0.95, 0, g);
   box(0.46, 0.46, 0.44, '#f2c9a0', 0, 1.55, 0, g);
-  box(0.5, 0.16, 0.48, '#3b2a1e', 0, 1.82, -0.02, g);
-  box(0.08, 0.08, 0.02, '#222', -0.1, 1.58, 0.225, g, false); box(0.08, 0.08, 0.02, '#222', 0.1, 1.58, 0.225, g, false);
-  scene.add(g); return { g, legL, legR, armL, armR, color };
+  box(0.5, 0.16, 0.48, robber ? '#111' : '#3b2a1e', 0, 1.82, -0.02, g);
+  if (robber) box(0.48, 0.14, 0.46, '#111', 0, 1.6, 0.01, g, false); else { box(0.08, 0.08, 0.02, '#222', -0.1, 1.58, 0.225, g, false); box(0.08, 0.08, 0.02, '#222', 0.1, 1.58, 0.225, g, false); }
+  const acc = new THREE.Group(); g.add(acc);
+  scene.add(g); return { g, legL, legR, armL, armR, acc, color, wearKey: '' };
+}
+function carMesh(color) {
+  const g = new THREE.Group();
+  box(1.0, 0.45, 1.9, color, 0, 0.42, 0, g); box(0.85, 0.35, 1.0, color, 0, 0.82, -0.1, g); box(0.86, 0.3, 0.95, '', 0, 0.82, -0.1, g, false, winMat);
+  box(0.4, 0.15, 0.25, '#ffffff', 0, 1.06, -0.1, g, false);
+  for (const sx of [-0.5, 0.5]) for (const sz of [-0.6, 0.6]) box(0.16, 0.32, 0.32, '#111', sx, 0.18, sz, g, false);
+  return g;
+}
+function buildAcc(m, wear) {
+  while (m.acc.children.length) m.acc.remove(m.acc.children[0]);
+  const h = wear && wear.h, e = wear && wear.e, a = m.acc;
+  if (h === 'sapka') { box(0.62, 0.06, 0.62, '#2c3e50', 0, 1.9, 0, a); box(0.42, 0.28, 0.42, '#2c3e50', 0, 2.05, 0, a); }
+  if (h === 'kep') { box(0.5, 0.16, 0.5, '#e74c3c', 0, 1.92, 0, a); box(0.4, 0.04, 0.3, '#e74c3c', 0, 1.86, 0.3, a); }
+  if (h === 'fiyonk') { box(0.18, 0.14, 0.1, '#ff6fb5', -0.13, 1.95, 0.05, a); box(0.18, 0.14, 0.1, '#ff6fb5', 0.13, 1.95, 0.05, a); box(0.08, 0.08, 0.1, '#d63384', 0, 1.95, 0.05, a); }
+  if (h === 'kovboy') { box(0.8, 0.05, 0.8, '#8b5a2b', 0, 1.9, 0, a); box(0.44, 0.26, 0.44, '#8b5a2b', 0, 2.04, 0, a); }
+  if (h === 'tac') { box(0.5, 0.14, 0.5, '#f1c40f', 0, 1.97, 0, a); for (let i = 0; i < 4; i++) box(0.1, 0.16, 0.1, '#f1c40f', -0.18 + i * 0.12, 2.1, 0.22, a, false); box(0.08, 0.08, 0.04, '#e74c3c', 0, 2.0, 0.26, a, false); }
+  if (e === 'gozluk') { box(0.44, 0.1, 0.04, '#111', 0, 1.6, 0.235, a, false); }
 }
 function syncPerson(id, p, me, t) {
   let m = peopleMesh[id];
-  if (!m || m.color !== p.color) {
-    if (m) { scene.remove(m.g); m.label.remove(); }
-    m = peopleMesh[id] = personMesh(p.color || '#888'); m.label = makeLabel();
+  const isTaxi = p.job === 'Taksici';
+  if (!m || m.color !== p.color || m.taxi !== isTaxi) {
+    if (m) { scene.remove(m.g); if (m.car) scene.remove(m.car); m.label.remove(); }
+    m = peopleMesh[id] = personMesh(p.color || '#888'); m.label = makeLabel(); m.taxi = isTaxi;
+    if (isTaxi) { m.car = carMesh('#f5c518'); scene.add(m.car); }
   }
-  const [x, z] = P3(p.x, p.y);
-  if (p._px !== undefined) { const dx = x - p._px, dz = z - p._pz; if (Math.abs(dx) + Math.abs(dz) > 0.003) m.g.rotation.y = Math.atan2(dx, dz); }
-  p._px = x; p._pz = z;
-  m.g.position.set(x, 0, z);
+  const wk = JSON.stringify(p.wear || {}); if (wk !== m.wearKey) { m.wearKey = wk; buildAcc(m, p.wear); }
+  const [x, z] = [p.x * S3, p.y * S3];
+  if (m.px !== undefined) { const dx = x - m.px, dz = z - m.pz; if (Math.abs(dx) + Math.abs(dz) > 0.003) m.ry = Math.atan2(dx, dz); }
+  m.px = x; m.pz = z;
+  const riding = p.ride && (others[p.ride] || (p.ride === myId));
+  m.g.visible = !riding; if (m.car) { m.car.visible = true; m.car.position.set(x, 0, z); if (m.ry !== undefined) m.car.rotation.y = m.ry; m.g.visible = false; }
+  m.g.position.set(x, 0, z); if (m.ry !== undefined) m.g.rotation.y = m.ry;
   const sw = p._mv ? Math.sin(t / 110) * 0.6 : 0;
   m.legL.rotation.x = sw; m.legR.rotation.x = -sw; m.armL.rotation.x = -sw * 0.8; m.armR.rotation.x = sw * 0.8;
   m.g.position.y = p._mv ? Math.abs(Math.sin(t / 110)) * 0.06 : 0;
+  const r = me ? myRole() : roleOf(id), wanted = p.wanted > now(), jailed = p.jail > now();
+  const cls = jailed ? 'jail' : wanted ? 'bad' : r ? 'role' : me ? 'me' : '';
+  const tag = jailed ? '⛓ ' : wanted ? '🚨 ' : r ? '👑 ' : me ? '⭐ ' : '';
   const bub = p.msg && performance.now() - (p.msgAt || 0) < 6000 ? `<div class="bb">${esc(p.msg)}</div>` : '';
-  const html = `${bub}<div style="text-align:center"><span class="nm${me ? ' me' : ''}">${me ? '⭐ ' : ''}${esc(p.name || '')}</span></div><div class="jb">${esc(p.job || '')}</div>`;
+  const html = riding ? '' : `${bub}<div style="text-align:center"><span class="nm ${cls}">${tag}${esc(p.name || '')}</span></div><div class="jb">${esc(r ? ROLES[r].n : (p.job || ''))}${wanted ? ' • ARANIYOR' : ''}</div>`;
   if (m.label._h !== html) { m.label.innerHTML = html; m.label._h = html; }
-  placeLabel(m.label, x, 2.2, z);
+  if (html) placeLabel(m.label, x, isTaxi ? 1.9 : 2.2, z); else m.label.style.display = 'none';
   m.seen = true;
 }
+function renderEvent(t) {
+  const active = EV && !EV.done && now() < EV.t0 + 300000;
+  fireGroup.visible = !!(active && EV.type === 'yangin');
+  if (fireGroup.visible) {
+    const b = BMAP[EV.b], cx0 = b.x + b.w / 2, cz0 = b.y + b.h / 2, k = Math.max(0.25, (EV.hp ?? 100) / 100);
+    fireGroup.children.forEach((c, i) => {
+      if (i < 14) { const h = (0.8 + Math.abs(Math.sin(t / 150 + i * 1.7)) * 2.2) * k; c.scale.set(0.6, h, 0.6); c.position.set(cx0 - 2.2 + (i % 7) * 0.75, b.H + 0.4 + h / 2, cz0 - 1.5 + Math.floor(i / 7) * 3); }
+      else { const ph = ((t / 2600) + (i - 14) / 8) % 1, s = 0.6 + ph * 1.8; c.scale.set(s, s, s); c.position.set(cx0 + Math.sin(i * 2.1) * ph * 2, b.H + 2 + ph * 9, cz0 + Math.cos(i) * ph); }
+    });
+  }
+  robberMeshes.forEach((m, i) => {
+    const on = !!(active && EV.type === 'soygun' && !(EV.caught && EV.caught[i]));
+    m.g.visible = on; if (!m.label) m.label = makeLabel();
+    if (!on) { m.label.style.display = 'none'; return; }
+    const p = robberPos(i, now()), p2 = robberPos(i, now() + 100), x = p.x * S3, z = p.y * S3;
+    m.g.position.set(x, Math.abs(Math.sin(t / 90)) * 0.08, z); m.g.rotation.y = Math.atan2(p2.x - p.x, p2.y - p.y);
+    const sw = Math.sin(t / 90) * 0.7; m.legL.rotation.x = sw; m.legR.rotation.x = -sw;
+    if (!m.label._h) { m.label.innerHTML = '<span class="nm bad">💰 SOYGUNCU</span>'; m.label._h = 1; } placeLabel(m.label, x, 2.2, z);
+  });
+  confetti.visible = !!(active && EV.type === 'festival');
+  if (confetti.visible) {
+    const b = BMAP.belediye, o = new THREE.Object3D();
+    for (let i = 0; i < 160; i++) { const ph = ((t / 4000) + i * 0.137) % 1; o.position.set(b.x + 3 + Math.sin(i * 12.9) * 6, 9 - ph * 9, b.y + 9 + Math.cos(i * 7.3) * 4); o.rotation.set(t / 300 + i, t / 400, 0); o.scale.set(0.18, 0.04, 0.12); o.updateMatrix(); confetti.setMatrixAt(i, o.matrix); }
+    confetti.instanceMatrix.needsUpdate = true;
+  }
+}
 
-// ---------- loop
-let prev = performance.now();
+// ================= LOOP =================
+const adm = { cx: WN / 2, cz: WN / 2, follow: null };
+let prev = performance.now(), lastActs = 0;
+let NIGHTC;
 function frame(t) {
   const dt = Math.min(50, t - prev); prev = t;
   let fx = WN / 2, fz = WN / 2;
   if (ME) {
     ME._mv = false;
-    if (target) {
-      const dx = target.x - ME.x, dy = target.y - ME.y, d = Math.hypot(dx, dy), sp = 0.16 * dt;
-      if (d < 3) { target = null; tgtMark.visible = false; }
+    if (ME.jail > now()) { target = null; }
+    if (ME.ride && others[ME.ride] && others[ME.ride].hasPos) { const d = others[ME.ride]; ME.x = d.x; ME.y = d.y; ME._mv = true; sendPos(); }
+    else if (target && !task) {
+      const sp = (ME.job === 'Taksici' ? 0.3 : 0.16) * dt;
+      const dx = target.x - ME.x, dy = target.y - ME.y, d = Math.hypot(dx, dy);
+      if (d < 3) { target = null; tgtHide(); sendPos(true); }
       else {
         const nx = ME.x + dx / d * Math.min(sp, d), ny = ME.y + dy / d * Math.min(sp, d);
         if (!blocked(nx, ny)) { ME.x = nx; ME.y = ny; ME._mv = true; sendPos(); }
         else if (!blocked(nx, ME.y)) { ME.x = nx; ME._mv = true; sendPos(); }
         else if (!blocked(ME.x, ny)) { ME.y = ny; ME._mv = true; sendPos(); }
-        else { target = null; tgtMark.visible = false; }
-        if (!target) sendPos(true);
+        else { target = null; tgtHide(); sendPos(true); }
       }
     }
     cam.x += (ME.x - cam.x) * 0.1; cam.y += (ME.y - cam.y) * 0.1;
     fx = cam.x * S3; fz = cam.y * S3;
-    for (const id in others) { const o = others[id]; const ox = o.x, oy = o.y; o.x += (o.tx - o.x) * 0.18; o.y += (o.ty - o.y) * 0.18; o._mv = Math.hypot(o.x - ox, o.y - oy) > 0.3; }
-    updateAction();
+    if (t - lastActs > 200) { lastActs = t; setActs(computeActs()); }
+  } else if (ADMIN && adminOk) {
+    if (adm.follow && others[adm.follow] && others[adm.follow].hasPos) { const o = others[adm.follow]; adm.cx += (o.x * S3 - adm.cx) * 0.1; adm.cz += (o.y * S3 - adm.cz) * 0.1; }
+    fx = adm.cx; fz = adm.cz;
   } else { const a = t / 9000; fx = WN / 2 + Math.sin(a) * 8; fz = WN / 2 + Math.cos(a) * 8; }
-  // camera: angled like the videos
-  const dist = 15 * zoom; camera3.position.set(fx, dist * 1.05, fz + dist * 0.95); camera3.lookAt(fx, 0.8, fz);
+  for (const id in others) { const o = others[id]; if (!o.hasPos) continue; const ox = o.x, oy = o.y; o.x += (o.tx - o.x) * 0.18; o.y += (o.ty - o.y) * 0.18; o._mv = Math.hypot(o.x - ox, o.y - oy) > 0.3; }
+  const dist3 = 15 * zoom; camera3.position.set(fx, dist3 * 1.05, fz + dist3 * 0.95); camera3.lookAt(fx, 0.8, fz);
   sun.position.set(fx + 12, 25, fz + 8); sun.target.position.set(fx, 0, fz);
+  // day / night
+  const nk = nightK();
+  hemi.intensity = 1.1 - nk * 0.75; sun.intensity = 1.6 - nk * 1.45;
+  scene.background.set('#9fd3ff').lerp(NIGHTC || (NIGHTC = new THREE.Color('#0b1530')), nk); scene.fog.color.copy(scene.background);
+  winMat.emissiveIntensity = nk * 0.9; lampMat.emissiveIntensity = nk * 1.5;
   // people
   for (const id in peopleMesh) peopleMesh[id].seen = false;
   if (ME) syncPerson(myId, ME, true, t);
-  for (const id in others) syncPerson(id, others[id], false, t);
-  for (const id in peopleMesh) if (!peopleMesh[id].seen) { scene.remove(peopleMesh[id].g); peopleMesh[id].label.remove(); delete peopleMesh[id]; }
-  for (const i in plotObjs) { const L = plotObjs[i].label; if (L) placeLabel(L, ...L._p); }
+  for (const id in others) if (others[id].hasPos && others[id].name) syncPerson(id, others[id], false, t);
+  for (const id in peopleMesh) if (!peopleMesh[id].seen) { scene.remove(peopleMesh[id].g); if (peopleMesh[id].car) scene.remove(peopleMesh[id].car); peopleMesh[id].label.remove(); delete peopleMesh[id]; }
+  for (const k in plotObjs) { const L = plotObjs[k].label; if (L) placeLabel(L, ...L._p); }
+  renderEvent(t);
   renderer.render(scene, camera3);
   requestAnimationFrame(frame);
 }
-init3D().catch(e => { document.getElementById('err').textContent = '3D yüklenemedi: ' + e.message; });
 
+// ================= ADMIN (komsukent.github.io/#yonetim) =================
+let adminOk = false;
+async function sha(s) { const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)); return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join(''); }
+function adminLogin() {
+  document.getElementById('login').innerHTML = `<h1>YÖNETİM</h1><p style="text-align:center">Kuş bakışı şehir paneli</p><label>Şifre</label><input id="apw" type="password" autocomplete="current-password"><button id="go">Giriş</button><div id="err"></div>`;
+  document.getElementById('go').onclick = async () => {
+    const e = document.getElementById('err');
+    if (await sha(document.getElementById('apw').value) !== ADMIN_HASH) { e.textContent = 'Şifre yanlış'; return; }
+    e.textContent = 'Bağlanılıyor…';
+    try { await fbReady; } catch (x) { e.textContent = 'Bağlanamadı'; return; }
+    adminOk = true; document.getElementById('panel').style.display = 'none';
+    ['hud', 'bottom', 'acts'].forEach(i => document.getElementById(i).style.display = 'none');
+    document.getElementById('clock').style.display = '';
+    document.getElementById('adminToggle').style.display = 'block';
+    listenCommon();
+    const all = {}; for (let a = 0; a < 6; a++) for (let b = 0; b < 6; b++) all[a + '_' + b] = 1; syncZoneSubs(all);
+    zoom = 1.8; adminUI(); setInterval(adminUI, 3000);
+  };
+}
+const adminEl = document.getElementById('admin');
+document.getElementById('adminToggle').onclick = () => { adminEl.style.display = adminEl.style.display === 'block' ? 'none' : 'block'; adminUI(); };
+function adminUI() {
+  if (adminEl.style.display !== 'block') return;
+  if (document.activeElement && adminEl.contains(document.activeElement) && document.activeElement.tagName !== 'BUTTON') return;
+  const t = now(), list = Object.entries(others).filter(([id, o]) => o.name && o.hasPos);
+  const evOn = EV && !EV.done && t < EV.t0 + 300000;
+  adminEl.innerHTML = `
+  <h3>🎬 Kayıt</h3><button id="aRec">Kayıt modu (arayüzü gizle)</button>
+  <h3>🔥 Olaylar ${evOn ? '— ' + EV_NAMES[EV.type] + ' sürüyor' : ''}</h3>
+  <select id="aB">${BUILD.map(b => `<option value="${b.id}">${b.n}</option>`).join('')}</select>
+  <button data-ev="yangin">🔥 Yangın çıkar</button><button data-ev="soygun">🚨 Soygun başlat</button><button data-ev="festival">🎉 Festival başlat</button>
+  <button id="aEvEnd" style="background:#c0392b">⏹ Olayı bitir</button>
+  <h3>📢 Duyuru</h3><input id="aAnn" maxlength="80" placeholder="Duyuru yaz"><button id="aAnnB">Gönder</button>
+  <h3>🗳 Seçimler</h3>
+  ${Object.keys(ROLES).map(r => { const e = elections[r], h = roles[r]; return `<div style="font-size:13px;margin:6px 0"><b>${ROLES[r].n}</b>: ${h && h.until > t ? '👑 ' + esc(h.name) : 'boş'}${e ? ` • seçim ${Math.max(0, Math.ceil((e.ends - t) / 60000))} dk (${Object.values(e.cands || {}).map(c => esc(c.name) + ' ' + (c.votes || 0)).join(', ') || 'aday yok'})` : ''}</div>
+    <div class="row"><button data-el="${r}" data-min="10">Seçim 10 dk</button><button data-el="${r}" data-min="60">60 dk</button>${e ? `<button data-end="${r}" style="background:#c0392b">Bitir</button>` : ''}${h ? `<button data-rm="${r}" style="background:#7f8c8d">Görevden al</button>` : ''}</div>`; }).join('')}
+  <h3>👀 Oyuncular (${list.length})</h3><button data-f="">Serbest kamera</button>
+  ${list.map(([id, o]) => `<button class="pl" data-f="${id}">${esc(o.name)} • ${esc(o.job)}${o.wanted > t ? ' 🚨' : ''}${o.jail > t ? ' ⛓' : ''}</button>`).join('')}`;
+  adminEl.querySelector('#aRec').onclick = () => { document.body.classList.toggle('rec'); adminEl.style.display = 'none'; };
+  adminEl.querySelectorAll('[data-ev]').forEach(b => b.onclick = () => {
+    const ty = b.dataset.ev, bid = ty === 'festival' ? 'belediye' : adminEl.querySelector('#aB').value;
+    set(ref(db, 'event'), { type: ty, b: bid, t0: now(), hp: 100, done: 0 });
+    push(ref(db, 'log'), { h: `${EV_NAMES[ty]}: <b>${BMAP[bid].n}</b>! ${ty === 'yangin' ? 'İtfaiye nerede?!' : ty === 'soygun' ? 'Polisler göreve!' : 'Herkes belediye meydanına!'}`, t: serverTimestamp() });
+  });
+  adminEl.querySelector('#aEvEnd').onclick = () => update(ref(db, 'event'), { done: 1 });
+  adminEl.querySelector('#aAnnB').onclick = () => { const v = adminEl.querySelector('#aAnn').value.trim(); if (v) set(ref(db, 'announce'), { text: v, by: 'Komşukent Belediyesi', t: now() }); };
+  adminEl.querySelectorAll('[data-el]').forEach(b => b.onclick = () => { set(ref(db, 'elections/' + b.dataset.el), { ends: now() + b.dataset.min * 60000, cands: {} }); push(ref(db, 'log'), { h: `🗳 <b>${ROLES[b.dataset.el].n}</b> seçimi başladı! Adaylar belediyeye 🏛`, t: serverTimestamp() }); });
+  adminEl.querySelectorAll('[data-end]').forEach(b => b.onclick = () => update(ref(db, 'elections/' + b.dataset.end), { ends: now() - 1 }));
+  adminEl.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => remove(ref(db, 'roles/' + b.dataset.rm)));
+  adminEl.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { adm.follow = b.dataset.f || null; if (adm.follow) zoom = 0.9; });
+}
+setInterval(() => { if (ADMIN && adminOk) electionTick(); }, 10000);
+if (ADMIN) adminLogin();
+
+init3D().catch(e => { const el = document.getElementById('err'); if (el) el.textContent = '3D yüklenemedi: ' + e.message; });
 </script>
 </body>
 </html>
