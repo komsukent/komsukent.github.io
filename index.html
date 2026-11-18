@@ -17,6 +17,7 @@ canvas{display:block;touch-action:none;position:fixed;inset:0}
 .lb{position:absolute;left:0;top:0;white-space:nowrap;will-change:transform}
 .nm{background:rgba(255,255,255,.93);color:#1a1a1a;font:700 12px system-ui;padding:3px 8px;border-radius:10px;display:inline-block}
 .nm.me{background:#ffd23f}.nm.role{background:#8e44ad;color:#fff}.nm.bad{background:#e74c3c;color:#fff}.nm.jail{background:#555;color:#fff}
+.nm{pointer-events:auto;cursor:pointer}
 .jb{font:600 10px system-ui;color:#fff;text-shadow:0 1px 2px #000;text-align:center}
 .bb{background:#fff;color:#222;font:600 13px system-ui;padding:5px 9px;border-radius:10px;max-width:200px;overflow:hidden;text-overflow:ellipsis;margin:0 auto 4px;text-align:center;width:max-content}
 .ui{position:fixed;z-index:3}
@@ -26,7 +27,8 @@ canvas{display:block;touch-action:none;position:fixed;inset:0}
 #side{right:max(8px,env(safe-area-inset-right));top:max(8px,env(safe-area-inset-top));display:flex;flex-direction:column;gap:6px}
 #side button{width:42px;height:42px;padding:0;border-radius:50%;background:rgba(15,25,45,.85);font-size:19px}
 #bottom{left:0;right:0;bottom:0;padding:10px;padding-bottom:max(10px,env(safe-area-inset-bottom));display:none;pointer-events:none;z-index:6}
-#bottom.open{display:flex}
+#bottom.open{display:flex;flex-direction:column;gap:7px}
+#bottom.open ~ #log,.chatopen #log{display:none}
 #log{position:fixed;z-index:2;left:max(10px,env(safe-area-inset-left));top:calc(max(8px,env(safe-area-inset-top)) + 70px);max-width:min(60vw,420px);font-size:12px;line-height:1.35;text-shadow:0 1px 2px #000,0 0 6px rgba(0,0,0,.6);pointer-events:none}
 #log b{color:#ffd23f}
 #bar{display:flex;gap:8px;pointer-events:auto}
@@ -53,6 +55,16 @@ button:disabled{opacity:.45}
 #cols{display:flex;gap:8px;flex-wrap:wrap}
 .sw{width:34px;height:34px;border-radius:50%;border:3px solid transparent;cursor:pointer}.sw.on{border-color:#fff}
 #go{width:100%;margin-top:18px;font-size:18px;padding:14px}
+.lg{width:100%;margin-top:10px;font-size:17px;padding:13px}
+#igWarn{display:none;background:#5d2a00;color:#ffd9a8;border-radius:12px;padding:10px;font-size:13px;margin-top:10px;text-align:center}
+.fl{animation:flout 1.2s ease 7s forwards}
+@keyframes flout{to{opacity:0;transform:translateY(-6px)}}
+#chatList{max-height:calc(7 * 1.45em + 16px);overflow-y:auto;background:rgba(10,18,35,.82);border-radius:14px;padding:8px 11px;font-size:13px;line-height:1.45em;pointer-events:auto;-webkit-overflow-scrolling:touch}
+#chatList div{word-break:break-word}
+.k-sys{color:#ffd23f}.k-ann{color:#d6a5ff;font-weight:700}.k-mod{color:#ff8a8a}.k-chat{color:#fff}
+#emo{display:flex;gap:6px;pointer-events:auto}#emo button{flex:1;padding:7px 0;font-size:20px;background:rgba(15,25,45,.85);border-radius:14px}
+.badge{position:absolute;top:-4px;right:-4px;background:#e74c3c;color:#fff;font-size:11px;min-width:18px;height:18px;border-radius:9px;line-height:18px;display:none}
+#side button{position:relative}
 #err{color:#ff8a8a;text-align:center;font-size:13px;min-height:18px;margin-top:8px}
 #toast{top:96px;left:50%;transform:translateX(-50%);background:rgba(15,25,45,.94);padding:9px 16px;border-radius:18px;font-weight:700;font-size:14px;display:none;text-align:center;max-width:90vw}
 #ann{top:140px;left:50%;transform:translateX(-50%);background:#8e44ad;padding:12px 18px;border-radius:16px;font-weight:800;font-size:16px;display:none;text-align:center;max-width:92vw;box-shadow:0 6px 20px rgba(0,0,0,.4)}
@@ -68,13 +80,13 @@ button:disabled{opacity:.45}
 <body>
 <div id="labels"></div>
 <div id="hud" class="ui"><span class="pill" id="me">…</span><span class="pill" id="money">💰 0</span><span class="pill" id="energy">⚡ 100</span><span class="pill" id="clock">🕐</span><span class="pill" id="online">🟢 0</span></div>
-<div id="side" class="ui"><button id="bFull">⛶</button><button id="zin">＋</button><button id="zout">－</button><button id="bChat">💬</button><button id="bRank">🏆</button><button id="bWard">👕</button></div>
+<div id="side" class="ui"><button id="bFull">⛶</button><button id="zin">＋</button><button id="zout">－</button><button id="bChat">💬<span class="badge" id="badge"></span></button><button id="bRank">🏆</button><button id="bWard">👕</button></div>
 <div id="joy"><i></i></div><div id="joyHint" class="ui">🕹<br>Sürükle</div>
 <div id="acts" class="ui"></div>
 <div id="toast" class="ui"></div>
 <div id="ann" class="ui"></div>
 <div id="log" class="ui"></div>
-<div id="bottom" class="ui"><div id="bar"><input id="msg" maxlength="60" placeholder="Komşulara bir şey yaz…"><button id="send">Gönder</button></div></div>
+<div id="bottom" class="ui"><div id="chatList"></div><div id="emo"><button>👋</button><button>😂</button><button>👍</button><button>😡</button><button>❤️</button><button>🎉</button></div><div id="bar"><input id="msg" maxlength="60" placeholder="Komşulara bir şey yaz…"><button id="send">Gönder</button></div></div>
 <button id="adminToggle" class="ui">☰ Yönetim</button>
 <div id="admin" class="ui"></div>
 <div id="modal"><div class="card" id="mcard"></div></div>
@@ -88,7 +100,11 @@ button:disabled{opacity:.45}
 <select id="job"></select>
 <label>Karakter rengi</label>
 <div id="cols"></div>
-<button id="go">Şehre gir 🏙️</button>
+<button id="gGoogle" class="lg">🔵 Google ile gir</button>
+<button id="gGuest" class="lg" style="background:#3a4a6b">👤 Misafir olarak oyna</button>
+<button id="gResume" class="lg" style="display:none">Şehre gir 🏙️</button>
+<button id="gSwitch" class="lg" style="display:none;background:transparent;font-size:13px;padding:6px;font-weight:600">Başka hesapla gir</button>
+<div id="igWarn">Instagram'ın içinde Google girişi çalışmaz. Sağ üstteki <b>⋯</b> menüsünden <b>"Tarayıcıda aç"</b>'ı seç, ya da misafir olarak oyna.</div>
 <div id="err"></div>
 </div></div>
 
@@ -102,14 +118,19 @@ const CFG = {
   messagingSenderId: "734007209872",
   appId: "1:734007209872:web:1b379478026d6f73de4d15"
 };
-const ADMIN_HASH = "11fbedea9816839ca638e3762a73fdc43cd95150747bf7a2a35f74051a61b639";
 const ADMIN = location.hash === '#yonetim';
 let db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off;
+let auth = null, AU = {}, authResolve; const authReady = new Promise(r => authResolve = r);
+const IN_APP = /Instagram|FBAN|FBAV|FB_IAB|TikTok|musical_ly|Snapchat/i.test(navigator.userAgent);
 const fbReady = (async () => {
   const A = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js");
   const D = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js");
+  AU = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js");
   ({ ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off } = D);
-  db = D.getDatabase(A.initializeApp(CFG));
+  const app = A.initializeApp(CFG);
+  db = D.getDatabase(app); auth = AU.getAuth(app);
+  let first = true;
+  AU.onAuthStateChanged(auth, u => { if (first) { first = false; authResolve(u); } });
 })();
 fbReady.catch(() => {});
 
@@ -206,18 +227,38 @@ try { const s = JSON.parse(localStorage.getItem('kk_me') || 'null'); if (s) { do
 function hexToRgb(h) { const n = parseInt(h.slice(1), 16); return `rgb(${n >> 16}, ${(n >> 8) & 255}, ${n & 255})`; }
 const errEl = document.getElementById('err');
 
-document.getElementById('go').onclick = async () => {
+const LB = ['gGoogle', 'gGuest', 'gResume', 'gSwitch'].map(i => document.getElementById(i));
+const lbDisable = d => LB.forEach(b => b.disabled = d);
+if (IN_APP) document.getElementById('igWarn').style.display = 'block';
+if (!ADMIN) fbReady.then(() => authReady).then(u => {
+  if (u) { LB[0].style.display = LB[1].style.display = 'none'; LB[2].style.display = LB[3].style.display = 'block'; LB[2].textContent = `Şehre gir 🏙️ (${u.isAnonymous ? 'misafir hesabın' : 'Google hesabın'})`; }
+}).catch(() => {});
+LB[0].onclick = () => enter('google'); LB[1].onclick = () => enter('guest'); LB[2].onclick = () => enter('resume');
+LB[3].onclick = async () => { await fbReady; await AU.signOut(auth); LB[0].style.display = LB[1].style.display = 'block'; LB[2].style.display = LB[3].style.display = 'none'; };
+const AUTH_ERR = { 'auth/popup-blocked': 'Açılır pencere engellendi. Tekrar dene ya da misafir oyna.', 'auth/popup-closed-by-user': 'Giriş penceresi kapatıldı.', 'auth/cancelled-popup-request': 'Giriş iptal edildi.', 'auth/operation-not-supported-in-this-environment': 'Bu tarayıcıda Google girişi çalışmıyor. Safari ya da Chrome\'da aç, veya misafir oyna.', 'auth/web-storage-unsupported': 'Bu tarayıcıda giriş çalışmıyor. Safari ya da Chrome\'da aç.', 'auth/network-request-failed': 'İnternet bağlantısını kontrol et.', 'auth/admin-restricted-operation': 'Misafir girişi kapalı.', 'PERMISSION_DENIED': 'Erişim reddedildi.' };
+async function enter(mode) {
   const name = clean(document.getElementById('name').value);
   if (name.length < 2) { errEl.textContent = 'Kullanıcı adını yaz'; return; }
-  document.getElementById('go').disabled = true; errEl.textContent = 'Şehre bağlanılıyor…';
+  let kk = 0; try { kk = +localStorage.getItem('kk_kick') || 0; } catch (e) { }
+  if (kk > now()) { errEl.textContent = `Oyundan atıldın 😕 ${Math.ceil((kk - now()) / 60000)} dk sonra tekrar girebilirsin`; return; }
+  lbDisable(true); errEl.textContent = 'Şehre bağlanılıyor…';
   try {
-    await fbReady;
-    myId = sid();
+    await fbReady; await authReady;
+    if (mode === 'google' && !auth.currentUser) await AU.signInWithPopup(auth, new AU.GoogleAuthProvider());
+    if (mode === 'guest' && !auth.currentUser) await AU.signInAnonymously(auth);
+    if (!auth.currentUser) throw { message: 'Giriş yapılamadı' };
+    myId = auth.currentUser.uid;
+    if ((await get(ref(db, 'bans/' + myId))).exists()) throw { message: 'Bu hesap şehirden uzaklaştırıldı ⛔' };
     const job = sel.value;
     const on = (await get(ref(db, 'online'))).val() || {};
     const cnt = Object.entries(on).filter(([id, v]) => id !== myId && v && v.job === job).length;
-    if (cnt >= (QUOTA[job] || QDEF)) { errEl.textContent = `${job} kadrosu dolu 😬 Başka bir meslek seç`; document.getElementById('go').disabled = false; return; }
-    const prev = (await get(ref(db, 'players/' + myId))).val() || {};
+    if (cnt >= (QUOTA[job] || QDEF)) { errEl.textContent = `${job} kadrosu dolu 😬 Başka bir meslek seç`; lbDisable(false); return; }
+    let prev = (await get(ref(db, 'players/' + myId))).val();
+    if (!prev) {   // carry over progress from the old (pre-login) version on this device
+      let old = null; try { old = localStorage.getItem('kk_id'); } catch (e) { }
+      if (old && old !== myId) { const o = (await get(ref(db, 'players/' + old))).val(); if (o) prev = { money: Math.min(2000, o.money || 0), energy: o.energy, acc: o.acc, wear: o.wear, m: o.m }; }
+    }
+    prev = prev || {};
     ME = { name, job, color: myColor, money: prev.money ?? 100, energy: prev.energy ?? 100, home: prev.home ?? null, shop: prev.shop ?? null,
       acc: prev.acc || {}, wear: prev.wear || {}, m: prev.m || {},
       x: prev.x ?? (SPAWN.x + (Math.random() - .5) * 200), y: prev.y ?? SPAWN.y, wanted: 0, jail: 0, ride: null };
@@ -231,17 +272,20 @@ document.getElementById('go').onclick = async () => {
     say(`<b>${esc(name)}</b> şehre taşındı 🏠 (${esc(job)})`, true);
     document.getElementById('panel').style.display = 'none';
     cam.x = ME.x; cam.y = ME.y;
+    loginT = now();
     listenCommon(); listenPlayer(); hud(); document.getElementById('joyHint').style.display = 'flex';
   } catch (e) {
-    document.getElementById('go').disabled = false;
-    errEl.textContent = 'Bağlanamadı: ' + (e.code || e.message);
+    lbDisable(false);
+    errEl.textContent = AUTH_ERR[e.code] || ('Bağlanamadı: ' + (e.code || e.message));
   }
-};
+}
+let loginT = 0;
 function profile() { return { name: ME.name, color: ME.color, job: ME.job, wear: ME.wear || {}, wanted: ME.wanted || 0, jail: ME.jail || 0, ride: ME.ride || null, t: serverTimestamp() }; }
 
 function hud() {
   if (!ME) return;
   const r = myRole();
+  document.getElementById('me').onclick = accountMenu;
   document.getElementById('me').textContent = '@' + ME.name + ' • ' + (r ? '👑 ' + ROLES[r].n : ME.job);
   document.getElementById('money').textContent = '💰 ' + Math.floor(ME.money);
   document.getElementById('energy').textContent = '⚡ ' + Math.floor(ME.energy);
@@ -265,16 +309,21 @@ function listenCommon() {
   onValue(ref(db, 'elections'), s => { elections = s.val() || {}; });
   onValue(ref(db, 'event'), s => { const prevEv = EV; EV = s.val(); if (EV && (!prevEv || prevEv.t0 !== EV.t0)) evStart(); });
   onValue(ref(db, 'cases'), s => { cases = s.val() || {}; });
-  onChildAdded(query(ref(db, 'log'), limitToLast(6)), s => { const v = s.val(); if (v) addLog(v.h); });
+  onChildAdded(query(ref(db, 'log'), limitToLast(50)), s => { const v = s.val(); if (v) addLog(s.key, v); });
+  onChildRemoved(query(ref(db, 'log'), limitToLast(50)), s => { const i = chatData.findIndex(c => c.key === s.key); if (i >= 0) { chatData.splice(i, 1); renderChat(); } });
+  onValue(ref(db, 'mods'), s => { mods = s.val() || {}; });
   onValue(ref(db, 'announce'), s => { const a = s.val(); if (a && now() - a.t < 15000) showAnn(a); });
 }
 function listenPlayer() {
   onValue(ref(db, 'online/' + myId), s => {
     const v = s.val(); if (!v || !ME) return;
-    if (v.jail && v.jail > now() && !(ME.jail > now())) { ME.jail = v.jail; ME.wanted = 0; ME.ride = null; ME.x = JAIL_SPOT.x; ME.y = JAIL_SPOT.y; target = null; task = null; toast('🚔 Yakalandın! Mahkemeye sevk edildin ⛓'); sendPos(true); }
+    if (v.kick && v.kick > loginT) { kicked(false); return; }
+    if (v.jail && v.jail > now() && !(ME.jail > now())) { ME.jail = v.jail; ME.wanted = 0; if (ME.ride) update(ref(db, 'online/' + myId), { ride: null }); ME.ride = null; ME.x = JAIL_SPOT.x; ME.y = JAIL_SPOT.y; target = null; task = null; toast('🚔 Yakalandın! Mahkemeye sevk edildin ⛓'); sendPos(true); }
     else if (v.jail !== ME.jail) ME.jail = v.jail || 0;
   });
-  onChildAdded(ref(db, 'notify/' + myId), s => { const v = s.val(); if (v) { toast(v.m, 4000); if (v.money) { ME.money = Math.max(0, ME.money + v.money); hud(); } } remove(s.ref); });
+  onChildAdded(ref(db, 'notify/' + myId), s => { const v = s.val(); if (v) toast(v.m, 4000); remove(s.ref); });
+  onValue(ref(db, 'mutes/' + myId), s => { myMute = (s.val() || {}).until || 0; });
+  onValue(ref(db, 'bans/' + myId), s => { if (s.exists()) kicked(true); });
   onValue(ref(db, 'players/' + myId + '/money'), s => { const v = s.val(); if (typeof v === 'number' && Math.abs(v - ME.money) > 0.5) { ME.money = v; hud(); } });
 }
 // zone-based position sharing (saves bandwidth)
@@ -315,20 +364,95 @@ function stat(k, v = 1) { const m = MK(); ME.m = ME.m || {}; ME.m[m] = ME.m[m] |
 function earn(a, why) { ME.money += a; stat('earned', a); hud(); saveMe(); if (why) toast(why + ` +${a} 💰`); }
 function payTo(id, amount) { if (amount > 0) runTransaction(ref(db, 'players/' + id + '/money'), m => (m || 0) + amount); }
 function notify(id, m, extra = {}) { push(ref(db, 'notify/' + id), Object.assign({ m }, extra)); }
-function say(html, global) { if (global && db) push(ref(db, 'log'), { h: html, t: serverTimestamp() }); else addLog(html); }
-function addLog(h) { const l = document.getElementById('log'); const d = document.createElement('div'); d.innerHTML = h; l.appendChild(d); while (l.children.length > 6) l.removeChild(l.firstChild); }
+function say(html, global, k = 'sys') { if (global && db) push(ref(db, 'log'), { h: html, k, t: serverTimestamp() }).catch(() => { }); else addLog(null, { h: html, k }); }
+const chatData = []; let unread = 0, mods = {}, myMute = 0, lastMsg = { t: 0, s: '' };
+const chatEl = document.getElementById('chatList'), feedEl = document.getElementById('log'), badgeEl = document.getElementById('badge'), bottomEl = document.getElementById('bottom');
+const chatOpen = () => bottomEl.classList.contains('open');
+function addLog(key, v) {
+  const e = { key, h: v.h, k: v.k || 'sys', uid: v.uid, t: v.t || now() };
+  chatData.push(e); if (chatData.length > 60) chatData.shift();
+  const fresh = !v.t || v.t > loginT - 3000;
+  if (chatOpen()) { renderChat(); return; }
+  if (!fresh) return;
+  const d = document.createElement('div'); d.className = 'fl k-' + e.k; d.innerHTML = e.h; feedEl.appendChild(d);
+  setTimeout(() => d.remove(), 8400); while (feedEl.children.length > 5) feedEl.removeChild(feedEl.firstChild);
+  if (e.k === 'chat' && e.uid !== myId) { unread++; badgeEl.textContent = unread > 9 ? '9+' : unread; badgeEl.style.display = 'block'; }
+}
+function renderChat() {
+  const atBottom = chatEl.scrollHeight - chatEl.scrollTop - chatEl.clientHeight < 30;
+  chatEl.innerHTML = chatData.map(e => `<div class="k-${e.k}">${e.h}</div>`).join('');
+  if (atBottom || renderChat.first) { chatEl.scrollTop = chatEl.scrollHeight; renderChat.first = false; }
+}
 function showAnn(a) { const e = document.getElementById('ann'); e.innerHTML = `📢 ${esc(a.by)}: ${esc(a.text)}`; e.style.display = 'block'; clearTimeout(showAnn.h); showAnn.h = setTimeout(() => e.style.display = 'none', 9000); }
 
 // chat
 const msgIn = document.getElementById('msg');
-function sendMsg() {
-  const t = msgIn.value.trim().slice(0, 60); if (!t || !ME) return; msgIn.value = '';
+// profanity filter (kept small on purpose: whole words + a few roots)
+const fold = w => w.replace(/[çğıöşü]/g, c => ({ ç: 'c', ğ: 'g', ı: 'i', ö: 'o', ş: 's', ü: 'u' }[c]));
+const BAD = new Set(['amk', 'aq', 'amq', 'amq', 'mk', 'sg', 'oc', 'pic', 'got', 'ibne', 'kahpe', 'gavat', 'surtuk', 'pust', 'yarak', 'yarrak', 'amcik', 'tasak', 'orospu', 'pezevenk', 'yavsak', 'serefsiz', 'sik', 'siktir', 'sikerim', 'sikim', 'sokam', 'amina', 'anani', 'avradini', 'dalyarak', 'ananiskm', 'skm', 'sktr', 'oe']);
+const BADP = ['sik', 'siktir', 'orosp', 'yarra', 'pezeven', 'amına', 'amina', 'yavşa', 'yavsa', 'şerefsi', 'serefsi', 'dalyara', 'ibne', 'kahpe', 'amcık', 'gavatl'];
+function cleanText(t) {
+  return t.replace(/[\p{L}\p{N}]+/gu, w => { const n = w.toLocaleLowerCase('tr'); return (BAD.has(fold(n)) || BADP.some(p => n.startsWith(p))) ? '*'.repeat(w.length) : w; });
+}
+function sendMsg(txt) {
+  let t = (typeof txt === 'string' ? txt : msgIn.value).trim().slice(0, 60); if (!t || !ME) return;
+  if (myMute > now()) { toast(`🔇 Susturuldun, ${Math.ceil((myMute - now()) / 60000)} dk sonra yazabilirsin`); return; }
+  if (now() - lastMsg.t < 3000) { toast('Biraz yavaş 🙂 3 saniyede 1 mesaj'); return; }
+  if (t === lastMsg.s && now() - lastMsg.t < 30000) { toast('Aynı mesajı tekrar atma 🙂'); return; }
+  if (typeof txt !== 'string') msgIn.value = '';
+  lastMsg = { t: now(), s: t }; t = cleanText(t);
   ME.msg = t; ME.msgAt = performance.now();
   update(ref(db, 'online/' + myId), { msg: t, msgT: now() });
-  say(`<b>${esc(ME.name)}:</b> ${esc(t)}`, true);
+  push(ref(db, 'log'), { h: `<b>${esc(ME.name)}:</b> ${esc(t)}`, k: 'chat', uid: myId, t: serverTimestamp() }).catch(() => toast('Mesaj gönderilemedi'));
 }
-document.getElementById('send').onclick = sendMsg;
+document.getElementById('send').onclick = () => sendMsg();
+document.querySelectorAll('#emo button').forEach(b => b.onclick = () => sendMsg(b.textContent));
 msgIn.addEventListener('keydown', e => { if (e.key === 'Enter') sendMsg(); });
+
+// ================= PROFILES & MODERATION =================
+const iAmMod = () => IS_ADMIN || !!mods[myId];
+labelsEl0().addEventListener('click', e => { const el = e.target.closest('[data-pid]'); if (!el) return; const id = el.dataset.pid; if (id === '@me') accountMenu(); else profileMenu(id); });
+function labelsEl0() { return document.getElementById('labels'); }
+function modLog(act, id, name) { push(ref(db, 'modlog'), { by: IS_ADMIN ? 'Yönetici' : ME.name, act, target: name, t: now() }).catch(() => { }); }
+function profileMenu(id) {
+  const o = others[id]; if (!o) return;
+  const t = now(), r = roleOf(id), targetMod = !!mods[id], items = [];
+  const info = `<p>${mods[id] ? '🛡 Moderatör • ' : ''}${esc(r ? '👑 ' + ROLES[r].n : o.job)}${o.wanted > t ? ' • 🚨 Aranıyor' : ''}${o.jail > t ? ' • ⛓ Hapiste' : ''}</p>`;
+  if (!IS_ADMIN) items.push({ label: '🚩 Şikayet et', fn: () => reportMenu(id, o) });
+  if (iAmMod() && (IS_ADMIN || !targetMod)) {
+    items.push({ label: '🔇 10 dakika sustur', fn: () => mute(id, o, 10) }, { label: '🔇 1 saat sustur', fn: () => mute(id, o, 60) });
+    items.push({ label: '🗑 Son mesajlarını sil', fn: () => { chatData.filter(c => c.uid === id && c.key).forEach(c => remove(ref(db, 'log/' + c.key))); modLog('mesajları sildi', id, o.name); toast('🗑 Silindi'); } });
+    items.push({ label: '👢 Oyundan at (5 dk)', fn: () => { update(ref(db, 'online/' + id), { kick: now() }); modLog('oyundan attı', id, o.name); say(`👢 <b>${esc(o.name)}</b> oyundan atıldı`, true, 'mod'); } });
+  }
+  if (IS_ADMIN) {
+    items.push(targetMod ? { label: '🛡 Moderatörlüğü al', fn: () => remove(ref(db, 'mods/' + id)) } : { label: '🛡 Moderatör yap', fn: () => set(ref(db, 'mods/' + id), { name: o.name, t: now() }).then(() => say(`🛡 <b>${esc(o.name)}</b> artık moderatör!`, true, 'ann')) });
+    items.push({ label: '⛔ Kalıcı yasakla', fn: () => modal(`⛔ ${esc(o.name)} yasaklansın mı?`, [{ label: 'Evet, yasakla', fn: () => { set(ref(db, 'bans/' + id), { name: o.name, t: now() }); update(ref(db, 'online/' + id), { kick: now() }); modLog('yasakladı', id, o.name); } }]) });
+  }
+  modal(esc(o.name), items, info);
+}
+function reportMenu(id, o) {
+  const rep = reason => { push(ref(db, 'reports'), { by: myId, byName: ME.name, target: id, targetName: o.name, reason, t: now() }); toast('🚩 Şikayetin moderatörlere iletildi'); };
+  modal(`🚩 ${esc(o.name)} şikayet`, ['Küfür / hakaret', 'Spam', 'Hile', 'Rahatsız ediyor'].map(r => ({ label: r, fn: () => rep(r) })));
+}
+function mute(id, o, min) { set(ref(db, 'mutes/' + id), { until: now() + min * 60000, by: IS_ADMIN ? 'Yönetici' : ME.name }); modLog(min + ' dk susturdu', id, o.name); notify(id, `🔇 ${min} dakika susturuldun`); toast(`🔇 ${o.name} susturuldu`); }
+function accountMenu() {
+  if (!ME || !auth || !auth.currentUser) return;
+  const u = auth.currentUser, items = [];
+  if (u.isAnonymous) items.push({ label: '🔗 Hesabımı Google\'a bağla', fn: async () => {
+    try { await AU.linkWithPopup(u, new AU.GoogleAuthProvider()); toast('✅ Hesabın Google\'a bağlandı! Artık her cihazdan girebilirsin', 4000); }
+    catch (x) { toast(x.code === 'auth/credential-already-in-use' ? 'Bu Google hesabı zaten başka bir oyuncuya bağlı' : (AUTH_ERR[x.code] || 'Bağlanamadı'), 4500); }
+  } });
+  items.push({ label: '🚪 Çıkış yap', fn: async () => { await remove(ref(db, 'online/' + myId)); if (myZone) await remove(ref(db, 'pos/' + myZone + '/' + myId)); await AU.signOut(auth); location.reload(); } });
+  modal('👤 Hesabım', items, `<p>${u.isAnonymous ? 'Misafir hesap: başka cihazdan girersen ilerlemen görünmez. Kaybetmemek için Google\'a bağla.' : '✅ Google hesabınla giriş yaptın, ilerlemen her cihazda kayıtlı.'}${mods[myId] ? '<br>🛡 Moderatörsün: oyunculara dokunarak sustur/at yapabilirsin.' : ''}</p>`);
+}
+async function kicked(ban) {
+  if (kicked.done) return; kicked.done = 1;
+  try { localStorage.setItem('kk_kick', String(now() + (ban ? 365 * 864e5 : 5 * 60000))); } catch (e) { }
+  try { await remove(ref(db, 'online/' + myId)); if (myZone) await remove(ref(db, 'pos/' + myZone + '/' + myId)); } catch (e) { }
+  ME = null;
+  document.getElementById('login').innerHTML = `<h1>${ban ? '⛔' : '👢'}</h1><p style="text-align:center">${ban ? 'Bu hesap şehirden kalıcı olarak uzaklaştırıldı.' : 'Bir moderatör seni oyundan attı. 5 dakika sonra tekrar girebilirsin.'}</p>`;
+  document.getElementById('panel').style.display = 'flex';
+}
 
 // ================= GEOMETRY HELPERS =================
 function inside(r, x, y, pad = 0) { return x > r.x * T - pad && x < (r.x + r.w) * T + pad && y > r.y * T - pad && y < (r.y + r.h) * T + pad; }
@@ -435,12 +559,12 @@ async function steal(id, o) {
   if (!r.committed || taken <= 0) { toast('Cebi boş çıktı 😅'); return; }
   ME.wanted = now() + WANTED_MS; update(ref(db, 'online/' + myId), { wanted: ME.wanted });
   stat('stolen', taken); earn(taken, thief ? '🤏 Kimse görmedi...' : '🃏 Tapu satıldı!');
-  notify(id, thief ? `😱 Cebinden ${taken} 💰 çalındı! Hırsız: ${ME.name}. Polisi çağır!` : `🃏 ${ME.name} sana sahte tapu sattı, ${taken} 💰 gitti!`, { money: -taken });
+  notify(id, thief ? `😱 Cebinden ${taken} 💰 çalındı! Hırsız: ${ME.name}. Polisi çağır!` : `🃏 ${ME.name} sana sahte tapu sattı, ${taken} 💰 gitti!`);
   say(`🚨 <b>${esc(ME.name)}</b> aranıyor! (${thief ? 'hırsızlık' : 'dolandırıcılık'})`, true);
 }
 async function arrest(id, o) {
   const until = now() + JAIL_MS;
-  await update(ref(db, 'online/' + id), { jail: until, wanted: 0, ride: null });
+  await update(ref(db, 'online/' + id), { jail: until, wanted: 0 });
   await set(ref(db, 'cases/' + id), { name: o.name, until, by: ME.name, t: now(), def: 0, pros: 0, decided: 0 });
   stat('arrests'); earn(50, '🚔 Yakaladın!');
   const fine = await runTransaction(ref(db, 'players/' + id + '/money'), m => Math.max(0, (m || 0) - Math.min(100, Math.floor((m || 0) * 0.25))));
@@ -511,8 +635,9 @@ function voteMenu() {
   modal('🗳 Seçim sandığı', items, `<p>Her seçimde 1 oy hakkın var. Sonuçlar süre bitince açıklanır.</p>`);
 }
 async function vote(r, cid) {
-  const res = await runTransaction(ref(db, 'elections/' + r), e => { if (!e || e.ends < now() || (e.voters && e.voters[myId])) return; e.voters = e.voters || {}; e.voters[myId] = 1; e.cands[cid].votes = (e.cands[cid].votes || 0) + 1; return e; });
-  toast(res.committed ? '🗳 Oyun sandıkta!' : 'Oy verilemedi');
+  const e = elections[r]; if (!e || !e.cands || !e.cands[cid]) return;
+  try { await update(ref(db, 'elections/' + r), { ['voters/' + myId]: 1, ['cands/' + cid + '/votes']: (e.cands[cid].votes || 0) + 1 }); toast('🗳 Oyun sandıkta!'); }
+  catch (x) { toast('Oy verilemedi, tekrar dene'); }
 }
 async function candidate(r) {
   const res = await runTransaction(ref(db, 'elections/' + r + '/cands/' + myId), c => c ? undefined : { name: ME.name, votes: 0 });
@@ -567,8 +692,11 @@ function evActs(L) {
 }
 async function hose() {
   ME.lastHose = now();
-  const r = await runTransaction(ref(db, 'event'), e => { if (!e || e.done || e.type !== 'yangin') return; e.hp = Math.max(0, (e.hp ?? 100) - 5); e.help = e.help || {}; e.help[myId] = ME.name; if (e.hp <= 0) e.done = 1; return e; });
-  if (r.committed) { earn(10); const e = r.snapshot.val(); if (e.done) say(`🚒 Yangın söndürüldü! Kahramanlar: <b>${esc(Object.values(e.help).join(', '))}</b>`, true); }
+  if (!EV || EV.done || EV.type !== 'yangin') return;
+  const r = await runTransaction(ref(db, 'event/hp'), hp => { if (hp === null || hp <= 0) return; return Math.max(0, hp - 5); }).catch(() => null);
+  if (!r || !r.committed) return;
+  await set(ref(db, 'event/help/' + myId), ME.name); earn(10);
+  if (r.snapshot.val() <= 0) { await set(ref(db, 'event/done'), 1); const h = (await get(ref(db, 'event/help'))).val() || {}; say(`🚒 Yangın söndürüldü! Kahramanlar: <b>${esc(Object.values(h).join(', '))}</b>`, true); }
 }
 async function catchRobber(i) {
   const r = await runTransaction(ref(db, 'event/caught/' + i), c => c ? undefined : ME.name);
@@ -760,7 +888,10 @@ document.getElementById('bFull').onclick = () => {
   if (req) { try { const p = req.call(el, { navigationUI: 'hide' }); if (p && p.catch) p.catch(iosFull); } catch (x) { iosFull(); } } else iosFull();
 };
 function iosFull() { modal('⛶ Tam ekran', [], '<p>iPhone\'da Safari tam ekrana izin vermiyor. Çözümü kolay:</p><p>1. Alttaki <b>Paylaş ⬆️</b> butonuna bas<br>2. <b>Ana Ekrana Ekle</b>\'yi seç<br>3. Oyunu ana ekrandaki <b>Komşukent</b> simgesinden aç</p><p>Oyun uygulama gibi tam ekran açılır 🎮 Telefonu yan çevirerek de oynayabilirsin.</p>'); }
-document.getElementById('bChat').onclick = () => { const b = document.getElementById('bottom'); b.classList.toggle('open'); if (b.classList.contains('open')) msgIn.focus(); };
+document.getElementById('bChat').onclick = () => {
+  bottomEl.classList.toggle('open'); document.body.classList.toggle('chatopen', chatOpen());
+  if (chatOpen()) { unread = 0; badgeEl.style.display = 'none'; renderChat.first = true; renderChat(); feedEl.innerHTML = ''; }
+};
 
 const SATILIK_TEX = () => SATILIK_TEX.t || (SATILIK_TEX.t = (() => {
   const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d');
@@ -852,7 +983,7 @@ function syncPerson(id, p, me, t) {
   const cls = jailed ? 'jail' : wanted ? 'bad' : r ? 'role' : me ? 'me' : '';
   const tag = jailed ? '⛓ ' : wanted ? '🚨 ' : r ? '👑 ' : me ? '⭐ ' : '';
   const bub = p.msg && performance.now() - (p.msgAt || 0) < 6000 ? `<div class="bb">${esc(p.msg)}</div>` : '';
-  const html = riding ? '' : `${bub}<div style="text-align:center"><span class="nm ${cls}">${tag}${esc(p.name || '')}</span></div><div class="jb">${esc(r ? ROLES[r].n : (p.job || ''))}${wanted ? ' • ARANIYOR' : ''}</div>`;
+  const html = riding ? '' : `${bub}<div style="text-align:center"><span class="nm ${cls}" data-pid="${me ? '@me' : id}">${mods[me ? myId : id] ? '🛡 ' : ''}${tag}${esc(p.name || '')}</span></div><div class="jb">${esc(r ? ROLES[r].n : (p.job || ''))}${wanted ? ' • ARANIYOR' : ''}</div>`;
   if (m.label._h !== html) { m.label.innerHTML = html; m.label._h = html; }
   if (html) placeLabel(m.label, x, isTaxi ? 1.9 : 2.2, z); else m.label.style.display = 'none';
   m.seen = true;
@@ -944,23 +1075,31 @@ function frame(t) {
 
 // ================= ADMIN (komsukent.github.io/#yonetim) =================
 let adminOk = false;
-async function sha(s) { const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)); return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join(''); }
+let IS_ADMIN = false;
 function adminLogin() {
-  document.getElementById('login').innerHTML = `<h1>YÖNETİM</h1><p style="text-align:center">Kuş bakışı şehir paneli</p><label>Şifre</label><input id="apw" type="password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"><button id="go">Giriş</button><div id="err"></div>`;
-  document.getElementById('go').onclick = async () => {
-    const e = document.getElementById('err');
-    if (await sha(document.getElementById('apw').value.trim().toLowerCase().replace(/[–—]/g, '-')) !== ADMIN_HASH) { e.textContent = 'Şifre yanlış'; return; }
-    e.textContent = 'Bağlanılıyor…';
-    try { await fbReady; } catch (x) { e.textContent = 'Bağlanamadı'; return; }
-    adminOk = true; document.getElementById('panel').style.display = 'none';
-    ['hud', 'bottom', 'acts'].forEach(i => document.getElementById(i).style.display = 'none');
-    document.getElementById('clock').style.display = '';
+  document.getElementById('login').innerHTML = `<h1>YÖNETİM</h1><p style="text-align:center">Kuş bakışı şehir paneli</p><button id="aGo" class="lg">🔵 Google ile giriş</button><div id="err"></div>`;
+  document.getElementById('aGo').onclick = async () => {
+    const e = document.getElementById('err'); e.textContent = 'Bağlanılıyor…';
+    try {
+      await fbReady; await authReady;
+      if (!auth.currentUser || auth.currentUser.isAnonymous) await AU.signInWithPopup(auth, new AU.GoogleAuthProvider());
+      const uid = auth.currentUser.uid;
+      const ok = (await get(ref(db, 'admins/' + uid)).catch(() => null));
+      if (!ok || ok.val() !== true) { e.innerHTML = `Bu hesap yönetici değil.<br><br>Yönetici olmak için Firebase'de <b>Realtime Database → Data</b> bölümüne <b>admins</b> altına şu kimliği <b>true</b> değeriyle ekle:<br><code style="user-select:all;-webkit-user-select:all;background:#000;padding:4px;display:block;margin-top:6px">${uid}</code>`; return; }
+      IS_ADMIN = true; myId = uid;
+    } catch (x) { e.textContent = AUTH_ERR[x.code] || ('Bağlanamadı: ' + (x.code || x.message)); return; }
+    adminOk = true; loginT = now(); document.getElementById('panel').style.display = 'none';
+    ['hud', 'acts'].forEach(i => document.getElementById(i).style.display = 'none');
     document.getElementById('adminToggle').style.display = 'block';
     listenCommon();
+    onChildAdded(query(ref(db, 'reports'), limitToLast(20)), s2 => { reports[s2.key] = s2.val(); });
+    onChildRemoved(ref(db, 'reports'), s2 => { delete reports[s2.key]; });
+    onChildAdded(query(ref(db, 'modlog'), limitToLast(20)), s2 => { modlog[s2.key] = s2.val(); });
     const all = {}; for (let a = 0; a < NZ; a++) for (let b = 0; b < NZ; b++) all[a + '_' + b] = 1; syncZoneSubs(all);
     zoom = 1.8; adminUI(); setInterval(adminUI, 3000);
   };
 }
+const reports = {}, modlog = {};
 const adminEl = document.getElementById('admin');
 document.getElementById('adminToggle').onclick = () => { adminEl.style.display = adminEl.style.display === 'block' ? 'none' : 'block'; adminUI(); };
 function adminUI() {
@@ -978,20 +1117,26 @@ function adminUI() {
   <h3>🗳 Seçimler</h3>
   ${Object.keys(ROLES).map(r => { const e = elections[r], h = roles[r]; return `<div style="font-size:13px;margin:6px 0"><b>${ROLES[r].n}</b>: ${h && h.until > t ? '👑 ' + esc(h.name) : 'boş'}${e ? ` • seçim ${Math.max(0, Math.ceil((e.ends - t) / 60000))} dk (${Object.values(e.cands || {}).map(c => esc(c.name) + ' ' + (c.votes || 0)).join(', ') || 'aday yok'})` : ''}</div>
     <div class="row"><button data-el="${r}" data-min="10">Seçim 10 dk</button><button data-el="${r}" data-min="60">60 dk</button>${e ? `<button data-end="${r}" style="background:#c0392b">Bitir</button>` : ''}${h ? `<button data-rm="${r}" style="background:#7f8c8d">Görevden al</button>` : ''}</div>`; }).join('')}
-  <h3>👀 Oyuncular (${list.length})</h3><button data-f="">Serbest kamera</button>
-  ${list.map(([id, o]) => `<button class="pl" data-f="${id}">${esc(o.name)} • ${esc(o.job)}${o.wanted > t ? ' 🚨' : ''}${o.jail > t ? ' ⛓' : ''}</button>`).join('')}`;
+  <h3>👀 Oyuncular (${list.length})</h3><p style="font-size:12px;margin:0 0 4px;opacity:.7">İsme dokun: takip et • ⚙️: moderasyon</p><button data-f="">Serbest kamera</button>
+  ${list.map(([id, o]) => `<div class="row"><button class="pl" style="flex:4" data-f="${id}">${mods[id] ? '🛡 ' : ''}${esc(o.name)} • ${esc(o.job)}${o.wanted > t ? ' 🚨' : ''}${o.jail > t ? ' ⛓' : ''}</button><button style="flex:1" data-p="${id}">⚙️</button></div>`).join('')}
+  <h3>🛡 Moderatörler</h3>${Object.entries(mods).map(([id, m]) => `<div class="row"><button class="pl" style="flex:4">${esc(m.name || id)}</button><button style="flex:1;background:#c0392b" data-unmod="${id}">✖</button></div>`).join('') || '<p style="font-size:13px">Henüz yok. Oyuncu listesinde ⚙️ ile ekle.</p>'}
+  <h3>🚩 Şikayetler</h3>${Object.entries(reports).reverse().map(([k, r]) => `<div style="font-size:12px;margin:4px 0">${esc(r.byName)} → <b>${esc(r.targetName)}</b>: ${esc(r.reason)}</div><div class="row"><button data-f="${r.target}">Git</button><button data-delrep="${k}" style="background:#7f8c8d">Sil</button></div>`).join('') || '<p style="font-size:13px">Şikayet yok 👍</p>'}
+  <h3>📋 Moderatör işlemleri</h3>${Object.values(modlog).reverse().map(m => `<div style="font-size:12px;margin:3px 0">${new Date(m.t).toLocaleTimeString('tr', { hour: '2-digit', minute: '2-digit' })} ${esc(m.by)}: ${esc(m.act)} → ${esc(m.target)}</div>`).join('') || '<p style="font-size:13px">Kayıt yok</p>'}`;
   adminEl.querySelector('#aRec').onclick = () => { document.body.classList.toggle('rec'); adminEl.style.display = 'none'; };
   adminEl.querySelectorAll('[data-ev]').forEach(b => b.onclick = () => {
     const ty = b.dataset.ev, bid = ty === 'festival' ? 'belediye' : adminEl.querySelector('#aB').value;
     set(ref(db, 'event'), { type: ty, b: bid, t0: now(), hp: 100, done: 0 });
-    push(ref(db, 'log'), { h: `${EV_NAMES[ty]}: <b>${BMAP[bid].n}</b>! ${ty === 'yangin' ? 'İtfaiye nerede?!' : ty === 'soygun' ? 'Polisler göreve!' : 'Herkes belediye meydanına!'}`, t: serverTimestamp() });
+    push(ref(db, 'log'), { k: 'ann', h: `${EV_NAMES[ty]}: <b>${BMAP[bid].n}</b>! ${ty === 'yangin' ? 'İtfaiye nerede?!' : ty === 'soygun' ? 'Polisler göreve!' : 'Herkes belediye meydanına!'}`, t: serverTimestamp() });
   });
   adminEl.querySelector('#aEvEnd').onclick = () => update(ref(db, 'event'), { done: 1 });
   adminEl.querySelector('#aAnnB').onclick = () => { const v = adminEl.querySelector('#aAnn').value.trim(); if (v) set(ref(db, 'announce'), { text: v, by: 'Komşukent Belediyesi', t: now() }); };
-  adminEl.querySelectorAll('[data-el]').forEach(b => b.onclick = () => { set(ref(db, 'elections/' + b.dataset.el), { ends: now() + b.dataset.min * 60000, cands: {} }); push(ref(db, 'log'), { h: `🗳 <b>${ROLES[b.dataset.el].n}</b> seçimi başladı! Adaylar belediyeye 🏛`, t: serverTimestamp() }); });
+  adminEl.querySelectorAll('[data-el]').forEach(b => b.onclick = () => { set(ref(db, 'elections/' + b.dataset.el), { ends: now() + b.dataset.min * 60000, cands: {} }); push(ref(db, 'log'), { k: 'ann', h: `🗳 <b>${ROLES[b.dataset.el].n}</b> seçimi başladı! Adaylar belediyeye 🏛`, t: serverTimestamp() }); });
   adminEl.querySelectorAll('[data-end]').forEach(b => b.onclick = () => update(ref(db, 'elections/' + b.dataset.end), { ends: now() - 1 }));
   adminEl.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => remove(ref(db, 'roles/' + b.dataset.rm)));
   adminEl.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { adm.follow = b.dataset.f || null; if (adm.follow) zoom = 0.9; });
+  adminEl.querySelectorAll('[data-p]').forEach(b => b.onclick = () => profileMenu(b.dataset.p));
+  adminEl.querySelectorAll('[data-unmod]').forEach(b => b.onclick = () => remove(ref(db, 'mods/' + b.dataset.unmod)));
+  adminEl.querySelectorAll('[data-delrep]').forEach(b => b.onclick = () => remove(ref(db, 'reports/' + b.dataset.delrep)).then(adminUI));
 }
 setInterval(() => { if (ADMIN && adminOk) electionTick(); }, 10000);
 if (ADMIN) adminLogin();
