@@ -443,12 +443,18 @@ async function allowList() {
   return _allow;
 }
 async function kickAll() {
-  const on = (await get(ref(db, 'online'))).val() || {}; const t = now(); let n = 0;
-  for (const id in on) if (id !== myId) { update(ref(db, 'online/' + id), { kick: t, soft: 1 }); n++; }
-  const nm = (await get(ref(db, 'names'))).val() || {};
-  for (const k in nm) if (nm[k] !== myId) remove(ref(db, 'names/' + k));
-  push(ref(db, 'log'), { k: 'ann', h: '👢 Şehir yenilendi! Herkes kendi adıyla tekrar girsin 🏙️', uid: myId, t: serverTimestamp() });
-  toast(`👢 ${n} oyuncu atıldı, isimler sıfırlandı`, 4000);
+  if (!confirm('⚠️ Herkes oyundan atılsın ve isimler sıfırlansın mı?\n\n(Kimsenin parası, evi, mesleği silinmez.)')) return;
+  if (!confirm('Emin misin? Son onay 👢')) return;
+  try {
+    const on = (await get(ref(db, 'online'))).val() || {}; const t = now(); let n = 0;
+    const jobs = [];
+    for (const id in on) if (id !== myId && on[id] && on[id].name) { jobs.push(update(ref(db, 'online/' + id), { kick: t, soft: 1 })); n++; }
+    const nm = (await get(ref(db, 'names'))).val() || {}; let m = 0;
+    for (const k in nm) if (nm[k] !== myId) { jobs.push(remove(ref(db, 'names/' + k))); m++; }
+    await Promise.all(jobs);
+    push(ref(db, 'log'), { k: 'ann', h: '👢 Şehir yenilendi! Herkes kendi adıyla tekrar girsin 🏙️', t: serverTimestamp() }).catch(() => {});
+    alert(`✅ Tamam!\n👢 ${n} oyuncu atıldı\n🔓 ${m} isim sıfırlandı`);
+  } catch (e) { alert('❌ Olmadı: ' + (e.message || e)); }
 }
 const RESERVED = ['komsukent', 'komsu_kent', 'komsukentoyun', 'yonetici', 'yonetim', 'admin', 'moderator', 'belediyebaskani', 'anthropic', 'claude'];
 const fold = w => w.replace(/[çğıöşü]/g, c => ({ ç: 'c', ğ: 'g', ı: 'i', ö: 'o', ş: 's', ü: 'u' }[c]));
