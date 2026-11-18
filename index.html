@@ -104,7 +104,7 @@ table.pl{width:100%;font-size:12px;border-collapse:collapse}table.pl td{padding:
 <div id="panel"><div class="card" id="login">
 <h1>KOMŞUKENT</h1>
 <p style="text-align:center">Şehre taşın, meslek seç, para kazan, evini al!</p>
-<label>Instagram kullanıcı adın</label>
+<label>Instagram veya TikTok kullanıcı adın <span style="opacity:.7">(misafir girişi)</span></label>
 <input id="name" maxlength="24" placeholder="ör. komsukent" autocomplete="off" autocapitalize="off">
 <label>Meslek</label>
 <select id="job"></select>
@@ -257,8 +257,8 @@ async function enter(mode) {
   catch (e) { lbDisable(false); errEl.textContent = AUTH_ERR[e.code] || ('Bağlanamadı: ' + (e.code || e.message)); }
 }
 async function enter2(mode) {
-  const name = clean(document.getElementById('name').value);
-  if (name.length < 2) { errEl.textContent = 'Kullanıcı adını yaz'; return; }
+  let name = clean(document.getElementById('name').value);
+  if (name.length < 2 && mode === 'guest') { errEl.textContent = 'Instagram ya da TikTok kullanıcı adını yaz'; return; }
   let kk = 0; try { kk = +localStorage.getItem('kk_kick') || 0; } catch (e) { }
   if (kk > now()) { errEl.textContent = `Oyundan atıldın 😕 ${Math.ceil((kk - now()) / 60000)} dk sonra tekrar girebilirsin`; return; }
   lbDisable(true); errEl.textContent = 'Şehre bağlanılıyor…';
@@ -269,6 +269,25 @@ async function enter2(mode) {
     if (!auth.currentUser) throw { message: 'Giriş yapılamadı' };
     myId = auth.currentUser.uid;
     if ((await get(ref(db, 'bans/' + myId))).exists()) throw { message: 'Bu hesap şehirden uzaklaştırıldı ⛔' };
+    const isAdm = (await get(ref(db, 'admins/' + myId))).val() === true;
+    const U = auth.currentUser, isG = !U.isAnonymous;
+    const keyOf = n => fold(n.toLocaleLowerCase('tr')).replace(/[.\s]/g, '_');
+    const bad = n => RESERVED.some(r => keyOf(n).replace(/_/g, '').includes(r));
+    if (isG && !isAdm) {   // Google players use their Google name
+      name = clean(U.displayName || (U.email || '').split('@')[0] || 'Komşu') || 'Komşu';
+      if (bad(name) || name.length < 2) name = 'Komşu' + U.uid.slice(-4);
+    } else if (!isAdm) {
+      if (bad(name)) throw { message: 'Bu isim kullanılamaz 🙅 Kendi Instagram ya da TikTok kullanıcı adını yaz' };
+      const al = await allowList();
+      if (al && !al.has(keyOf(name))) throw { message: `"${name}" takipçi listemizde yok 😕 Instagram ya da TikTok'tan @komsukent'i takip et (liste her gün güncellenir) ya da Google ile gir.` };
+    }
+    if (name.length < 2) throw { message: 'Kullanıcı adını yaz' };
+    let nk = keyOf(name);
+    let nr = await runTransaction(ref(db, 'names/' + nk), cur => (cur && cur !== myId) ? undefined : myId).catch(() => null);
+    if ((!nr || !nr.committed) && isG && !isAdm) { name = name + U.uid.slice(-3); nk = keyOf(name); nr = await runTransaction(ref(db, 'names/' + nk), cur => (cur && cur !== myId) ? undefined : myId).catch(() => null); }
+    if (!nr || !nr.committed) throw { message: `"${name}" ismi başka bir oyuncuya ait 😕 Kendi kullanıcı adını yaz` };
+    try { const old = (await get(ref(db, 'players/' + myId + '/nk'))).val(); if (old && old !== nk) remove(ref(db, 'names/' + old)); } catch (e) { }
+    update(ref(db, 'players/' + myId), { nk });
     const job = sel.value;
     const on = (await get(ref(db, 'online'))).val() || {};
     const cnt = Object.entries(on).filter(([id, v]) => id !== myId && v && v.job === job).length;
@@ -339,7 +358,7 @@ function listenCommon() {
 function listenPlayer() {
   onValue(ref(db, 'online/' + myId), s => {
     const v = s.val(); if (!v || !ME) return;
-    if (v.kick && v.kick > loginT) { kicked(false); return; }
+    if (v.kick && v.kick > loginT) { kicked(false, v.soft); return; }
     if (v.jail && v.jail > now() && !(ME.jail > now())) { ME.jail = v.jail; ME.wanted = 0; if (ME.ride) update(ref(db, 'online/' + myId), { ride: null }); ME.ride = null; ME.x = COURT_DOOR.x; ME.y = COURT_DOOR.y; ME.drive = null; ME.inside = 'adalet'; pub({ inside: 'adalet', drive: null }); target = null; task = null; toast('🚔 Yakalandın! Adalet Sarayı\'na götürüldün ⚖️'); sendPos(true); }
     else if (v.jail !== ME.jail) ME.jail = v.jail || 0;
   });
@@ -417,6 +436,21 @@ function showAnn(a) { const e = document.getElementById('ann'); e.innerHTML = `�
 // chat
 const msgIn = document.getElementById('msg');
 // profanity filter (kept small on purpose: whole words + a few roots)
+let _allow;
+async function allowList() {
+  if (_allow !== undefined) return _allow;
+  try { const r = await fetch('allow.json?v=' + Math.floor(Date.now() / 3600000)); _allow = r.ok ? new Set(await r.json()) : null; } catch (e) { _allow = null; }
+  return _allow;
+}
+async function kickAll() {
+  const on = (await get(ref(db, 'online'))).val() || {}; const t = now(); let n = 0;
+  for (const id in on) if (id !== myId) { update(ref(db, 'online/' + id), { kick: t, soft: 1 }); n++; }
+  const nm = (await get(ref(db, 'names'))).val() || {};
+  for (const k in nm) if (nm[k] !== myId) remove(ref(db, 'names/' + k));
+  push(ref(db, 'log'), { k: 'ann', h: '👢 Şehir yenilendi! Herkes kendi adıyla tekrar girsin 🏙️', uid: myId, t: serverTimestamp() });
+  toast(`👢 ${n} oyuncu atıldı, isimler sıfırlandı`, 4000);
+}
+const RESERVED = ['komsukent', 'komsu_kent', 'komsukentoyun', 'yonetici', 'yonetim', 'admin', 'moderator', 'belediyebaskani', 'anthropic', 'claude'];
 const fold = w => w.replace(/[çğıöşü]/g, c => ({ ç: 'c', ğ: 'g', ı: 'i', ö: 'o', ş: 's', ü: 'u' }[c]));
 const BAD = new Set(['amk', 'aq', 'amq', 'amq', 'mk', 'sg', 'oc', 'pic', 'got', 'ibne', 'kahpe', 'gavat', 'surtuk', 'pust', 'yarak', 'yarrak', 'amcik', 'tasak', 'orospu', 'pezevenk', 'yavsak', 'serefsiz', 'sik', 'siktir', 'sikerim', 'sikim', 'sokam', 'amina', 'anani', 'avradini', 'dalyarak', 'ananiskm', 'skm', 'sktr', 'oe']);
 const BADP = ['sik', 'siktir', 'orosp', 'yarra', 'pezeven', 'amına', 'amina', 'yavşa', 'yavsa', 'şerefsi', 'serefsi', 'dalyara', 'ibne', 'kahpe', 'amcık', 'gavatl'];
@@ -475,8 +509,9 @@ function accountMenu() {
   items.push({ label: '🚪 Çıkış yap', fn: async () => { await remove(ref(db, 'online/' + myId)); if (myZone) await remove(ref(db, 'pos/' + myZone + '/' + myId)); await AU.signOut(auth); location.reload(); } });
   modal('👤 Hesabım', items, `<p>${u.isAnonymous ? 'Misafir hesap: başka cihazdan girersen ilerlemen görünmez. Kaybetmemek için Google\'a bağla.' : '✅ Google hesabınla giriş yaptın, ilerlemen her cihazda kayıtlı.'}${mods[myId] ? '<br>🛡 Moderatörsün: oyunculara dokunarak sustur/at yapabilirsin.' : ''}</p>`);
 }
-async function kicked(ban) {
+async function kicked(ban, soft) {
   if (kicked.done) return; kicked.done = 1;
+  if (soft) { try { await remove(ref(db, 'online/' + myId)); if (myZone) await remove(ref(db, 'pos/' + myZone + '/' + myId)); } catch (e) { } alert('🏙️ Şehir yenilendi! Kendi adınla tekrar giriş yap.'); location.reload(); return; }
   try { localStorage.setItem('kk_kick', String(now() + (ban ? 365 * 864e5 : 5 * 60000))); } catch (e) { }
   try { await remove(ref(db, 'online/' + myId)); if (myZone) await remove(ref(db, 'pos/' + myZone + '/' + myId)); } catch (e) { }
   ME = null;
@@ -1428,11 +1463,11 @@ function adminUI() {
   <h3>🗳 Seçimler</h3>
   ${Object.keys(ROLES).map(r => { const e = elections[r], h = roles[r]; return `<div style="font-size:13px;margin:6px 0"><b>${ROLES[r].n}</b>: ${h && h.until > t ? '👑 ' + esc(h.name) : 'boş'}${e ? ` • seçim ${Math.max(0, Math.ceil((e.ends - t) / 60000))} dk (${Object.values(e.cands || {}).map(c => esc(c.name) + ' ' + (c.votes || 0)).join(', ') || 'aday yok'})` : ''}</div>
     <div class="row"><button data-el="${r}" data-min="10">Seçim 10 dk</button><button data-el="${r}" data-min="60">60 dk</button>${e ? `<button data-end="${r}" style="background:#c0392b">Bitir</button>` : ''}${h ? `<button data-rm="${r}" style="background:#7f8c8d">Görevden al</button>` : ''}</div>`; }).join('')}
-  <h3>👀 Oyuncular (${list.length})</h3><p style="font-size:12px;margin:0 0 4px;opacity:.7">İsme dokun: takip et • ⚙️: moderasyon</p><button data-f="">Serbest kamera</button>
-  ${list.map(([id, o]) => `<div class="row"><button class="pl" style="flex:4" data-f="${id}">${mods[id] ? '🛡 ' : ''}${esc(o.name)} • ${esc(o.job)}${o.wanted > t ? ' 🚨' : ''}${o.jail > t ? ' ⛓' : ''}</button><button style="flex:1" data-p="${id}">⚙️</button></div>`).join('')}
+  <h3>👢 Toplu işlem</h3><button id="aKickAll" style="background:#c0392b">👢 Herkesi oyundan at (yeniden girsinler)</button>
   <h3>🛡 Moderatörler</h3>${Object.entries(mods).map(([id, m]) => `<div class="row"><button class="pl" style="flex:4">${esc(m.name || id)}</button><button style="flex:1;background:#c0392b" data-unmod="${id}">✖</button></div>`).join('') || '<p style="font-size:13px">Henüz yok. Oyuncu listesinde ⚙️ ile ekle.</p>'}
   <h3>🚩 Şikayetler</h3>${Object.entries(reports).reverse().map(([k, r]) => `<div style="font-size:12px;margin:4px 0">${esc(r.byName)} → <b>${esc(r.targetName)}</b>: ${esc(r.reason)}</div><div class="row"><button data-f="${r.target}">Git</button><button data-delrep="${k}" style="background:#7f8c8d">Sil</button></div>`).join('') || '<p style="font-size:13px">Şikayet yok 👍</p>'}
   <h3>📋 Moderatör işlemleri</h3>${Object.values(modlog).reverse().map(m => `<div style="font-size:12px;margin:3px 0">${new Date(m.t).toLocaleTimeString('tr', { hour: '2-digit', minute: '2-digit' })} ${esc(m.by)}: ${esc(m.act)} → ${esc(m.target)}</div>`).join('') || '<p style="font-size:13px">Kayıt yok</p>'}`;
+  adminEl.querySelector('#aKickAll').onclick = kickAll;
   adminEl.querySelector('#aPlay').onclick = adminPlay; adminEl.querySelector('#aPl').onclick = playersMenu;
   adminEl.querySelector('#aRec').onclick = () => { document.body.classList.toggle('rec'); adminEl.style.display = 'none'; };
   adminEl.querySelectorAll('[data-ev]').forEach(b => b.onclick = () => {
