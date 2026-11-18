@@ -66,6 +66,15 @@ button:disabled{opacity:.45}
 #emo{display:flex;gap:6px;pointer-events:auto}#emo button{flex:1;padding:7px 0;font-size:20px;background:rgba(15,25,45,.85);border-radius:14px}
 .badge{position:absolute;top:-4px;right:-4px;background:#e74c3c;color:#fff;font-size:11px;min-width:18px;height:18px;border-radius:9px;line-height:18px;display:none}
 #side button{position:relative}
+.shop{width:min(94vw,460px)}
+.shop .hd{margin:-20px -20px 14px;padding:22px 20px 16px;border-radius:22px 22px 0 0;font-size:24px;font-weight:900;text-shadow:0 2px 6px rgba(0,0,0,.4)}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+.it{background:#24365e;border-radius:14px;padding:10px 4px;text-align:center;font-weight:700;font-size:12px;cursor:pointer;border:2px solid transparent}
+.it b{display:block;font-size:30px;margin-bottom:4px}.it i{display:block;font-style:normal;color:#ffd23f;margin-top:3px}
+.it.off{opacity:.45}.it.on{border-color:#2ecc71}
+.tabs{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}.tabs button{flex:1;padding:9px 6px;font-size:13px;background:#24365e}.tabs button.on{background:#e67e22}
+.bar{height:8px;background:#0b1530;border-radius:5px;overflow:hidden;margin-top:5px}.bar i{display:block;height:100%;background:#2ecc71}
+table.pl{width:100%;font-size:12px;border-collapse:collapse}table.pl td{padding:5px 3px;border-bottom:1px solid #24365e}
 #err{color:#ff8a8a;text-align:center;font-size:13px;min-height:18px;margin-top:8px}
 #toast{top:96px;left:50%;transform:translateX(-50%);background:rgba(15,25,45,.94);padding:9px 16px;border-radius:18px;font-weight:700;font-size:14px;display:none;text-align:center;max-width:90vw}
 #ann{top:140px;left:50%;transform:translateX(-50%);background:#8e44ad;padding:12px 18px;border-radius:16px;font-weight:800;font-size:16px;display:none;text-align:center;max-width:92vw;box-shadow:0 6px 20px rgba(0,0,0,.4)}
@@ -81,7 +90,7 @@ button:disabled{opacity:.45}
 <body>
 <div id="labels"></div>
 <div id="hud" class="ui"><span class="pill" id="me">…</span><span class="pill" id="money">💰 0</span><span class="pill" id="energy">⚡ 100</span><span class="pill" id="clock">🕐</span><span class="pill" id="online">🟢 0</span></div>
-<div id="side" class="ui"><button id="bFull">⛶</button><button id="zin">＋</button><button id="zout">－</button><button id="bChat">💬<span class="badge" id="badge"></span></button><button id="bRank">🏆</button><button id="bWard">👕</button></div>
+<div id="side" class="ui"><button id="bFull">⛶</button><button id="zin">＋</button><button id="zout">－</button><button id="bChat">💬<span class="badge" id="badge"></span></button><button id="bQuest">📋</button><button id="bBag">🎒</button><button id="bVeh">🚗</button><button id="bRank">🏆</button><button id="bWard">👕</button><button id="bPl" style="display:none">👥</button></div>
 <div id="joy"><i></i></div><div id="joyHint" class="ui">🕹<br>Sürükle</div>
 <div id="acts" class="ui"></div>
 <div id="toast" class="ui"></div>
@@ -154,6 +163,7 @@ const BUILD = [
   { id: 'kuafor', n: 'Güzellik Salonu', jobs: ['Kuaför', 'Berber', 'Manikürcü'], c: '#ffd6e8', r: '#d63384', ...BP(4, 4) },
   { id: 'itfaiye', n: 'İtfaiye', jobs: ['İtfaiyeci'], c: '#c0151f', r: '#7a0d14', ...BP(5, 3) },
   { id: 'cami', n: 'Cami', jobs: ['İmam'], c: '#ecf0f1', r: '#7f8c8d', ...BP(3, 4) },
+  { id: 'avm', n: 'KOMŞU AVM', jobs: ['AVM Çalışanı'], c: '#dfe6ee', r: '#6c3483', x: 51, y: 63, w: 8, h: 8, H: 8.2 },
 ].map(b => Object.assign({ w: 6, h: 6, H: 3.4 }, b));
 const BMAP = Object.fromEntries(BUILD.map(b => [b.id, b]));
 const ROLES = {
@@ -219,7 +229,7 @@ function modal(title, items, extra = '') {
   });
   mcard.querySelector('#mclose').onclick = closeModal; modalEl.style.display = 'flex';
 }
-function closeModal() { modalEl.style.display = 'none'; }
+var closeModal = function () { modalEl.style.display = 'none'; };
 modalEl.addEventListener('pointerdown', e => { if (e.target === modalEl) closeModal(); });
 
 // ================= LOGIN =================
@@ -270,7 +280,8 @@ async function enter2(mode) {
     }
     prev = prev || {};
     ME = { name, job, color: myColor, money: prev.money ?? 100, energy: prev.energy ?? 100, home: prev.home ?? null, shop: prev.shop ?? null,
-      acc: prev.acc || {}, wear: prev.wear || {}, m: prev.m || {},
+      acc: prev.acc || {}, wear: prev.wear || {}, m: prev.m || {}, inv: prev.inv || {}, veh: prev.veh || {}, q: prev.q || {}, lvl: prev.lvl || 0, sick: prev.sick || 0,
+      play: prev.play || 0, pd: prev.pd || {}, joined: prev.joined || now(), taxDay: prev.taxDay || '', drive: null, inside: null, bag: 0,
       x: prev.x ?? (SPAWN.x + (Math.random() - .5) * 200), y: prev.y ?? SPAWN.y, wanted: 0, jail: 0, ride: null };
     if (blocked(ME.x, ME.y) || ME.x > WORLD || ME.y > WORLD || (prev.v || 0) < 3) { ME.x = SPAWN.x + (Math.random() - .5) * 200; ME.y = SPAWN.y; }
     try { localStorage.setItem('kk_me', JSON.stringify({ name, job, color: myColor })); } catch (e) { }
@@ -282,12 +293,13 @@ async function enter2(mode) {
     say(`<b>${esc(name)}</b> şehre taşındı 🏠 (${esc(job)})`, true);
     document.getElementById('panel').style.display = 'none';
     cam.x = ME.x; cam.y = ME.y;
-    loginT = now();
+    loginT = now(); afterLogin();
     listenCommon(); listenPlayer(); hud(); document.getElementById('joyHint').style.display = 'flex';
   } catch (e) { throw e; }
 }
 let loginT = 0;
-function profile() { return { name: ME.name, color: ME.color, job: ME.job, wear: ME.wear || {}, wanted: ME.wanted || 0, jail: ME.jail || 0, ride: ME.ride || null, t: serverTimestamp() }; }
+function profile() { return { name: ME.name, color: ME.color, job: ME.job, wear: ME.wear || {}, wanted: ME.wanted || 0, jail: ME.jail || 0, ride: ME.ride || null, drive: ME.drive || null, inside: ME.inside || null, sick: ME.sick || 0, bag: ME.bag || 0, t: serverTimestamp() }; }
+const pub = o => update(ref(db, 'online/' + myId), o).catch(() => { });
 
 function hud() {
   if (!ME) return;
@@ -295,13 +307,14 @@ function hud() {
   document.getElementById('me').onclick = accountMenu;
   document.getElementById('me').textContent = '@' + ME.name + ' • ' + (r ? '👑 ' + ROLES[r].n : ME.job);
   document.getElementById('money').textContent = '💰 ' + Math.floor(ME.money);
-  document.getElementById('energy').textContent = '⚡ ' + Math.floor(ME.energy);
+  document.getElementById('energy').textContent = (ME.sick ? '🤒 ' : '⚡ ') + Math.floor(ME.energy);
   document.getElementById('online').textContent = '🟢 ' + (Object.keys(others).length + 1);
 }
 setInterval(() => { document.getElementById('clock').textContent = (isNight() ? '🌙 ' : '☀️ ') + gameClock(); }, 1000);
 
 // ================= REALTIME =================
 function listenCommon() {
+  if (listenCommon.done) return; listenCommon.done = 1;
   const oref = ref(db, 'online');
   const upd = s => {
     if (s.key === myId) return; const v = s.val(); if (!v) return;
@@ -319,13 +332,15 @@ function listenCommon() {
   onChildAdded(query(ref(db, 'log'), limitToLast(50)), s => { const v = s.val(); if (v) addLog(s.key, v); });
   onChildRemoved(query(ref(db, 'log'), limitToLast(50)), s => { const i = chatData.findIndex(c => c.key === s.key); if (i >= 0) { chatData.splice(i, 1); renderChat(); } });
   onValue(ref(db, 'mods'), s => { mods = s.val() || {}; });
+  onValue(ref(db, 'admins'), s => { admins = s.val() || {}; });
+  onValue(ref(db, 'avm2'), s => { avm = s.val() || {}; });
   onValue(ref(db, 'announce'), s => { const a = s.val(); if (a && now() - a.t < 15000) showAnn(a); });
 }
 function listenPlayer() {
   onValue(ref(db, 'online/' + myId), s => {
     const v = s.val(); if (!v || !ME) return;
     if (v.kick && v.kick > loginT) { kicked(false); return; }
-    if (v.jail && v.jail > now() && !(ME.jail > now())) { ME.jail = v.jail; ME.wanted = 0; if (ME.ride) update(ref(db, 'online/' + myId), { ride: null }); ME.ride = null; ME.x = JAIL_SPOT.x; ME.y = JAIL_SPOT.y; target = null; task = null; toast('🚔 Yakalandın! Mahkemeye sevk edildin ⛓'); sendPos(true); }
+    if (v.jail && v.jail > now() && !(ME.jail > now())) { ME.jail = v.jail; ME.wanted = 0; if (ME.ride) update(ref(db, 'online/' + myId), { ride: null }); ME.ride = null; ME.x = COURT_DOOR.x; ME.y = COURT_DOOR.y; ME.drive = null; ME.inside = 'adalet'; pub({ inside: 'adalet', drive: null }); target = null; task = null; toast('🚔 Yakalandın! Adalet Sarayı\'na götürüldün ⚖️'); sendPos(true); }
     else if (v.jail !== ME.jail) ME.jail = v.jail || 0;
   });
   onChildAdded(ref(db, 'notify/' + myId), s => { const v = s.val(); if (v) toast(v.m, 4000); remove(s.ref); });
@@ -364,9 +379,16 @@ function sendPos(force) {
 }
 function saveMe() {
   if (!ME) return;
-  update(ref(db, 'players/' + myId), { v: 3, money: Math.floor(ME.money), energy: Math.round(ME.energy), home: ME.home, shop: ME.shop, acc: ME.acc, wear: ME.wear, m: ME.m, x: Math.round(ME.x), y: Math.round(ME.y), name: ME.name, color: ME.color, job: ME.job });
+  update(ref(db, 'players/' + myId), { v: 3, inv: ME.inv, veh: ME.veh, q: ME.q, lvl: ME.lvl, sick: ME.sick, play: ME.play, pd: ME.pd, joined: ME.joined, taxDay: ME.taxDay, money: Math.floor(ME.money), energy: Math.round(ME.energy), home: ME.home, shop: ME.shop, acc: ME.acc, wear: ME.wear, m: ME.m, x: Math.round(ME.x), y: Math.round(ME.y), name: ME.name, color: ME.color, job: ME.job });
 }
-setInterval(() => { if (ME) { ME.energy = Math.min(100, ME.energy + 1); saveMe(); hud(); } }, 30000);
+setInterval(() => {
+  if (!ME) return;
+  const d = new Date().toISOString().slice(0, 10); ME.play += 30000; ME.pd = { [d]: (ME.pd[d] || 0) + 30000 };
+  if (ME.sick) ME.energy = Math.max(0, ME.energy - 1); else ME.energy = Math.min(100, ME.energy + (ME.inv.saat ? 2 : 1));
+  if (!ME.sick && Math.random() < 0.03) { ME.sick = 1; pub({ sick: 1 }); toast('🤒 Hastalandın! Enerjin düşüyor, hastaneye git', 5000); }
+  if (ME.drive && Math.random() < 0.06) { const v = ME.veh[ME.drive]; if (v) { v.br = Math.random() < 0.5 ? 'motor' : 'lastik'; toast(`💥 ${VEH[v.t].n} bozuldu! (${v.br === 'motor' ? 'motor arızası → Tamirci' : 'lastik patladı → Lastikçi'}) Sanayiye götür`, 5500); ME.drive = null; pub({ drive: null }); } }
+  saveMe(); hud();
+}, 30000);
 function stat(k, v = 1) { const m = MK(); ME.m = ME.m || {}; ME.m[m] = ME.m[m] || {}; ME.m[m][k] = (ME.m[m][k] || 0) + v; }
 function earn(a, why) { ME.money += a; stat('earned', a); hud(); saveMe(); if (why) toast(why + ` +${a} 💰`); }
 function payTo(id, amount) { if (amount > 0) runTransaction(ref(db, 'players/' + id + '/money'), m => (m || 0) + amount); }
@@ -402,7 +424,8 @@ function cleanText(t) {
   return t.replace(/[\p{L}\p{N}]+/gu, w => { const n = w.toLocaleLowerCase('tr'); return (BAD.has(fold(n)) || BADP.some(p => n.startsWith(p))) ? '*'.repeat(w.length) : w; });
 }
 function sendMsg(txt) {
-  let t = (typeof txt === 'string' ? txt : msgIn.value).trim().slice(0, 60); if (!t || !ME) return;
+  let t = (typeof txt === 'string' ? txt : msgIn.value).trim().slice(0, 60); if (!t) return;
+  if (!ME) { if (!IS_ADMIN) return; if (typeof txt !== 'string') msgIn.value = ''; push(ref(db, 'log'), { h: `<b>👑 Yönetici:</b> ${esc(t)}`, k: 'ann', uid: myId, t: serverTimestamp() }); return; }
   if (myMute > now()) { toast(`🔇 Susturuldun, ${Math.ceil((myMute - now()) / 60000)} dk sonra yazabilirsin`); return; }
   if (now() - lastMsg.t < 3000) { toast('Biraz yavaş 🙂 3 saniyede 1 mesaj'); return; }
   if (t === lastMsg.s && now() - lastMsg.t < 30000) { toast('Aynı mesajı tekrar atma 🙂'); return; }
@@ -461,6 +484,189 @@ async function kicked(ban) {
   document.getElementById('panel').style.display = 'flex';
 }
 
+// ================= ECONOMY: SHOPS, VEHICLES, QUESTS =================
+let admins = {};
+const VEH = {
+  bisiklet: { n: 'Bisiklet', e: '🚲', p: 900, sp: 0.27 }, motor: { n: 'Motosiklet', e: '🏍', p: 3500, sp: 0.36 },
+  araba: { n: 'Araba', e: '🚗', p: 9000, sp: 0.42 }, spor: { n: 'Spor araba', e: '🏎', p: 25000, sp: 0.52 },
+};
+const FOOD = {
+  su: { n: 'Su', e: '💧', p: 5, en: 8 }, ekmek: { n: 'Ekmek', e: '🍞', p: 8, en: 12 }, sut: { n: 'Süt', e: '🥛', p: 12, en: 15 }, meyve: { n: 'Meyve', e: '🍎', p: 15, en: 18 },
+  simit: { n: 'Simit', e: '🥯', p: 10, en: 12 }, pogaca: { n: 'Poğaça', e: '🥐', p: 12, en: 14 }, pasta: { n: 'Pasta', e: '🎂', p: 60, en: 50 },
+  burger: { n: 'Burger', e: '🍔', p: 40, en: 35 }, pizza: { n: 'Pizza', e: '🍕', p: 50, en: 45 }, doner: { n: 'Döner', e: '🌯', p: 45, en: 40 }, dondurma: { n: 'Dondurma', e: '🍦', p: 20, en: 15 },
+};
+const CLOTH = {
+  kirmizi: { n: 'Kırmızı tişört', e: '👕', p: 120, sh: '#e74c3c' }, beyaz: { n: 'Beyaz gömlek', e: '👔', p: 200, sh: '#f4f4f4' },
+  siyah: { n: 'Siyah ceket', e: '🧥', p: 450, sh: '#1c1c1c' }, forma: { n: 'Spor forma', e: '🎽', p: 350, sh: '#f1c40f' },
+  mor: { n: 'Mor kapüşonlu', e: '🧥', p: 300, sh: '#8e44ad' }, elbise: { n: 'Pembe elbise', e: '👗', p: 600, sh: '#ff6fb5', dress: 1 },
+};
+const TECH = {
+  telefon: { n: 'Telefon', e: '📱', p: 450, d: 'Kimlerin çevrimiçi olduğunu görürsün' }, kulaklik: { n: 'Kulaklık', e: '🎧', p: 300, d: 'Başında görünür' },
+  saat: { n: 'Akıllı saat', e: '⌚', p: 900, d: 'Enerji 2 kat hızlı dolar' }, laptop: { n: 'Laptop', e: '💻', p: 2500, d: 'Mesailer %25 kısa sürer' },
+};
+const HAIR = { kisa: 'Kısa', uzun: 'Uzun', atkuyrugu: 'At kuyruğu', kivircik: 'Kıvırcık', mohikan: 'Mohikan', kel: 'Kel 😄' };
+const HCOL = { '#3b2a1e': 'Kahve', '#111111': 'Siyah', '#e1b35a': 'Sarı', '#b5481e': 'Kızıl', '#ff6fb5': 'Pembe', '#3498db': 'Mavi', '#dddddd': 'Gri' };
+let avm = {};
+
+function payJob(jobs, amount, msg) {   // pay an online player with one of these jobs
+  const c = Object.entries(others).filter(([id, o]) => o.name && jobs.includes(o.job));
+  if (!c.length) return null; const [id, o] = c[Math.floor(Math.random() * c.length)];
+  payTo(id, amount); notify(id, msg + ` +${amount} 💰`); return o.name;
+}
+function spend(p) { if (ME.money < p) { toast(`Para yetmiyor 😅 ${Math.ceil(p - ME.money)} 💰 daha lazım`); return false; } ME.money -= p; stat('spent', p); hud(); return true; }
+function carry() { ME.bag = now() + 120000; pub({ bag: ME.bag }); }
+function shopScreen(title, color, tabs, active) {
+  const tab = tabs[active || 0];
+  mcard.className = 'card shop';
+  mcard.innerHTML = `<div class="hd" style="background:${color}">${title}</div>${tabs.length > 1 ? `<div class="tabs">${tabs.map((t, i) => `<button data-t="${i}" class="${i === (active || 0) ? 'on' : ''}">${t.n}</button>`).join('')}</div>` : ''}${tab.info ? `<p>${tab.info}</p>` : ''}<div class="grid">${tab.items.map((it, i) => `<div class="it ${it.off ? 'off' : ''} ${it.on ? 'on' : ''}" data-i="${i}"><b>${it.e}</b>${it.n}<i>${it.r || ''}</i></div>`).join('')}</div><p style="margin-top:12px">💰 ${Math.floor(ME.money)} • ⚡ ${Math.floor(ME.energy)}</p><button class="mi" style="justify-content:center;background:#3a4a6b" id="mclose">Kapat</button>`;
+  mcard.querySelectorAll('[data-t]').forEach(b => b.onclick = () => shopScreen(title, color, tabs, +b.dataset.t));
+  mcard.querySelectorAll('[data-i]').forEach(d => d.onclick = () => { const it = tab.items[+d.dataset.i]; if (it.off) return; it.fn(); if (modalEl.style.display !== 'none' && it.stay !== false) shopScreen(title, color, tabs, active); });
+  mcard.querySelector('#mclose').onclick = closeModal; modalEl.style.display = 'flex';
+}
+const _close0 = closeModal; closeModal = function () { mcard.className = 'card'; _close0(); };
+function buyFood(k, owner) {
+  const f = FOOD[k]; if (!spend(f.p)) return; ME.inv[k] = (ME.inv[k] || 0) + 1; stat('bought'); carry();
+  if (owner) payTo(owner, Math.round(f.p * 0.5)); else payJob(['Marketçi', 'Kasiyer', 'Fırıncı', 'Pastacı', 'AVM Çalışanı'], Math.max(1, Math.round(f.p * 0.3)), `🛒 ${ME.name} alışveriş yaptı`);
+  saveMe(); toast(`${f.e} ${f.n} çantana girdi 🎒`);
+}
+function foodItems(keys, owner) { return keys.map(k => ({ e: FOOD[k].e, n: FOOD[k].n, r: `${FOOD[k].p} 💰 • +${FOOD[k].en}⚡`, off: ME.money < FOOD[k].p, fn: () => buyFood(k, owner) })); }
+function clothItems(owner) {
+  return Object.entries(CLOTH).map(([k, c]) => { const own = ME.acc['c_' + k], on = ME.wear.ck === k; return { e: c.e, n: c.n, on, r: own ? (on ? 'Giyili ✓' : 'Giy') : c.p + ' 💰', off: !own && ME.money < c.p, fn: () => {
+    if (!own) { if (!spend(c.p)) return; ME.acc['c_' + k] = 1; stat('bought'); carry(); if (owner) payTo(owner, Math.round(c.p * 0.5)); toast(`🛍 ${c.n} aldın!`); }
+    if (on) { delete ME.wear.ck; delete ME.wear.sh; delete ME.wear.dress; } else { ME.wear.ck = k; ME.wear.sh = c.sh; if (c.dress) ME.wear.dress = 1; else delete ME.wear.dress; }
+    pub({ wear: ME.wear }); saveMe();
+  } }; });
+}
+function techItems(owner) {
+  return Object.entries(TECH).map(([k, c]) => { const own = ME.inv[k]; return { e: c.e, n: c.n, r: own ? (k === 'kulaklik' ? (ME.wear.k ? 'Takılı ✓' : 'Tak') : 'Sende ✓') : c.p + ' 💰', off: !own && ME.money < c.p, fn: () => {
+    if (!own) { if (!spend(c.p)) return; ME.inv[k] = 1; stat('bought'); carry(); if (owner) payTo(owner, Math.round(c.p * 0.5)); toast(`${c.e} ${c.n} aldın! ${c.d}`, 3500); }
+    if (k === 'kulaklik') { ME.wear.k = ME.wear.k ? 0 : 1; pub({ wear: ME.wear }); }
+    saveMe();
+  } }; });
+}
+function goInside(bid) {
+  ME.inside = bid; target = null; if (ME.drive) { ME.drive = null; }
+  pub({ inside: bid, drive: null }); toast(bid ? `🚪 ${BMAP[bid].n}'a girdin. Dışarıdan görünmüyorsun.` : '🚪 Dışarı çıktın');
+}
+const BMENU = {
+  market: { btn: '🛒 Markete gir', open: () => shopScreen('🛒 Market', '#c0392b', [{ n: 'Ürünler', info: 'Aldıkların 🎒 çantana girer, yiyince enerji verir.', items: foodItems(['su', 'ekmek', 'sut', 'meyve']) }]) },
+  firin: { btn: '🥯 Fırına gir', open: () => shopScreen('🥯 Fırın', '#9b3b2a', [{ n: 'Fırın', items: foodItems(['simit', 'pogaca', 'pasta']) }]) },
+  kuafor: { btn: '💇 Kuaföre gir', open: () => shopScreen('💇 Güzellik Salonu', '#d63384', [
+    { n: 'Saç modeli', info: 'Saç modeli 80 💰. Dışarı çıkınca herkes görür!', items: Object.entries(HAIR).map(([k, n]) => ({ e: '💇', n, on: (ME.wear.hair || 'kisa') === k, r: (ME.wear.hair || 'kisa') === k ? 'Şu an ✓' : '80 💰', off: ME.money < 80, fn: () => { if ((ME.wear.hair || 'kisa') === k || !spend(80)) return; ME.wear.hair = k; stat('hair'); pub({ wear: ME.wear }); saveMe(); payJob(['Kuaför', 'Berber'], 40, `💇 ${ME.name} saçını yaptırdı`); toast('💇 Yeni saçın çok yakıştı!'); } })) },
+    { n: 'Saç rengi', info: 'Boya 60 💰', items: Object.entries(HCOL).map(([c, n]) => ({ e: '🎨', n, on: (ME.wear.hc || '#3b2a1e') === c, r: '60 💰', off: ME.money < 60, fn: () => { if (!spend(60)) return; ME.wear.hc = c; stat('hair'); pub({ wear: ME.wear }); saveMe(); payJob(['Kuaför', 'Berber'], 30, `🎨 ${ME.name} saçını boyattı`); } })) },
+    { n: 'Manikür', items: [{ e: '💅', n: 'Manikür', r: '50 💰 • +10⚡', off: ME.money < 50, fn: () => { if (!spend(50)) return; ME.energy = Math.min(100, ME.energy + 10); payJob(['Manikürcü'], 25, `💅 ${ME.name} manikür yaptırdı`); toast('💅 Tırnakların harika!'); } }] }]) },
+  hastane: { btn: '🏥 Hastaneye gir', open: () => shopScreen('🏥 Hastane', '#2e86de', [{ n: 'Muayene', info: ME.sick ? '🤒 Hastasın! Muayene ol, iyileş.' : 'Sağlıklısın 👍 Check-up enerjini doldurur.', items: [
+    { e: '🩺', n: ME.sick ? 'Muayene + ilaç' : 'Check-up', r: '60 💰', off: ME.money < 60, fn: () => { if (!spend(60)) return; ME.sick = 0; ME.energy = 100; pub({ sick: 0 }); saveMe(); const d = payJob(['Doktor', 'Hemşire', 'Eczacı'], 40, `🩺 ${ME.name}'i muayene ettin`); toast(`💊 İyileştin! ${d ? 'Doktor: ' + d : ''}`); hud(); } }] }]) },
+  okul: { btn: '📚 Okula gir', open: () => shopScreen('📚 Okul', '#b7950b', [{ n: 'Dersler', info: `Mesleğinde seviye atla, maaşın %10 artsın. Seviye: ${ME.lvl || 0}/5`, items: [
+    { e: '📖', n: `Ders al (Sv ${(ME.lvl || 0) + 1})`, r: (ME.lvl || 0) >= 5 ? 'Tamamlandı' : (150 * ((ME.lvl || 0) + 1)) + ' 💰', off: (ME.lvl || 0) >= 5 || ME.money < 150 * ((ME.lvl || 0) + 1), fn: () => { if (!spend(150 * ((ME.lvl || 0) + 1))) return; ME.lvl = (ME.lvl || 0) + 1; saveMe(); payJob(['Öğretmen'], 50, `📚 ${ME.name}'e ders verdin`); toast(`🎓 Seviye ${ME.lvl}! Maaşın %${ME.lvl * 10} arttı`); } }] }]) },
+  cami: { btn: '🕌 Camiye gir', open: () => { const fri = new Date().getDay() === 5, imam = ME.job === 'İmam', n = nearOthers(260).length;
+    shopScreen('🕌 Cami', '#7f8c8d', [{ n: 'Cami', info: fri ? 'Bugün Cuma 🤲' : 'Cuma günleri imam cemaati toplayınca ödül alır.', items: [
+      { e: '🤲', n: 'Dua et', r: '+10⚡ (saatte 1)', off: (ME.lastDua || 0) > now() - 3600000, fn: () => { ME.lastDua = now(); ME.energy = Math.min(100, ME.energy + 10); hud(); toast('🤲 Kabul olsun'); } },
+      ...(imam ? [{ e: '🕌', n: 'Cuma namazı kıldır', r: `cemaat ${n} kişi`, off: !fri || n < 1 || (ME.lastCuma || '') === new Date().toDateString(), fn: () => { ME.lastCuma = new Date().toDateString(); earn(Math.min(150, 40 + n * 20), '🕌 Cuma namazı kıldırdın'); } }] : [])] }]); } },
+  sanayi: { btn: '🔧 Sanayiye gir', open: () => sanayi() },
+  avm: { btn: '🏬 AVM\'ye gir', open: () => avmMenu() },
+  adalet: { btn: '⚖️ Mahkemeyi izle', open: () => { const cs = Object.values(cases).filter(c => c && c.until > now());
+    modal('⚖️ Adalet Sarayı', [], cs.length ? cs.map(c => `<p>⛓ <b>${esc(c.name)}</b> • yakalayan ${esc(c.by)} • avukat ${esc(c.def || '-')} • savcı ${esc(c.pros || '-')}${c.decided ? ' • ✅ karar: ' + esc(c.decided) : ' • ⏳ karar bekleniyor'}</p>`).join('') : '<p>Şu an görülen dava yok 🙂</p>'); } },
+};
+function sanayi() {
+  const vs = Object.entries(ME.veh), brk = vs.filter(([id, v]) => v.br);
+  shopScreen('🔧 Sanayi Sitesi', '#d35400', [
+    { n: '🚗 Galeri', info: 'Araç al, 🚗 butonundan bin. Her gün araç değerinin %2\'si vergi olarak kesilir.', items: Object.entries(VEH).map(([k, v]) => ({ e: v.e, n: v.n, r: v.p + ' 💰', off: ME.money < v.p, fn: () => { if (!spend(v.p)) return; const id = 'v' + now().toString(36); ME.veh[id] = { t: k, c: ME.color }; stat('vehicle'); saveMe(); payJob(['Galerici'], Math.round(v.p * 0.05), `🚗 ${ME.name} galeriden ${v.n} aldı`); say(`🚗 <b>${esc(ME.name)}</b> yeni ${v.n} aldı!`, true); toast(`${v.e} ${v.n} senin! 🚗 butonundan bin`); } })) },
+    { n: '🛠 Tamirci', info: brk.some(([i, v]) => v.br === 'motor') ? 'Motoru arızalı aracın var.' : 'Motor arızası olan aracın yok 👍', items: vs.filter(([i, v]) => v.br === 'motor').map(([i, v]) => ({ e: VEH[v.t].e, n: VEH[v.t].n + ' motoru', r: Math.round(VEH[v.t].p * 0.1) + ' 💰', fn: () => { if (!spend(Math.round(VEH[v.t].p * 0.1))) return; delete v.br; saveMe(); payJob(['Tamirci', 'Kaportacı', 'Elektrikçi'], Math.round(VEH[v.t].p * 0.05), `🛠 ${ME.name}'in aracını tamir ettin`); toast('🛠 Motor tamir edildi!'); } })) },
+    { n: '🛞 Lastikçi', info: 'Lastiği patlayan aracı burada düzelt.', items: vs.filter(([i, v]) => v.br === 'lastik').map(([i, v]) => ({ e: '🛞', n: VEH[v.t].n + ' lastiği', r: '80 💰', fn: () => { if (!spend(80)) return; delete v.br; saveMe(); payJob(['Tamirci'], 30, `🛞 ${ME.name}'in lastiğini değiştirdin`); toast('🛞 Yeni lastikler takıldı!'); } })) },
+    { n: '🎨 Boyacı', info: 'Aracını boyat: 300 💰', items: vs.flatMap(([i, v]) => ['#e74c3c', '#111111', '#f4f4f4', '#2980b9', '#27ae60', '#f39c12'].map(c => ({ e: VEH[v.t].e, n: `<span style="color:${c}">■</span> ${VEH[v.t].n}`, r: '300 💰', off: ME.money < 300, fn: () => { if (!spend(300)) return; v.c = c; saveMe(); toast('🎨 Boya yapıldı!'); } }))) },
+  ]);
+}
+function avmMenu(ti) {
+  const units = [...Array(8)].map((_, i) => [i, avm[i]]);
+  const shops = units.filter(([i, u]) => u).map(([i, u]) => ({ e: { Giyim: '👗', Yemek: '🍔', Teknoloji: '📱' }[u.cat] || '🏪', n: esc(u.name), r: '@' + esc(u.owner), fn: () => {
+    const items = u.cat === 'Giyim' ? clothItems(u.id) : u.cat === 'Teknoloji' ? techItems(u.id) : foodItems(['burger', 'pizza', 'doner', 'dondurma'], u.id);
+    shopScreen(`${{ Giyim: '👗', Yemek: '🍔', Teknoloji: '📱' }[u.cat]} ${esc(u.name)}`, '#6c3483', [{ n: u.cat, info: `Sahibi: @${esc(u.owner)}`, items }]); }, stay: false }));
+  const free = units.filter(([i, u]) => !u).map(([i]) => ({ e: '🔑', n: `Kat ${Math.floor(i / 2) + 1} • Dükkan ${i + 1}`, r: '4000 💰', off: ME.money < 4000, fn: () => avmBuy(i), stay: false }));
+  shopScreen('🏬 KOMŞU AVM', 'linear-gradient(135deg,#6c3483,#2e86de)', [
+    { n: '🍔 Yemek katı', info: '5. kat yemek katı. Yediğin anında enerji verir… ya da çantana koy.', items: foodItems(['burger', 'pizza', 'doner', 'dondurma']) },
+    { n: '👕 Giyim', info: 'Aldığın kıyafeti hemen giyersin, herkes görür.', items: clothItems() },
+    { n: '📱 Teknoloji', items: techItems() },
+    { n: '🏪 Oyuncu dükkanları', info: 'Oyuncuların açtığı dükkanlar. Boş dükkan alıp kendi adını koyabilirsin! Satışların yarısı dükkan sahibine gider.', items: [...shops, ...free] },
+  ], ti);
+}
+function avmBuy(i) {
+  modal('🏬 AVM dükkanı aç', ['Giyim', 'Yemek', 'Teknoloji'].map(cat => ({ label: { Giyim: '👗', Yemek: '🍔', Teknoloji: '📱' }[cat] + ' ' + cat, fn: async () => {
+    const n = clean(document.getElementById('avmname').value || ''); if (n.length < 2) { toast('Dükkan adını yaz'); return; }
+    if (ME.money < 4000) { toast('Para yetmiyor'); return; }
+    const r = await runTransaction(ref(db, 'avm2/' + i), c => c ? undefined : { id: myId, owner: ME.name, name: n, cat }).catch(() => null);
+    if (!r || !r.committed) { toast('Bu dükkan alınmış 😬'); return; }
+    spend(4000); stat('shop'); saveMe(); say(`🏬 <b>${esc(ME.name)}</b> AVM'de dükkan açtı: <b>${esc(n)}</b>`, true);
+  } })), '<input id="avmname" maxlength="20" placeholder="Dükkanın adı"><p style="margin-top:8px">Kategori seç (4000 💰):</p>');
+}
+function bagMenu() {
+  const it = Object.entries(ME.inv).filter(([k, n]) => FOOD[k] && n > 0);
+  shopScreen('🎒 Çantam', '#16a085', [{ n: 'Çanta', info: (it.length ? 'Yemek için dokun.' : 'Çantan boş. Markete, fırına ya da AVM\'ye uğra.') + (Object.keys(TECH).some(k => ME.inv[k]) ? '<br>Eşyaların: ' + Object.keys(TECH).filter(k => ME.inv[k]).map(k => TECH[k].e + ' ' + TECH[k].n).join(', ') : ''),
+    items: it.map(([k, n]) => ({ e: FOOD[k].e, n: `${FOOD[k].n} x${n}`, r: `+${FOOD[k].en}⚡`, off: ME.energy >= 100, fn: () => { ME.inv[k]--; if (!ME.inv[k]) delete ME.inv[k]; ME.energy = Math.min(100, ME.energy + FOOD[k].en); stat('ate'); saveMe(); hud(); toast(`😋 ${FOOD[k].n} yedin +${FOOD[k].en}⚡`); } })) }]);
+}
+function vehMenu() {
+  const vs = Object.entries(ME.veh);
+  shopScreen('🚗 Araçlarım', '#2c3e50', [{ n: 'Garaj', info: vs.length ? 'Binmek istediğine dokun. Bozulan araç sanayide tamir edilir.' : 'Aracın yok. Sanayideki galeriden alabilirsin.',
+    items: [...(ME.drive ? [{ e: '🚶', n: 'Araçtan in', fn: () => { ME.drive = null; pub({ drive: null }); }, stay: false }] : []),
+      ...vs.map(([id, v]) => ({ e: VEH[v.t].e, n: VEH[v.t].n, on: ME.drive === id, r: v.br ? (v.br === 'motor' ? '💥 Motor arızalı' : '🛞 Lastik patlak') : ME.drive === id ? 'Biniyorsun ✓' : 'Bin', off: !!v.br || ME.inside || ME.jail > now(), stay: false,
+        fn: () => { if (ME.job === 'Taksici') { toast('Taksiciler taksiyle gezer 🚕'); return; } ME.drive = id; pub({ drive: v.t }); toast(`${VEH[v.t].e} ${VEH[v.t].n}'a bindin!`); } }))] }]);
+}
+const QUESTS = [
+  { id: 'q1', n: 'İlk mesaini tamamla', e: '💼', r: 30, ok: () => g('worked') >= 1 },
+  { id: 'q2', n: 'Marketten alışveriş yap', e: '🛒', r: 30, ok: () => g('bought') >= 1 },
+  { id: 'q3', n: 'Kuaförde saçını yaptır', e: '💇', r: 40, ok: () => g('hair') >= 1 },
+  { id: 'q4', n: '5 mesai tamamla', e: '💪', r: 80, ok: () => g('worked') >= 5, pr: () => Math.min(1, g('worked') / 5) },
+  { id: 'q5', n: 'Okulda ders al', e: '📚', r: 60, ok: () => (ME.lvl || 0) >= 1 },
+  { id: 'q6', n: 'Bir araç satın al', e: '🚲', r: 120, ok: () => Object.keys(ME.veh).length > 0 },
+  { id: 'q7', n: 'Ev sahibi ol', e: '🏠', r: 150, ok: () => !!ME.home },
+  { id: 'q8', n: 'Kendi dükkanını aç', e: '🏪', r: 150, ok: () => !!ME.shop || g('shop') >= 1 },
+  { id: 'q9', n: 'Seçimde aday ol ya da oy ver', e: '🗳', r: 50, ok: () => g('voted') >= 1 },
+  { id: 'q10', n: '5000 💰 biriktir', e: '💰', r: 150, ok: () => ME.money >= 5000, pr: () => Math.min(1, ME.money / 5000) },
+];
+function g(k) { let s = 0; for (const m in ME.m || {}) s += (ME.m[m][k] || 0); return s; }
+function questMenu() {
+  const done = QUESTS.filter(q => ME.q[q.id]).length;
+  mcard.className = 'card'; mcard.innerHTML = `<h2>📋 Görevler (${done}/${QUESTS.length})</h2><p>Görevleri bitir, ödülünü al. Hepsini bitiren Komşukent efsanesi olur 🏆</p>` + QUESTS.map(q => {
+    const c = ME.q[q.id], ok = !c && q.ok(), p = c ? 1 : ok ? 1 : (q.pr ? q.pr() : 0);
+    return `<div class="mi" style="display:block">${q.e} ${q.n} <span style="float:right">${c ? '✅' : '+' + q.r + ' 💰'}</span><div class="bar"><i style="width:${p * 100}%"></i></div>${ok ? `<button data-q="${q.id}" style="margin-top:8px;width:100%;padding:8px">🎁 Ödülü al</button>` : ''}</div>`;
+  }).join('') + '<button class="mi" style="justify-content:center;background:#3a4a6b" id="mclose">Kapat</button>';
+  mcard.querySelectorAll('[data-q]').forEach(b => b.onclick = () => { const q = QUESTS.find(x => x.id === b.dataset.q); if (ME.q[q.id] || !q.ok()) return; ME.q[q.id] = 1; earn(q.r, `🎁 Görev tamam: ${q.n}`); questMenu(); });
+  mcard.querySelector('#mclose').onclick = closeModal; modalEl.style.display = 'flex';
+}
+function afterLogin() {
+  const day = new Date().toISOString().slice(0, 10);
+  if (ME.taxDay && ME.taxDay !== day) {
+    const tax = Math.round(Object.values(ME.veh).reduce((a, v) => a + VEH[v.t].p * 0.02, 0) + (ME.home ? 30 : 0) + (ME.shop ? 60 : 0));
+    if (tax > 0) { const paid = Math.min(tax, Math.floor(ME.money)); ME.money -= paid; setTimeout(() => toast(`🧾 Günlük vergi kesildi: ${paid} 💰 (araç, ev, dükkan)`, 5000), 2500); }
+  }
+  ME.taxDay = day; saveMe();
+  if (!Object.keys(ME.q).length) setTimeout(() => toast('📋 Ne yapacağını bilmiyor musun? Sağdaki 📋 Görevler\'e bak!', 6000), 4000);
+}
+// players list (admin + mods)
+async function playersMenu() {
+  const all = (await get(ref(db, 'players'))).val() || {}, day = new Date().toISOString().slice(0, 10);
+  const rows = Object.entries(all).filter(([id, p]) => p && p.name).map(([id, p]) => ({ id, p, on: !!others[id] || id === myId, today: ((p.pd || {})[day] || 0) / 60000, tot: (p.play || 0) / 3600000 }))
+    .sort((a, b) => (b.on - a.on) || (b.today - a.today) || (b.tot - a.tot)).slice(0, 150);
+  mcard.className = 'card shop';
+  mcard.innerHTML = `<h2>👥 Oyuncular (${rows.filter(r => r.on).length} çevrimiçi / ${rows.length})</h2><table class="pl"><tr><td></td><td><b>Oyuncu</b></td><td><b>Bugün</b></td><td><b>Toplam</b></td><td><b>Katıldı</b></td><td></td></tr>` +
+    rows.map(r => `<tr><td>${r.on ? '🟢' : '⚪'}</td><td>${mods[r.id] ? '🛡 ' : ''}${esc(r.p.name)}<br><span style="opacity:.6">${esc(r.p.job || '')}</span></td><td>${Math.round(r.today)} dk</td><td>${r.tot.toFixed(1)} sa</td><td>${r.p.joined ? new Date(r.p.joined).toLocaleDateString('tr') : '-'}</td><td>${IS_ADMIN && r.id !== myId ? `<button data-m="${r.id}" style="padding:5px 8px;font-size:12px;background:${mods[r.id] ? '#c0392b' : '#2aa05a'}">${mods[r.id] ? 'Mod al' : 'Mod yap'}</button>` : ''}</td></tr>`).join('') + '</table><button class="mi" style="justify-content:center;background:#3a4a6b" id="mclose">Kapat</button>';
+  mcard.querySelectorAll('[data-m]').forEach(b => b.onclick = async () => { const id = b.dataset.m; if (mods[id]) await remove(ref(db, 'mods/' + id)); else { await set(ref(db, 'mods/' + id), { name: all[id].name, t: now() }); say(`🛡 <b>${esc(all[id].name)}</b> artık moderatör!`, true, 'ann'); } setTimeout(playersMenu, 400); });
+  mcard.querySelector('#mclose').onclick = closeModal; modalEl.style.display = 'flex';
+}
+function adminPlay() {
+  if (ME) { admView = !admView; adminEl.style.display = 'none'; ['hud', 'acts', 'bWard', 'bRank', 'bQuest', 'bBag', 'bVeh'].forEach(i => document.getElementById(i).style.display = admView ? 'none' : ''); return; }
+  adminEl.style.display = 'none'; admView = false;
+  document.getElementById('alogin').remove(); document.getElementById('login').style.display = '';
+  LB[0].style.display = LB[1].style.display = 'none'; LB[2].style.display = 'block'; LB[3].style.display = 'none'; LB[2].textContent = 'Şehre gir 🏙️ (👑 yönetici)';
+  document.getElementById('panel').style.display = 'flex';
+  ['hud', 'acts', 'bWard', 'bRank', 'bQuest', 'bBag', 'bVeh'].forEach(i => document.getElementById(i).style.display = '');
+}
+document.getElementById('bQuest').onclick = () => ME && questMenu();
+document.getElementById('bBag').onclick = () => ME && bagMenu();
+document.getElementById('bVeh').onclick = () => ME && vehMenu();
+document.getElementById('bPl').onclick = () => db && playersMenu();
+setInterval(() => { const b = document.getElementById('bPl'); if (myId && (IS_ADMIN || mods[myId])) b.style.display = ''; }, 3000);
+
 // ================= GEOMETRY HELPERS =================
 function inside(r, x, y, pad = 0) { return x > r.x * T - pad && x < (r.x + r.w) * T + pad && y > r.y * T - pad && y < (r.y + r.h) * T + pad; }
 function blocked(x, y) { return BUILD.some(b => inside(b, x, y)) || PLOTS.some(p => plots[p.k] && inside(p, x, y, -12)); }
@@ -481,11 +687,13 @@ function computeActs() {
   const L = [];
   if (!ME) return L;
   const t = now();
+  if (ME.inside && !BMAP[ME.inside]) { ME.inside = null; pub({ inside: null }); }
+  if (ME.inside && !nearB(BMAP[ME.inside], 80) && !(ME.jail > t)) { ME.inside = null; pub({ inside: null }); }
   if (ME.jail > t) {
     const c = cases[myId];
     L.push({ label: `⛓ Hapiste: ${Math.ceil((ME.jail - t) / 1000)} sn${c && c.decided ? ' (karar verildi)' : ''}`, cls: 'gray', dyn: 1 });
     return L;
-  } else if (ME.jail) { ME.jail = 0; update(ref(db, 'online/' + myId), { jail: 0 }); ME.x = COURT_DOOR.x; ME.y = COURT_DOOR.y; sendPos(true); toast('🔓 Serbestsin! Bir daha yapma 😅'); }
+  } else if (ME.jail) { ME.jail = 0; ME.inside = null; update(ref(db, 'online/' + myId), { jail: 0, inside: null }); ME.x = COURT_DOOR.x; ME.y = COURT_DOOR.y; sendPos(true); toast('🔓 Serbestsin! Bir daha yapma 😅'); }
   if (task) {
     const p = Math.min(1, (t - task.t0) / task.ms);
     if (task.where && !task.where()) { toast('❌ Uzaklaştın, iş yarıda kaldı'); task = null; }
@@ -504,14 +712,18 @@ function computeActs() {
   if (b) {
     const roleHere = role && ROLES[role].b === b.id;
     if (b.jobs.includes(ME.job) || roleHere) {
-      const pay = Math.round(SHIFT_PAY * (roleHere ? 2 : 1) * (isNight() && ['Polis', 'Jandarma', 'İtfaiyeci', 'Doktor', 'Hemşire'].includes(ME.job) ? 1.5 : 1));
-      L.push({ label: `🔨 ${b.n}'da mesai (+${pay} 💰, -${SHIFT_E}⚡)`, disabled: ME.energy < SHIFT_E, fn: () => startTask('work', SHIFT_MS, () => nearB(b, 60), () => { ME.energy -= SHIFT_E; stat('worked'); earn(pay, '💼 Mesai bitti!'); }, '💼 Mesai') });
+      const pay = Math.round(SHIFT_PAY * (roleHere ? 2 : 1) * (1 + 0.1 * (ME.lvl || 0)) * (ME.sick ? 0.5 : 1) * (isNight() && ['Polis', 'Jandarma', 'İtfaiyeci', 'Doktor', 'Hemşire'].includes(ME.job) ? 1.5 : 1));
+      if (ME.inside === b.id) {
+        L.push({ label: `🔨 Mesaiye başla (+${pay} 💰, -${SHIFT_E}⚡)`, disabled: ME.energy < SHIFT_E, fn: () => startTask('work', SHIFT_MS * (ME.inv.laptop ? 0.75 : 1), () => ME.inside === b.id, () => { ME.energy -= SHIFT_E; stat('worked'); earn(pay, '💼 Mesai bitti!'); }, '💼 İçeride mesai') });
+        L.push({ label: '🚪 Dışarı çık', cls: 'gray', fn: () => goInside(null) });
+      } else L.push({ label: `🚪 ${b.n}'a gir (iş yerin)`, cls: 'blue', fn: () => goInside(b.id) });
     }
+    if (BMENU[b.id] && ME.inside !== b.id) L.push({ label: BMENU[b.id].btn, cls: 'blue', fn: () => BMENU[b.id].open() });
     if (b.id === 'belediye') {
       const open = Object.entries(elections).filter(([r, e]) => e && e.ends > t);
       if (open.length) L.push({ label: '🗳 Seçim sandığı', cls: 'blue', fn: voteMenu });
     }
-    if (b.id === 'adalet') courtActs(L);
+    if (b.id === 'adalet' && (ME.inside === 'adalet' || !['Hakim', 'Savcı', 'Avukat'].includes(ME.job))) courtActs(L);
   }
   if (role === 'baskan' || role === 'muhtar') L.push({ label: '📢 Şehre duyuru yap', cls: 'blue', fn: announceMenu });
   // plots: home / shop
@@ -618,7 +830,7 @@ async function buyPlot(p, type, shop, shopType) {
   const val = { id: myId, name: ME.name, color: ME.color, type }; if (shop) Object.assign(val, { shop, shopType });
   const res = await runTransaction(ref(db, 'plots2/' + p.k), cur => cur ? undefined : val);
   if (!res.committed) { toast('Biri senden önce aldı 😬'); return; }
-  ME.money -= price; if (type === 'ev') ME.home = p.k; else ME.shop = p.k; hud(); saveMe();
+  ME.money -= price; if (type === 'ev') ME.home = p.k; else { ME.shop = p.k; stat('shop'); } hud(); saveMe();
   say(type === 'ev' ? `🏡 <b>${esc(ME.name)}</b> ev sahibi oldu!` : `🏪 <b>${esc(ME.name)}</b> dükkan açtı: <b>${esc(shop)}</b> ${SHOPTYPES[shopType]}`, true);
 }
 function wardrobe(butik) {
@@ -643,12 +855,12 @@ function voteMenu() {
 }
 async function vote(r, cid) {
   const e = elections[r]; if (!e || !e.cands || !e.cands[cid]) return;
-  try { await update(ref(db, 'elections/' + r), { ['voters/' + myId]: 1, ['cands/' + cid + '/votes']: (e.cands[cid].votes || 0) + 1 }); toast('🗳 Oyun sandıkta!'); }
+  stat('voted'); try { await update(ref(db, 'elections/' + r), { ['voters/' + myId]: 1, ['cands/' + cid + '/votes']: (e.cands[cid].votes || 0) + 1 }); toast('🗳 Oyun sandıkta!'); }
   catch (x) { toast('Oy verilemedi, tekrar dene'); }
 }
 async function candidate(r) {
   const res = await runTransaction(ref(db, 'elections/' + r + '/cands/' + myId), c => c ? undefined : { name: ME.name, votes: 0 });
-  if (res.committed) { ME.money -= 100; hud(); saveMe(); say(`✋ <b>${esc(ME.name)}</b> ${ROLES[r].n} adayı oldu!`, true); }
+  if (res.committed) { ME.money -= 100; stat('voted'); hud(); saveMe(); say(`✋ <b>${esc(ME.name)}</b> ${ROLES[r].n} adayı oldu!`, true); }
 }
 function announceMenu() {
   modal('📢 Şehre duyuru', [{ label: 'Gönder', fn: () => { const v = (document.getElementById('anntext').value || '').trim().slice(0, 80); if (v) set(ref(db, 'announce'), { text: v, by: (ROLES[myRole()] || {}).n + ' ' + ME.name, t: now() }); } }],
@@ -812,6 +1024,7 @@ async function init3D() {
       box(0.5, 6.5, 0.5, '#ecf0f1', b.x + b.w - 0.6, 3.25, b.y + 0.6);
     }
     if (b.id === 'belediye') { box(0.08, 2, 0.08, '#ccc', cxB, H + 1.4, czB); box(0.9, 0.55, 0.03, '#e30a17', cxB + 0.48, H + 2.1, czB, null, false); }
+    if (b.id === 'avm') { for (let f = 1; f < 5; f++) box(b.w + 0.1, 0.18, b.h + 0.1, '#6c3483', cxB, f * 1.6, czB); box(b.w - 1, 2.2, 0.3, '#b9e3ff', cxB, 1.1, b.y + b.h + 0.02, null, false); }
     if (b.id === 'adalet') for (let i = 0; i < 5; i++) box(0.35, H - 0.6, 0.35, '#f5f0e6', b.x + 0.8 + i * 1.1, (H - 0.6) / 2, b.y + b.h + 0.15);
     const fz = b.y + b.h - 0.08;
     for (let i = 0; i < 4; i++) for (let j = 0; j < Math.floor(H / 1.3); j++) {
@@ -946,10 +1159,10 @@ function personMesh(color, robber) {
   box(0.62, 0.7, 0.36, color, 0, 0.95, 0, g);
   const armL = box(0.16, 0.6, 0.2, color, -0.4, 0.95, 0, g), armR = box(0.16, 0.6, 0.2, color, 0.4, 0.95, 0, g);
   box(0.46, 0.46, 0.44, '#f2c9a0', 0, 1.55, 0, g);
-  box(0.5, 0.16, 0.48, robber ? '#111' : '#3b2a1e', 0, 1.82, -0.02, g);
+  const hair = box(0.5, 0.16, 0.48, robber ? '#111' : '#3b2a1e', 0, 1.82, -0.02, g);
   if (robber) box(0.48, 0.14, 0.46, '#111', 0, 1.6, 0.01, g, false); else { box(0.08, 0.08, 0.02, '#222', -0.1, 1.58, 0.225, g, false); box(0.08, 0.08, 0.02, '#222', 0.1, 1.58, 0.225, g, false); }
   const acc = new THREE.Group(); g.add(acc);
-  scene.add(g); return { g, legL, legR, armL, armR, acc, color, wearKey: '' };
+  scene.add(g); return { g, legL, legR, armL, armR, acc, color, hair, wearKey: '' };
 }
 function carMesh(color) {
   const g = new THREE.Group();
@@ -967,28 +1180,48 @@ function buildAcc(m, wear) {
   if (h === 'kovboy') { box(0.8, 0.05, 0.8, '#8b5a2b', 0, 1.9, 0, a); box(0.44, 0.26, 0.44, '#8b5a2b', 0, 2.04, 0, a); }
   if (h === 'tac') { box(0.5, 0.14, 0.5, '#f1c40f', 0, 1.97, 0, a); for (let i = 0; i < 4; i++) box(0.1, 0.16, 0.1, '#f1c40f', -0.18 + i * 0.12, 2.1, 0.22, a, false); box(0.08, 0.08, 0.04, '#e74c3c', 0, 2.0, 0.26, a, false); }
   if (e === 'gozluk') { box(0.44, 0.1, 0.04, '#111', 0, 1.6, 0.235, a, false); }
+  const hs = wear && wear.hair, hc = (wear && wear.hc) || '#3b2a1e';
+  if (m.hair) { m.hair.visible = !hs || hs === 'kisa'; m.hair.material = mat(hc); }
+  if (hs === 'uzun') { box(0.52, 0.18, 0.5, hc, 0, 1.84, -0.02, a); box(0.5, 0.62, 0.14, hc, 0, 1.5, -0.25, a); }
+  if (hs === 'atkuyrugu') { box(0.5, 0.18, 0.48, hc, 0, 1.84, -0.02, a); box(0.16, 0.42, 0.16, hc, 0, 1.62, -0.3, a); }
+  if (hs === 'kivircik') for (let i = 0; i < 9; i++) box(0.2, 0.2, 0.2, hc, -0.2 + (i % 3) * 0.2, 1.86 + (i % 2) * 0.05, -0.2 + Math.floor(i / 3) * 0.2, a);
+  if (hs === 'mohikan') box(0.12, 0.3, 0.5, hc, 0, 1.92, 0, a);
+  if (wear && wear.k) { box(0.56, 0.08, 0.1, '#111', 0, 1.82, 0, a); box(0.1, 0.18, 0.18, '#e74c3c', -0.27, 1.6, 0, a); box(0.1, 0.18, 0.18, '#e74c3c', 0.27, 1.6, 0, a); }
+  if (wear && wear.dress) box(0.72, 0.42, 0.46, wear.sh || '#ff6fb5', 0, 0.45, 0, a);
+}
+function vehMesh(t, color) {
+  if (t === 'araba' || t === 'taksi' || t === 'spor') { const g = carMesh(t === 'taksi' ? '#f5c518' : color); if (t === 'spor') g.scale.set(1.05, 0.8, 1.15); return g; }
+  const g = new THREE.Group(), big = t === 'motor';
+  box(0.12, 0.5, 0.5, '#111', 0, 0.25, 0.55, g, false); box(0.12, 0.5, 0.5, '#111', 0, 0.25, -0.55, g, false);
+  box(big ? 0.35 : 0.08, big ? 0.35 : 0.08, 1.1, color, 0, big ? 0.55 : 0.5, 0, g); box(0.5, 0.06, 0.06, '#333', 0, big ? 0.95 : 0.85, 0.45, g, false);
+  return g;
 }
 function syncPerson(id, p, me, t) {
   let m = peopleMesh[id];
-  const isTaxi = p.job === 'Taksici';
-  if (!m || m.color !== p.color || m.taxi !== isTaxi) {
+  const isTaxi = p.job === 'Taksici', col = (p.wear && p.wear.sh) || p.color || '#888';
+  const vt = isTaxi ? 'taksi' : (p.drive && (me ? (ME.veh[p.drive] || {}).t : p.drive)) || '';
+  if (!m || m.color !== col) {
     if (m) { scene.remove(m.g); if (m.car) scene.remove(m.car); m.label.remove(); }
-    m = peopleMesh[id] = personMesh(p.color || '#888'); m.label = makeLabel(); m.taxi = isTaxi;
-    if (isTaxi) { m.car = carMesh('#f5c518'); scene.add(m.car); }
+    m = peopleMesh[id] = personMesh(col); m.label = makeLabel(); m.vt = '';
   }
+  if (m.vt !== vt) { if (m.car) scene.remove(m.car); m.car = null; m.vt = vt; if (vt) { m.car = vehMesh(vt, p.color || '#2980b9'); scene.add(m.car); } }
+  if (!m.bagM) { m.bagM = new THREE.Group(); box(0.26, 0.3, 0.12, '#f5f5f5', 0.45, 0.55, 0.05, m.bagM); box(0.2, 0.06, 0.13, '#e74c3c', 0.45, 0.72, 0.05, m.bagM, false); m.g.add(m.bagM); }
+  m.bagM.visible = (p.bag || 0) > now();
+  if (p.inside) { m.g.visible = false; if (m.car) m.car.visible = false; m.label.style.display = 'none'; m.seen = true; return; }
   const wk = JSON.stringify(p.wear || {}); if (wk !== m.wearKey) { m.wearKey = wk; buildAcc(m, p.wear); }
   const [x, z] = [p.x * S3, p.y * S3];
   if (m.px !== undefined) { const dx = x - m.px, dz = z - m.pz; if (Math.abs(dx) + Math.abs(dz) > 0.003) m.ry = Math.atan2(dx, dz); }
   m.px = x; m.pz = z;
   const riding = p.ride && (others[p.ride] || (p.ride === myId));
-  m.g.visible = !riding; if (m.car) { m.car.visible = true; m.car.position.set(x, 0, z); if (m.ry !== undefined) m.car.rotation.y = m.ry; m.g.visible = false; }
+  m.g.visible = !riding; if (m.car) { m.car.visible = true; m.car.position.set(x, 0, z); if (m.ry !== undefined) m.car.rotation.y = m.ry; if (vt === 'araba' || vt === 'spor' || vt === 'taksi') m.g.visible = false; }
+  const onBike = vt === 'motor' || vt === 'bisiklet';
   m.g.position.set(x, 0, z); if (m.ry !== undefined) m.g.rotation.y = m.ry;
-  const sw = p._mv ? Math.sin(t / 110) * 0.6 : 0;
+  const sw = p._mv && !onBike ? Math.sin(t / 110) * 0.6 : 0;
   m.legL.rotation.x = sw; m.legR.rotation.x = -sw; m.armL.rotation.x = -sw * 0.8; m.armR.rotation.x = sw * 0.8;
-  m.g.position.y = p._mv ? Math.abs(Math.sin(t / 110)) * 0.06 : 0;
+  m.g.position.y = onBike ? 0.45 : p._mv ? Math.abs(Math.sin(t / 110)) * 0.06 : 0;
   const r = me ? myRole() : roleOf(id), wanted = p.wanted > now(), jailed = p.jail > now();
   const cls = jailed ? 'jail' : wanted ? 'bad' : r ? 'role' : me ? 'me' : '';
-  const tag = jailed ? '⛓ ' : wanted ? '🚨 ' : r ? '👑 ' : me ? '⭐ ' : '';
+  const tag = (admins[me ? myId : id] ? '👑 ' : '') + (jailed ? '⛓ ' : wanted ? '🚨 ' : r ? '👑 ' : me ? '⭐ ' : '') + (p.sick ? '🤒 ' : '');
   const bub = p.msg && performance.now() - (p.msgAt || 0) < 6000 ? `<div class="bb">${esc(p.msg)}</div>` : '';
   const html = riding ? '' : `${bub}<div style="text-align:center"><span class="nm ${cls}" data-pid="${me ? '@me' : id}">${mods[me ? myId : id] ? '🛡 ' : ''}${tag}${esc(p.name || '')}</span></div><div class="jb">${esc(r ? ROLES[r].n : (p.job || ''))}${wanted ? ' • ARANIYOR' : ''}</div>`;
   if (m.label._h !== html) { m.label.innerHTML = html; m.label._h = html; }
@@ -1027,6 +1260,15 @@ const adm = { cx: WN / 2, cz: WN / 2, follow: null };
 const occ = [], winMats = [];
 let prev = performance.now(), lastActs = 0;
 let NIGHTC;
+function segBox(ax, ay, az, bx, by, bz, e) {
+  let t0 = 0, t1 = 1; const d = [bx - ax, by - ay, bz - az], o = [ax, ay, az], lo = [e.x0 - 0.3, 0, e.z0 - 0.3], hi = [e.x1 + 0.3, e.H, e.z1 + 0.3];
+  for (let i = 0; i < 3; i++) {
+    if (Math.abs(d[i]) < 1e-9) { if (o[i] < lo[i] || o[i] > hi[i]) return false; continue; }
+    let a = (lo[i] - o[i]) / d[i], b = (hi[i] - o[i]) / d[i]; if (a > b) [a, b] = [b, a];
+    t0 = Math.max(t0, a); t1 = Math.min(t1, b); if (t0 > t1) return false;
+  }
+  return t1 > 0 && t0 < 0.98;
+}
 function fitView() {
   if (!renderer) return; const c = renderer.domElement, w = c.clientWidth || innerWidth, h = c.clientHeight || innerHeight;
   const sz = renderer.getSize(new THREE.Vector2()); if (sz.x === w && sz.y === h) return;
@@ -1036,14 +1278,14 @@ function frame(t) {
   if ((frame.n = (frame.n || 0) + 1) % 30 === 0) fitView();
   const dt = Math.min(50, t - prev); prev = t;
   let fx = WN / 2, fz = WN / 2;
-  if (ME) {
+  if (ME && !(IS_ADMIN && admView)) {
     ME._mv = false;
     if (ME.jail > now()) { target = null; }
     if (ME.ride && others[ME.ride] && others[ME.ride].hasPos) { const d = others[ME.ride]; ME.x = d.x; ME.y = d.y; ME._mv = true; sendPos(); }
-    else if (!(ME.jail > now())) {
+    else if (!(ME.jail > now()) && !ME.inside) {
       const [jx, jy, jm] = inputVec();
       if (jm > 0.08) {
-        const sp = (ME.job === 'Taksici' ? 0.32 : 0.18) * dt * jm;
+        const sp = (ME.job === 'Taksici' ? 0.32 : ME.drive && ME.veh[ME.drive] ? VEH[ME.veh[ME.drive].t].sp : ME.sick ? 0.12 : 0.18) * dt * jm;
         const nx = Math.max(10, Math.min(WORLD - 10, ME.x + jx * sp)), ny = Math.max(10, Math.min(WORLD - 10, ME.y + jy * sp));
         if (!blocked(nx, ny)) { ME.x = nx; ME.y = ny; ME._mv = true; }
         else if (!blocked(nx, ME.y)) { ME.x = nx; ME._mv = true; }
@@ -1068,9 +1310,9 @@ function frame(t) {
   scene.background.set('#9fd3ff').lerp(NIGHTC || (NIGHTC = new THREE.Color('#0b1530')), nk); scene.fog.color.copy(scene.background);
   for (const m of winMats) m.emissiveIntensity = nk * 0.9; lampMat.emissiveIntensity = nk * 1.5;
   // buildings between the camera and the player become see-through
-  const pp = ME ? [ME.x * S3, ME.y * S3] : null;
+  const pp = ME && !(IS_ADMIN && admView) ? [ME.x * S3, ME.y * S3] : null, cp = camera3.position;
   for (const e of occ) {
-    const hide = pp && pp[0] > e.x0 - 0.6 && pp[0] < e.x1 + 0.6 && pp[1] < e.z1 && pp[1] > e.z0 - e.H * 1.05 - 0.8;
+    const hide = pp && (segBox(cp.x, cp.y, cp.z, pp[0], 1.0, pp[1], e) || segBox(cp.x, cp.y, cp.z, pp[0], 0.2, pp[1], e));
     const a = hide ? 0.28 : 1; if (Math.abs(e.a - a) < 0.01) continue;
     e.a += (a - e.a) * 0.2; if (Math.abs(e.a - a) < 0.02) e.a = a;
     for (const m of e.mats) { m.transparent = e.a < 0.99; m.opacity = e.a; m.depthWrite = e.a > 0.99; }
@@ -1089,10 +1331,13 @@ function frame(t) {
 // ================= ADMIN (komsukent.github.io/#yonetim) =================
 let adminOk = false;
 let IS_ADMIN = false;
+let admView = true;
 function adminLogin() {
-  document.getElementById('login').innerHTML = `<h1>YÖNETİM</h1><p style="text-align:center">Kuş bakışı şehir paneli</p><button id="aGo" class="lg">🔵 Google ile giriş</button><div id="err"></div>`;
+  document.getElementById('login').style.display = 'none';
+  const ac = document.createElement('div'); ac.className = 'card'; ac.id = 'alogin'; document.getElementById('panel').appendChild(ac);
+  ac.innerHTML = `<h1>YÖNETİM</h1><p style="text-align:center">Kuş bakışı şehir paneli</p><button id="aGo" class="lg">🔵 Google ile giriş</button><div id="err"></div>`;
   document.getElementById('aGo').onclick = async () => {
-    const e = document.getElementById('err'); e.textContent = 'Bağlanılıyor…';
+    const e = ac.querySelector('#err'); e.textContent = 'Bağlanılıyor…';
     try {
       await fbReady; await authReady;
       if (!auth.currentUser || auth.currentUser.isAnonymous) await AU.signInWithPopup(auth, new AU.GoogleAuthProvider());
@@ -1102,7 +1347,7 @@ function adminLogin() {
       IS_ADMIN = true; myId = uid;
     } catch (x) { e.textContent = AUTH_ERR[x.code] || ('Bağlanamadı: ' + (x.code || x.message)); return; }
     adminOk = true; loginT = now(); document.getElementById('panel').style.display = 'none';
-    ['hud', 'acts', 'bChat', 'bWard', 'bRank'].forEach(i => document.getElementById(i).style.display = 'none');
+    ['hud', 'acts', 'bWard', 'bRank', 'bQuest', 'bBag', 'bVeh'].forEach(i => document.getElementById(i).style.display = 'none'); document.getElementById('bPl').style.display = 'block';
     document.getElementById('adminToggle').style.display = 'block';
     listenCommon();
     onChildAdded(query(ref(db, 'reports'), limitToLast(20)), s2 => { reports[s2.key] = s2.val(); });
@@ -1121,6 +1366,7 @@ function adminUI() {
   const t = now(), list = Object.entries(others).filter(([id, o]) => o.name && o.hasPos);
   const evOn = EV && !EV.done && t < EV.t0 + 300000;
   adminEl.innerHTML = `
+  <h3>🎮 Oyna</h3><button id="aPlay">${ME ? (admView ? '🎮 Karakterime dön' : '👁 Kuş bakışı moda geç') : '🎮 Oyuna gir (kendi karakterinle)'}</button><button id="aPl">👥 Oyuncu listesi ve süreleri</button>
   <h3>🎬 Kayıt</h3><button id="aRec">Kayıt modu (arayüzü gizle)</button>
   <h3>🔥 Olaylar ${evOn ? '— ' + EV_NAMES[EV.type] + ' sürüyor' : ''}</h3>
   <select id="aB">${BUILD.map(b => `<option value="${b.id}">${b.n}</option>`).join('')}</select>
@@ -1135,6 +1381,7 @@ function adminUI() {
   <h3>🛡 Moderatörler</h3>${Object.entries(mods).map(([id, m]) => `<div class="row"><button class="pl" style="flex:4">${esc(m.name || id)}</button><button style="flex:1;background:#c0392b" data-unmod="${id}">✖</button></div>`).join('') || '<p style="font-size:13px">Henüz yok. Oyuncu listesinde ⚙️ ile ekle.</p>'}
   <h3>🚩 Şikayetler</h3>${Object.entries(reports).reverse().map(([k, r]) => `<div style="font-size:12px;margin:4px 0">${esc(r.byName)} → <b>${esc(r.targetName)}</b>: ${esc(r.reason)}</div><div class="row"><button data-f="${r.target}">Git</button><button data-delrep="${k}" style="background:#7f8c8d">Sil</button></div>`).join('') || '<p style="font-size:13px">Şikayet yok 👍</p>'}
   <h3>📋 Moderatör işlemleri</h3>${Object.values(modlog).reverse().map(m => `<div style="font-size:12px;margin:3px 0">${new Date(m.t).toLocaleTimeString('tr', { hour: '2-digit', minute: '2-digit' })} ${esc(m.by)}: ${esc(m.act)} → ${esc(m.target)}</div>`).join('') || '<p style="font-size:13px">Kayıt yok</p>'}`;
+  adminEl.querySelector('#aPlay').onclick = adminPlay; adminEl.querySelector('#aPl').onclick = playersMenu;
   adminEl.querySelector('#aRec').onclick = () => { document.body.classList.toggle('rec'); adminEl.style.display = 'none'; };
   adminEl.querySelectorAll('[data-ev]').forEach(b => b.onclick = () => {
     const ty = b.dataset.ev, bid = ty === 'festival' ? 'belediye' : adminEl.querySelector('#aB').value;
