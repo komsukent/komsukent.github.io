@@ -1016,6 +1016,7 @@ function announceMenu() {
 // elections housekeeping: auto-open vacant roles, finish ended ones
 async function electionTick() {
   if (!db || (!ME && !ADMIN)) return;
+  if (ADMIN && adminOk) adminCleanup();
   const t = now();
   for (const r in ROLES) {
     const e = elections[r], holder = roles[r];
@@ -1035,8 +1036,6 @@ async function electionTick() {
       }
     } else if (PROLES.includes(r) && ADMIN && adminOk && holder && !holder.p) {
       await remove(ref(db, 'roles/' + r)).catch(() => { }); say(`🏛 ${ROLES[r].n} makamı boşaltıldı: artık sadece partilerin adayları seçilebilir`, true, 'ann');
-    } else if (PROF[r] && ADMIN && adminOk && holder && holder.until > t && others[holder.id] && others[holder.id].job && others[holder.id].job !== PROF[r]) {
-      await remove(ref(db, 'roles/' + r)).catch(() => { }); say(`🎖 ${ROLES[r].n} makamı boşaltıldı: artık sadece ${PROF[r]}lar arasından en kıdemlisi geçer`, true, 'ann');
     } else if (PROLES.includes(r) && !e && (!holder || holder.until < t) && !ADMIN && Object.keys(parties).length >= 2) {
       await runTransaction(ref(db, 'elections/' + r), cur => cur ? undefined : { ends: t + 30 * 60000, cands: {} });
     }
@@ -2074,6 +2073,21 @@ setInterval(() => {
   else if (idle > 300000 && !ME.afk) { ME.afk = 1; pub({ afk: 1 }); }
 }, 15000);
 
+// admin-side cleanup: profession roles must be held by the right job, one person one role, no elections for profession roles
+async function adminCleanup() {
+  if (adminCleanup.busy || (adminCleanup.last || 0) > now() - 60000) return; adminCleanup.busy = 1; adminCleanup.last = now();
+  try {
+    const all = (await get(ref(db, 'players'))).val() || {}, rs = (await get(ref(db, 'roles'))).val() || {}, el = (await get(ref(db, 'elections'))).val() || {}, seen = new Set(); let n = 0;
+    for (const r of Object.keys(PROF)) if (el[r]) { await remove(ref(db, 'elections/' + r)).catch(() => { }); n++; }
+    for (const r of [...PROLES, ...Object.keys(PROF)]) {
+      const h = rs[r]; if (!h || !(h.until > now())) continue;
+      const job = (all[h.id] || {}).job, wrong = PROF[r] && job !== PROF[r], dup = seen.has(h.id);
+      if (wrong || dup) { await remove(ref(db, 'roles/' + r)).catch(() => { }); n++; say(`🎖 ${ROLES[r].n} makamı boşaltıldı (${wrong ? 'sadece ' + PROF[r] + 'lar olabilir' : 'bir kişi tek makam'}), yerine en kıdemli ${PROF[r] || ''} geçecek`, true, 'ann'); }
+      else { seen.add(h.id); if (PROF[r] && h.until < now() + 30 * 864e5) await update(ref(db, 'roles/' + r), { until: now() + FOREVER }).catch(() => { }); }
+    }
+    if (n) setTimeout(autoAppoint, 2000);
+  } catch (e) { } finally { adminCleanup.busy = 0; }
+}
 // ================= EVENTS =================
 const EV_NAMES = { yangin: '🔥 YANGIN', soygun: '🚨 SOYGUN', festival: '🎉 FESTİVAL' };
 function evStart() { if (EV && !EV.done) { const b = BMAP[EV.b]; toast(`${EV_NAMES[EV.type]}${b ? ' — ' + b.n : ''}!`, 5000); } }
@@ -2587,7 +2601,7 @@ function adminUI() {
   <h3>📢 Duyuru</h3><input id="aAnn" maxlength="80" placeholder="Duyuru yaz"><button id="aAnnB">Gönder</button>
   <h3>🗳 Seçimler</h3>
   ${Object.keys(ROLES).map(r => { const e = elections[r], h = roles[r]; return `<div style="font-size:13px;margin:6px 0"><b>${ROLES[r].n}</b>: ${h && h.until > t ? '👑 ' + esc(h.name) : 'boş'}${e ? ` • seçim ${Math.max(0, Math.ceil((e.ends - t) / 60000))} dk (${Object.values(e.cands || {}).map(c => esc(c.name) + ' ' + (c.votes || 0)).join(', ') || 'aday yok'})` : ''}</div>
-    <div class="row"><button data-el="${r}" data-min="10">Seçim 10 dk</button><button data-el="${r}" data-min="60">60 dk</button>${e ? `<button data-end="${r}" style="background:#c0392b">Bitir</button>` : ''}${h ? `<button data-rm="${r}" style="background:#7f8c8d">Görevden al</button>` : ''}</div>`; }).join('')}
+    <div class="row">${PROLES.includes(r) ? `<button data-el="${r}" data-min="10">Seçim 10 dk</button><button data-el="${r}" data-min="60">60 dk</button>` : `<button disabled style="opacity:.6">🎖 en kıdemli ${PROF[r] || ""}</button>`}${e ? `<button data-end="${r}" style="background:#c0392b">Bitir</button>` : ''}${h ? `<button data-rm="${r}" style="background:#7f8c8d">Görevden al</button>` : ''}</div>`; }).join('')}
   <h3>🏛 Belediye kasası: ${Math.floor(CITY.kasa || 0).toLocaleString('tr')} 💰</h3><div class="row"><input id="aKasa" type="number" inputmode="numeric" placeholder="miktar" style="flex:3"><button id="aKasaB" style="flex:2">➕ Kasaya koy</button></div>
   <h3>🗳 Adaylar (ekle / çıkar)</h3>${Object.entries(elections).filter(([r, e]) => e && e.ends > t && ROLES[r]).map(([r, e]) => `<div style="font-size:13px;margin:6px 0"><b>${ROLES[r].n}</b> (${Object.keys(e.cands || {}).length} aday)</div>${Object.entries(e.cands || {}).map(([cid, c]) => `<div class="row"><button class="pl" style="flex:4">${c.c ? flagHtml(c, 13) : ''}${esc(c.name)} • ${c.votes || 0} oy</button><button style="flex:1;background:#c0392b" data-rmc="${r}|${cid}">✖</button></div>`).join('')}<div class="row"><input id="aC_${r}" placeholder="oyuncu adı" autocapitalize="off" style="flex:3"><button data-addc="${r}" style="flex:1">➕</button></div>`).join('') || '<p>Açık seçim yok. Yukarıdan seçim başlat.</p>'}
   <h3>🏛 Partiler</h3>${Object.entries(parties).map(([pid, p]) => `<div class="row"><button class="pl" style="flex:4">${flagHtml(p, 13)}${esc(p.name)} • 👥${Object.keys(p.members || {}).length} 💰${Math.floor(p.kasa || 0)}</button><button style="flex:1;background:#c0392b" data-cp="${pid}">Kapat</button></div>`).join('') || '<p>Henüz parti yok.</p>'}
