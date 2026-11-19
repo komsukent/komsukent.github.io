@@ -146,7 +146,7 @@ const CFG = {
   messagingSenderId: "734007209872",
   appId: "1:734007209872:web:1b379478026d6f73de4d15"
 };
-const APP_V = '2026111909';
+const APP_V = '2026111910';
 let CAP = 0;   // bump on every upload (yyyymmddNN)
 const ADMIN = location.hash === '#yonetim';
 let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off, orderByChild, equalTo;
@@ -2362,7 +2362,7 @@ function listenHeads() {
 
 // ================= AÇIK HAVA KONSER • DANS • PETSHOP • EVCİL HAYVAN • YÖNETİCİ KASASI =================
 let CITYSHOP = null;   // which city building's menu is open → its sales go to the admin till
-function akasaAdd(v) { if (v > 0) runTransaction(ref(db, 'akasa'), k => (k || 0) + v).catch(() => { }); }
+function akasaAdd(v) { v = Math.round(v); if (v > 0) push(ref(db, 'akasaq'), Math.min(6000, v)).catch(() => { }); }   // players can't read the till, so sales queue up; the admin's game adds them
 // ---------- concert stage ----------
 const KB = BMAP.konser;
 const STAGE = { x: KB.x + 1, y: KB.y + 0.3, w: KB.w - 2, h: 1.7 };
@@ -3096,6 +3096,10 @@ function adminLogin() {
     onChildAdded(query(ref(db, 'modlog'), limitToLast(20)), s2 => { modlog[s2.key] = s2.val(); });
     adminZones(true); setInterval(() => adminZones(false), 1500);
     onValue(ref(db, 'akasa'), s2 => { AKASA = s2.val() || 0; });
+    onChildAdded(ref(db, 'akasaq'), async s2 => {
+      const r = await runTransaction(ref(db, 'akasaq/' + s2.key), c => c == null ? undefined : null).catch(() => null);
+      const v = +s2.val() || 0; if (r && r.committed && v > 0) runTransaction(ref(db, 'akasa'), k => (k || 0) + v).catch(() => { });
+    });
     zoom = 1.8; adminUI(); setInterval(adminUI, 3000);
   };
 }
