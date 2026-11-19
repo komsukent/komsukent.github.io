@@ -143,7 +143,7 @@ const CFG = {
   messagingSenderId: "734007209872",
   appId: "1:734007209872:web:1b379478026d6f73de4d15"
 };
-const APP_V = '2026111903';
+const APP_V = '2026111904';
 let CAP = 0;   // bump on every upload (yyyymmddNN)
 const ADMIN = location.hash === '#yonetim';
 let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off, orderByChild, equalTo;
@@ -180,7 +180,8 @@ const BUILD = [
   { id: 'kuafor', n: 'Güzellik Salonu', jobs: ['Kuaför', 'Berber', 'Manikürcü'], c: '#ffd6e8', r: '#d63384', ...BP(4, 4) },
   { id: 'itfaiye', n: 'İtfaiye', jobs: ['İtfaiyeci'], c: '#c0151f', r: '#7a0d14', ...BP(5, 3) },
   { id: 'cami', n: 'Cami', jobs: ['İmam'], c: '#ecf0f1', r: '#7f8c8d', ...BP(3, 4) },
-  { id: 'konser', n: 'Konser Alanı', jobs: [], c: '#2c2c54', r: '#ff4d6d', ...BP(7, 3), H: 2.6 },
+  { id: 'konser', n: 'Konser Alanı', jobs: [], c: '#2c2c54', r: '#ff4d6d', ...BP(7, 3), H: 2.6, open: true },
+  { id: 'petshop', n: 'Petshop', jobs: ['Petshopçu'], c: '#fff3e0', r: '#e67e22', ...BP(2, 7), H: 3 },
   { id: 'veteriner', n: 'Veteriner Kliniği', jobs: ['Veteriner'], c: '#e8fff4', r: '#16a085', ...BP(4, 7), H: 3.2 },
   { id: 'avm', n: 'KOMŞU AVM', jobs: ['AVM Çalışanı', 'Garson', 'Aşçı', 'Güvenlik Görevlisi'], c: '#dfe6ee', r: '#6c3483', x: 51, y: 3, w: 8, h: 8, H: 8.2 },
 ].map(b => Object.assign({ w: 6, h: 6, H: 3.4 }, b));
@@ -251,7 +252,7 @@ function modal(title, items, extra = '') {
   });
   mcard.querySelector('#mclose').onclick = closeModal; modalEl.style.display = 'flex';
 }
-var closeModal = function () { modalEl.style.display = 'none'; };
+var closeModal = function () { modalEl.style.display = 'none'; CITYSHOP = null; };
 new MutationObserver(() => { if (!mcard.querySelector(':scope > .xcl')) { const x = document.createElement('button'); x.className = 'xcl'; x.textContent = '✖'; x.onclick = () => { const c = mcard.querySelector('#mclose'); if (c) c.click(); else closeModal(); }; mcard.prepend(x); } }).observe(mcard, { childList: true });
 modalEl.addEventListener('pointerdown', e => { if (e.target === modalEl) closeModal(); });
 
@@ -330,7 +331,7 @@ async function enter2(mode) {
     const job = JOBS.includes(prev.job) ? prev.job : 'İşsiz';
     ME = { name, job, color: myColor, money: prev.money ?? (isG ? 300 : 100), energy: prev.energy ?? 100, home: prev.home ?? null, shop: prev.shop ?? null,
       acc: prev.acc || {}, wear: prev.wear || {}, m: prev.m || {}, inv: prev.inv || {}, veh: prev.veh || {}, q: prev.q || {}, lvl: prev.lvl || 0, sick: prev.sick || 0,
-      play: prev.play || 0, pleft: prev.pleft || 0, jobDay: prev.jobDay || '', payDay: prev.payDay || '', jobChanged: prev.jobChanged || 0, kd: undefined, stealDay: prev.stealDay || null, islah: prev.islah || 0, islahN: prev.islahN || 0, pd: prev.pd || {}, joined: prev.joined || now(), taxDay: prev.taxDay || '', drive: null, inside: null, bag: 0,
+      play: prev.play || 0, pleft: prev.pleft || 0, jobDay: prev.jobDay || '', payDay: prev.payDay || '', jobChanged: prev.jobChanged || 0, pet: prev.pet || null, kd: undefined, stealDay: prev.stealDay || null, islah: prev.islah || 0, islahN: prev.islahN || 0, pd: prev.pd || {}, joined: prev.joined || now(), taxDay: prev.taxDay || '', drive: null, inside: null, bag: 0,
       x: prev.x ?? (SPAWN.x + (Math.random() - .5) * 200), y: prev.y ?? SPAWN.y, wanted: 0, jail: 0, ride: null };
     if (blocked(ME.x, ME.y) || ME.x > WORLD || ME.y > WORLD || (prev.v || 0) < 3) { ME.x = SPAWN.x + (Math.random() - .5) * 200; ME.y = SPAWN.y; }
     try { localStorage.setItem('kk_me', JSON.stringify({ name, job, color: myColor })); } catch (e) { }
@@ -350,7 +351,7 @@ async function enter2(mode) {
   } catch (e) { throw e; }
 }
 let loginT = 0;
-function profile() { return { v: APP_V, name: ME.name, color: ME.color, job: ME.job, kd: ME.kd || 0, afk: ME.afk || 0, wear: ME.wear || {}, wanted: ME.wanted || 0, jail: ME.jail || 0, ride: ME.ride || null, drive: ME.drive || null, inside: ME.inside || null, sick: ME.sick || 0, bag: ME.bag || 0, t: serverTimestamp() }; }
+function profile() { return { v: +APP_V, pet: ME.pet ? { t: ME.pet.t, s: petStatus(ME.pet) } : null, name: ME.name, color: ME.color, job: ME.job, kd: ME.kd || 0, afk: ME.afk || 0, wear: ME.wear || {}, wanted: ME.wanted || 0, jail: ME.jail || 0, ride: ME.ride || null, drive: ME.drive || null, inside: ME.inside || null, sick: ME.sick || 0, bag: ME.bag || 0, t: serverTimestamp() }; }
 const pub = o => (ME && ME.sleep) ? Promise.resolve() : update(ref(db, 'online/' + myId), o).catch(() => { });
 
 function hud() {
@@ -637,7 +638,7 @@ function payJob(jobs, amount, msg) {   // pay an online player with one of these
   if (!c.length) return null; const [id, o] = c[Math.floor(Math.random() * c.length)];
   payTo(id, amount); notify(id, msg + ` +${amount} 💰`); return o.name;
 }
-function spend(p) { if (ME.money < p) { toast(`Para yetmiyor 😅 ${Math.ceil(p - ME.money)} 💰 daha lazım`); return false; } ME.money -= p; stat('spent', p); hud(); return true; }
+function spend(p) { if (ME.money < p) { toast(`Para yetmiyor 😅 ${Math.ceil(p - ME.money)} 💰 daha lazım`); return false; } ME.money -= p; stat('spent', p); hud(); if (CITYSHOP && modalEl.style.display !== 'none') akasaAdd(p); return true; }
 function carry() { ME.bag = now() + 120000; pub({ bag: ME.bag }); }
 function shopScreen(title, color, tabs, active) {
   const tab = tabs[active || 0];
@@ -767,7 +768,7 @@ function avmBuy(i) {
 function bagMenu() {
   const it = Object.entries(ME.inv).filter(([k, n]) => FOOD[k] && n > 0);
   shopScreen('🎒 Çantam', '#16a085', [{ n: 'Çanta', info: (it.length ? 'Yemek için dokun.' : 'Çantan boş. Markete, fırına ya da AVM\'ye uğra.') + (Object.keys(TECH).some(k => ME.inv[k]) ? '<br>Eşyaların: ' + Object.keys(TECH).filter(k => ME.inv[k]).map(k => TECH[k].e + ' ' + TECH[k].n).join(', ') : ''),
-    items: [...it.map(([k, n]) => ({ e: FOOD[k].e, n: `${FOOD[k].n} x${n}`, r: `+${FOOD[k].en}⚡`, off: ME.energy >= 100, fn: () => { ME.inv[k]--; if (!ME.inv[k]) delete ME.inv[k]; ME.energy = Math.min(100, ME.energy + FOOD[k].en); stat('ate'); saveMe(); hud(); toast(`😋 ${FOOD[k].n} yedin +${FOOD[k].en}⚡`); } })), { e: '🏷', n: '2. El Pazarı', r: 'al / sat', fn: () => market2Menu(), stay: false }] }]);
+    items: [...it.map(([k, n]) => ({ e: FOOD[k].e, n: `${FOOD[k].n} x${n}`, r: `+${FOOD[k].en}⚡`, off: ME.energy >= 100, fn: () => { ME.inv[k]--; if (!ME.inv[k]) delete ME.inv[k]; ME.energy = Math.min(100, ME.energy + FOOD[k].en); stat('ate'); saveMe(); hud(); toast(`😋 ${FOOD[k].n} yedin +${FOOD[k].en}⚡`); } })), ...(ME.pet ? [{ e: PETS[ME.pet.t].e, n: ME.pet.name || PETS[ME.pet.t].n, r: 'bakım' + (ME.inv.mama ? ` • ${ME.inv.mama} mama` : ''), fn: () => petMenu(), stay: false }] : []), { e: '🏷', n: '2. El Pazarı', r: 'al / sat', fn: () => market2Menu(), stay: false }] }]);
 }
 function vehMenu() {
   const vs = Object.entries(ME.veh);
@@ -847,11 +848,12 @@ setInterval(() => { const b = document.getElementById('bPl'); if (myId && (IS_AD
 
 // ================= GEOMETRY HELPERS =================
 function inside(r, x, y, pad = 0) { return x > r.x * T - pad && x < (r.x + r.w) * T + pad && y > r.y * T - pad && y < (r.y + r.h) * T + pad; }
-function blocked(x, y) { return BUILD.some(b => inside(b, x, y)) || PLOTS.some(p => plots[p.k] && inside(p, x, y, -12)); }
+function blocked(x, y) { return BUILD.some(b => !b.open && inside(b, x, y)) || inside(STAGE, x, y) || PLOTS.some(p => plots[p.k] && inside(p, x, y, -12)); }
 const nearB = (b, pad = 30) => ME && inside(b, ME.x, ME.y, pad);
 const nearPlot = (p, pad = 14) => ME && inside(p, ME.x, ME.y, pad);
 function nearOthers(r) { return Object.entries(others).filter(([id, o]) => o.hasPos && o.name && live(o) && dist(o, ME) < r); }
-const live = o => Date.now() - (o._seen || 0) < 200000;   // no heartbeat or movement for ~3 min → hidden
+const live = o => Date.now() - (o._seen || 0) < 200000;
+setInterval(() => { if (ME && !ME.sleep && db && myZone) sendPos(true); }, 90000);   // no heartbeat or movement for ~3 min → hidden
 setInterval(() => { if (ME && !ME.sleep && db) set(ref(db, 'hb/' + myId), serverTimestamp()).catch(() => { }); }, 120000);
 
 // ================= ACTIONS =================
@@ -901,7 +903,7 @@ function computeActs() {
         L.push({ label: '🚪 Dışarı çık', cls: 'gray', fn: () => goInside(null) });
       } else L.push({ label: `🚪 ${b.n}'a gir (iş yerin)`, cls: 'blue', fn: () => goInside(b.id) });
     }
-    if (BMENU[b.id] && ME.inside !== b.id) L.push({ label: BMENU[b.id].btn, cls: 'blue', fn: () => BMENU[b.id].open() });
+    if (BMENU[b.id] && ME.inside !== b.id) L.push({ label: BMENU[b.id].btn, cls: 'blue', fn: () => { BMENU[b.id].open(); CITYSHOP = b.id; } });
     if (b.id === 'belediye') {
       const open = Object.entries(elections).filter(([r, e]) => e && e.ends > t);
       if (open.length) L.push({ label: '🗳 Seçim sandığı', cls: 'blue', fn: voteMenu });
@@ -1591,7 +1593,7 @@ function listenParties() {
 }
 
 // ================= MESLEK SEÇİMİ • YENİ MESLEKLER • YETKİLER =================
-const JOB_E = { Memur: '🗂', Emlakçı: '🏡', Marketçi: '🛒', Kasiyer: '🧾', Kasap: '🥩', Manav: '🍎', Fırıncı: '🥖', Pastacı: '🎂', Hakim: '⚖️', Savcı: '📜', Avukat: '💼', Doktor: '🩺', Hemşire: '💉', Eczacı: '💊', Veteriner: '🐶', Polis: '👮', Asker: '🪖', Jandarma: '🚓', Öğretmen: '📚', Tamirci: '🔧', Kaportacı: '🔨', Elektrikçi: '💡', Galerici: '🚗', İnşaatçı: '🏗', Kuaför: '💇', Berber: '💈', Manikürcü: '💅', İtfaiyeci: '🚒', İmam: '🕌', 'AVM Çalışanı': '🏬', Garson: '🍽', Aşçı: '👨‍🍳', 'Güvenlik Görevlisi': '🛡', Taksici: '🚕', Hırsız: '🦹', Dolandırıcı: '🃏', Şarkıcı: '🎤', Influencer: '🤳', Youtuber: '📹', Kuryeci: '📦', Çöpçü: '🧹', Gazeteci: '📰', Futbolcu: '⚽', Bekçi: '🔦' };
+const JOB_E = { Petshopçu: '🐾', Memur: '🗂', Emlakçı: '🏡', Marketçi: '🛒', Kasiyer: '🧾', Kasap: '🥩', Manav: '🍎', Fırıncı: '🥖', Pastacı: '🎂', Hakim: '⚖️', Savcı: '📜', Avukat: '💼', Doktor: '🩺', Hemşire: '💉', Eczacı: '💊', Veteriner: '🐶', Polis: '👮', Asker: '🪖', Jandarma: '🚓', Öğretmen: '📚', Tamirci: '🔧', Kaportacı: '🔨', Elektrikçi: '💡', Galerici: '🚗', İnşaatçı: '🏗', Kuaför: '💇', Berber: '💈', Manikürcü: '💅', İtfaiyeci: '🚒', İmam: '🕌', 'AVM Çalışanı': '🏬', Garson: '🍽', Aşçı: '👨‍🍳', 'Güvenlik Görevlisi': '🛡', Taksici: '🚕', Hırsız: '🦹', Dolandırıcı: '🃏', Şarkıcı: '🎤', Influencer: '🤳', Youtuber: '📹', Kuryeci: '📦', Çöpçü: '🧹', Gazeteci: '📰', Futbolcu: '⚽', Bekçi: '🔦' };
 async function jobPicker(change) {
   if (!ME) return; change = ME.job !== 'İşsiz'; if (change && ME.jobChanged) return toast('Meslek değiştirme hakkını kullandın');
   const today = new Date().toDateString(), cost = 0;
@@ -1844,7 +1846,7 @@ function sellables() {
   return L;
 }
 function market2Menu(tab = 0) {
-  if (!ME) return; const t = now();
+  if (!ME) return; CITYSHOP = null; const t = now();
   const live = Object.entries(market2).filter(([, m]) => m && !m.buyer && m.t > t - 3 * 864e5).sort((a, b) => b[1].t - a[1].t);
   const mine = Object.entries(market2).filter(([, m]) => m && m.seller === myId);
   shopScreen('🏷 2. El Pazarı', '#8e44ad', [
@@ -1963,7 +1965,7 @@ const UNI = {
   'Güvenlik Görevlisi': { sh: '#2c3e50', h: 'bere' }, Doktor: { sh: '#f4f4f4', coat: '#f4f4f4' }, Hemşire: { sh: '#f4f4f4', h: 'hemsire' }, Eczacı: { sh: '#f4f4f4', coat: '#f4f4f4' },
   Hakim: { sh: '#111111', coat: '#111111' }, Savcı: { sh: '#111111', coat: '#7b1e1e' }, Avukat: { sh: '#1c1c1c' }, İtfaiyeci: { sh: '#c0392b', h: 'itfaiye' },
   Aşçı: { sh: '#f4f4f4', h: 'asci' }, Pastacı: { sh: '#f4f4f4', h: 'asci' }, Fırıncı: { sh: '#f4f4f4', h: 'asci' }, Garson: { sh: '#fdfdfd' }, İnşaatçı: { sh: '#f39c12', h: 'baret' },
-  Çöpçü: { sh: '#e67e22' }, Kuryeci: { sh: '#f1c40f', h: 'kep2' }, Futbolcu: { sh: '#27ae60' }, İmam: { sh: '#ecf0f1', h: 'takke' }, Tamirci: { sh: '#2471a3' },
+  Çöpçü: { sh: '#e67e22' }, Petshopçu: { sh: '#e67e22' }, Kuryeci: { sh: '#f1c40f', h: 'kep2' }, Futbolcu: { sh: '#27ae60' }, İmam: { sh: '#ecf0f1', h: 'takke' }, Tamirci: { sh: '#2471a3' },
 };
 function uniformAcc(m, job, wear) {
   const U = UNI[job]; if (!U || (wear && wear.ck)) return; const a = m.acc, free = !(wear && wear.h);
@@ -2279,11 +2281,11 @@ BMENU.konser = { btn: '🎤 Konser alanı', open: () => {
       ...(perf ? [{ e: '🎤', n: 'Konser ver (5 dk)', r: '+120 💰', off: on || ME.energy < 25, fn: async () => {
         const r = await runTransaction(ref(db, 'concert'), c => (c && c.until > now()) ? undefined : { by: myId, name: ME.name, until: now() + 300000, heard: null }).catch(() => null);
         if (!r || !r.committed) return toast('Sahne dolu');
-        ME.energy -= 25; stat('worked'); earn(120, '🎤 Konser başladı!'); say(`🎤 <b>${esc(ME.name)}</b> Konser Alanı'nda KONSER veriyor! Gelen herkese +20 💰 🎶`, true, 'ann');
+        ME.energy -= 25; stat('worked'); earn(120, '🎤 Konser başladı!'); const sp = STAGE_SPOT(); ME.x = sp.x; ME.y = sp.y; target = null; sendPos(true); toast('🎤 Sahnedesin! 5 dakika boyunca dans ederek söylüyorsun', 4000); say(`🎤 <b>${esc(ME.name)}</b> Konser Alanı'nda KONSER veriyor! Gelen herkese +20 💰 🎶`, true, 'ann');
       }, stay: false }] : []),
       ...(on && concert.by !== myId ? [{ e: '🎶', n: 'Konseri dinle', r: heard ? 'dinledin ✓' : '+20 💰 +10⚡', off: !!heard, fn: async () => {
         const r = await runTransaction(ref(db, `concert/heard/${myId}`), x => x ? undefined : 1).catch(() => null);
-        if (r && r.committed) { ME.energy = Math.min(100, ME.energy + 10); earn(20, '🎶 Harika konserdi!'); payTo(concert.by, 10); }
+        if (r && r.committed) { ME.energy = Math.min(100, ME.energy + 10); earn(20, '🎶 Harika konserdi!'); payTo(concert.by, 10); const sp = pitSpot(); ME.x = sp.x; ME.y = sp.y; target = null; sendPos(true); toast('💃 Dans pistindesin! Joystick\'e dokunursan dans biter', 4000); }
       }, stay: false }] : []),
     ] }]);
 } };
@@ -2305,6 +2307,121 @@ function listenHeads() {
   onValue(ref(db, 'heads'), s => { heads = s.val() || {}; });
   onValue(ref(db, 'concert'), s => { const p = concert; concert = s.val(); if (concert && concert.until > now() && (!p || p.until !== concert.until) && ME && concert.by !== myId) toast(`🎤 ${concert.name} Konser Alanı'nda konser veriyor! Git dinle, +20 💰`, 5000); });
 }
+
+// ================= AÇIK HAVA KONSER • DANS • PETSHOP • EVCİL HAYVAN • YÖNETİCİ KASASI =================
+let CITYSHOP = null;   // which city building's menu is open → its sales go to the admin till
+function akasaAdd(v) { if (v > 0) runTransaction(ref(db, 'akasa'), k => (k || 0) + v).catch(() => { }); }
+// ---------- concert stage ----------
+const KB = BMAP.konser;
+const STAGE = { x: KB.x + 1, y: KB.y + 0.3, w: KB.w - 2, h: 1.7 };
+const STAGE_SPOT = () => ({ x: (KB.x + KB.w / 2) * T, y: (KB.y + 1.1) * T });
+const inPit = (x, y) => x > (KB.x + 0.4) * T && x < (KB.x + KB.w - 0.4) * T && y > (KB.y + 2.2) * T && y < (KB.y + KB.h + 0.6) * T;
+const onStage = (x, y) => inside(STAGE, x, y, 6);
+function pitSpot() { return { x: (KB.x + 0.9 + Math.random() * (KB.w - 1.8)) * T, y: (KB.y + 2.7 + Math.random() * (KB.h - 2.6)) * T }; }
+function buildStage(bg, box) {
+  const b = KB, cx = b.x + b.w / 2;
+  box(b.w, 0.05, b.h, '#2d2d44', cx, 0.03, b.y + b.h / 2, null, false);
+  const cols = ['#ff4d6d', '#ffd23f', '#3ad1ff', '#7cff6b', '#c77dff'];
+  for (let i = 0; i < 5; i++) for (let j = 0; j < 4; j++) box(0.9, 0.04, 0.9, cols[(i + j) % 5], b.x + 1.2 + i * 0.95, 0.06, b.y + 2.9 + j * 0.95, null, false);
+  box(STAGE.w, 0.6, STAGE.h, '#1b1b2f', cx, 0.3, STAGE.y + STAGE.h / 2);
+  box(STAGE.w, 0.06, STAGE.h, '#ff4d6d', cx, 0.62, STAGE.y + STAGE.h / 2, null, false);
+  box(STAGE.w + 0.4, 2.6, 0.15, '#111', cx, 1.9, STAGE.y + 0.05);
+  [-1, 1].forEach(s => { box(0.7, 1.5, 0.7, '#111', cx + s * (STAGE.w / 2 + 0.2), 0.75, STAGE.y + 0.9); box(0.4, 0.4, 0.05, '#555', cx + s * (STAGE.w / 2 + 0.2), 1.1, STAGE.y + 1.26, null, false);
+    box(0.12, 3.6, 0.12, '#888', cx + s * (b.w / 2 - 0.2), 1.8, b.y + 2.3); box(0.5, 0.3, 0.3, '#ffd23f', cx + s * (b.w / 2 - 0.2), 3.6, b.y + 2.3); });
+  box(STAGE.w + 0.6, 0.25, 0.25, '#888', cx, 3.3, STAGE.y + 0.05);
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 1.05), new THREE.MeshBasicMaterial({ map: signTex('🎤 Konser Alanı', '#ff4d6d', '#ffffff') }));
+  sign.position.set(cx, 3.9, STAGE.y + 0.15); bg.add(sign);
+}
+function danceMode(uid, p) {
+  if (!concertOn() || !p) return 0;
+  if (uid === concert.by && onStage(p.x, p.y)) return 2;
+  if ((concert.heard || {})[uid] && inPit(p.x, p.y) && !p._mv) return 1;
+  return 0;
+}
+function danceAnim(m, mode, t, seed) {
+  const k = mode === 2 ? 4 : (Math.floor(t / 2400) + seed) % 4, s = Math.sin(t / 150), c = Math.cos(t / 150);
+  m.g.rotation.z = 0;
+  if (k === 0) { m.armL.rotation.x = -2.8 + s * 0.3; m.armR.rotation.x = -2.8 - s * 0.3; m.g.position.y += Math.abs(s) * 0.12; }
+  else if (k === 1) { m.g.position.y += Math.abs(Math.sin(t / 120)) * 0.38; m.armL.rotation.x = -1.2; m.armR.rotation.x = -1.2; m.legL.rotation.x = 0; m.legR.rotation.x = 0; }
+  else if (k === 2) { m.g.rotation.z = s * 0.18; m.armL.rotation.x = s * 1.2; m.armR.rotation.x = -s * 1.2; m.legL.rotation.x = c * 0.3; m.legR.rotation.x = -c * 0.3; }
+  else if (k === 3) { m.g.rotation.y = t / 260; m.armL.rotation.x = -1.6; m.armR.rotation.x = -1.6; }
+  else { m.armR.rotation.x = -2.2 + s * 0.15; m.armL.rotation.x = -0.6 + c * 0.9; m.g.rotation.z = s * 0.12; m.g.position.y += Math.abs(s) * 0.1; }   // singer: mic in hand
+}
+// ---------- pets ----------
+const PETS = {
+  hamster: { n: 'Hamster', e: '🐹', p: 900, c: '#d7a86e', s: 0.45 }, kus: { n: 'Kuş', e: '🐦', p: 1200, c: '#f1c40f', s: 0.4, fly: 1 },
+  kaplumbaga: { n: 'Kaplumbağa', e: '🐢', p: 1400, c: '#2e7d32', s: 0.5 }, tavsan: { n: 'Tavşan', e: '🐰', p: 1800, c: '#f2f2f2', s: 0.55, ear: 1 },
+  kedi: { n: 'Kedi', e: '🐱', p: 2500, c: '#e67e22', s: 0.6, ear: 1 }, kopek: { n: 'Köpek', e: '🐶', p: 3500, c: '#8d6e63', s: 0.75 },
+  papagan: { n: 'Papağan', e: '🦜', p: 5000, c: '#27ae60', s: 0.45, fly: 1 }, tilki: { n: 'Tilki', e: '🦊', p: 8000, c: '#e65100', s: 0.7, ear: 1 },
+};
+const MAMA = 80, VET_CURE = 400, VET_CHECK = 150;
+const petStatus = pt => !pt ? 0 : (pt.sick || now() - (pt.fed || 0) > 24 * 3600000) ? 2 : now() - (pt.fed || 0) > 6 * 3600000 ? 1 : 0;
+const petTag = pp => pp && PETS[pp.t] ? PETS[pp.t].e + (pp.s === 2 ? '🤒' : pp.s === 1 ? '😿' : '') + ' ' : '';
+function petPub() { const pt = ME.pet; pub({ pet: pt ? { t: pt.t, s: petStatus(pt) } : null }); update(ref(db, 'players/' + myId), { pet: ME.pet || null }).catch(() => { }); }
+function petMesh(t) {
+  const P = PETS[t], g = new THREE.Group(), s = P.s;
+  if (P.fly) { box(0.3 * s * 2, 0.3 * s * 2, 0.4 * s * 2, P.c, 0, 0, 0, g); box(0.5 * s * 2, 0.06, 0.25 * s * 2, P.c, 0, 0.05, 0, g); box(0.1, 0.08, 0.14, '#f39c12', 0, 0, 0.42 * s, g, false); }
+  else {
+    box(0.5 * s, 0.4 * s, 0.85 * s, P.c, 0, 0.35 * s, 0, g); box(0.45 * s, 0.4 * s, 0.4 * s, P.c, 0, 0.62 * s, 0.5 * s, g);
+    box(0.08, 0.08, 0.02, '#111', -0.09 * s * 2, 0.68 * s, 0.71 * s, g, false); box(0.08, 0.08, 0.02, '#111', 0.09 * s * 2, 0.68 * s, 0.71 * s, g, false);
+    if (P.ear) { box(0.1 * s, (t === 'tavsan' ? 0.45 : 0.18) * s, 0.08 * s, P.c, -0.14 * s, 0.9 * s + (t === 'tavsan' ? 0.12 * s : 0), 0.5 * s, g); box(0.1 * s, (t === 'tavsan' ? 0.45 : 0.18) * s, 0.08 * s, P.c, 0.14 * s, 0.9 * s + (t === 'tavsan' ? 0.12 * s : 0), 0.5 * s, g); }
+    if (t !== 'kaplumbaga' && t !== 'hamster') box(0.08 * s, 0.08 * s, 0.4 * s, t === 'tilki' ? '#fff3e0' : P.c, 0, 0.5 * s, -0.55 * s, g);
+    if (t === 'kaplumbaga') box(0.65 * s, 0.25 * s, 0.75 * s, '#5d4037', 0, 0.55 * s, 0, g);
+  }
+  scene.add(g); return g;
+}
+function syncPet(m, p, t) {
+  const pt = p.pet && PETS[p.pet.t] ? p.pet.t : null;
+  if (m.petT !== pt) { if (m.petG) scene.remove(m.petG); m.petG = pt ? petMesh(pt) : null; m.petT = pt; }
+  if (!m.petG) return;
+  m.petG.visible = m.g.visible || !!m.car;
+  const tx = m.g.position.x - Math.sin(m.ry || 0) * 0.9 + 0.5, tz = m.g.position.z - Math.cos(m.ry || 0) * 0.9;
+  const P = m.petG.position; P.x += (tx - P.x) * 0.06; P.z += (tz - P.z) * 0.06;
+  const mv = Math.hypot(tx - P.x, tz - P.z) > 0.05; if (mv) m.petG.rotation.y = Math.atan2(tx - P.x, tz - P.z);
+  P.y = PETS[pt].fly ? 1.5 + Math.sin(t / 200) * 0.15 : (mv ? Math.abs(Math.sin(t / 90)) * 0.08 : 0);
+  if (p.pet.s === 2) m.petG.rotation.z = 0.5; else m.petG.rotation.z = 0;
+}
+function petMenu() {
+  const pt = ME.pet; if (!pt) return toast('Evcil hayvanın yok. Petshop\'tan sahiplen 🐾');
+  const P = PETS[pt.t], st = petStatus(pt), hrs = Math.floor((now() - (pt.fed || 0)) / 3600000);
+  modal(`${P.e} ${esc(pt.name || P.n)}`, [
+    { label: `🥣 Mama ver`, right: ME.inv.mama ? `${ME.inv.mama} mama` : 'mama yok', disabled: !ME.inv.mama || st === 2, fn: () => { ME.inv.mama--; if (!ME.inv.mama) delete ME.inv.mama; pt.fed = now(); saveMe(); petPub(); toast(`${P.e} Afiyet olsun! Mutlu oldu 💛`); } },
+    { label: '✏️ İsim ver', fn: () => modal('✏️ İsim', [{ label: 'Kaydet', fn: () => { const v = clean(document.getElementById('petN').value).trim().slice(0, 14); if (v.length < 2 || cleanText(v) !== v) return toast('Bu isim olmaz'); pt.name = v; petPub(); toast(`${P.e} Artık adı ${v}!`); } }], `<input id="petN" maxlength="14" placeholder="ör. Pamuk" value="${esc(pt.name || '')}">`) },
+    { label: '💔 Sahiplendirme merkezine bırak', fn: () => modal('Emin misin?', [{ label: 'Evet, bırak', fn: () => { ME.pet = null; petPub(); toast('Yeni bir yuva bulacak 🧡'); } }]) },
+  ], `<p>${st === 2 ? '🤒 <b>Hasta!</b> Hemen Veteriner Kliniği\'ne götür.' : st === 1 ? '😿 <b>Aç!</b> Mama ver.' : '😊 Mutlu ve tok.'}<br>Son mama: ${hrs} saat önce. 6 saat aç kalırsa üzülür, 24 saat aç kalırsa hastalanır.</p>`);
+}
+BMENU.petshop = { btn: '🐾 Petshop\'a gir', open: () => {
+  const has = !!ME.pet;
+  shopScreen('🐾 Petshop', '#e67e22', [
+    { n: 'Sahiplen', info: has ? `Zaten bir ${PETS[ME.pet.t].e} ${esc(ME.pet.name || PETS[ME.pet.t].n)}'n var. Aynı anda 1 hayvan bakabilirsin.` : 'Bir dost sahiplen! Peşinden yürür, herkes görür. Mama ister, hastalanınca veterinere götürmen gerekir.',
+      items: Object.entries(PETS).map(([k, P]) => ({ e: P.e, n: P.n, r: P.p.toLocaleString('tr') + ' 💰', off: has || ME.money < P.p, stay: false, fn: () => {
+        if (!spend(P.p)) return; ME.pet = { t: k, name: '', fed: now(), sick: 0 }; ME.inv.mama = (ME.inv.mama || 0) + 2; saveMe(); petPub(); stat('bought');
+        payJob(['Petshopçu'], Math.round(P.p * 0.1), `🐾 ${ME.name} ${P.n} sahiplendi`);
+        say(`🐾 <b>${esc(ME.name)}</b> bir ${P.e} <b>${P.n}</b> sahiplendi!`, true); toast(`${P.e} Hoş geldin minik dost! 2 mama hediye. 🎒 Çanta → ${P.e} ile bakımını yap`, 5000);
+      } })) },
+    { n: 'Mama & bakım', info: 'Mamayı çantandan hayvanına verirsin.', items: [
+      { e: '🥣', n: 'Mama', r: MAMA + ' 💰', off: ME.money < MAMA, fn: () => { if (!spend(MAMA)) return; ME.inv.mama = (ME.inv.mama || 0) + 1; saveMe(); payJob(['Petshopçu'], 10, `🥣 ${ME.name} mama aldı`); toast('🥣 Mama çantada'); } },
+      { e: '🥣', n: '5\'li mama paketi', r: MAMA * 4 + ' 💰', off: ME.money < MAMA * 4, fn: () => { if (!spend(MAMA * 4)) return; ME.inv.mama = (ME.inv.mama || 0) + 5; saveMe(); payJob(['Petshopçu'], 30, `🥣 ${ME.name} mama paketi aldı`); toast('🥣 5 mama çantada'); } },
+    ] },
+  ]);
+} };
+// vet clinic: pet treatment on top of the earlier menu
+const _vetOpen = BMENU.veteriner.open;
+BMENU.veteriner.open = () => {
+  const pt = ME.pet, st = petStatus(pt);
+  if (!pt) return _vetOpen();
+  const P = PETS[pt.t];
+  shopScreen('🐾 Veteriner Kliniği', '#16a085', [{ n: 'Hayvanın', info: `${P.e} ${esc(pt.name || P.n)}: ${st === 2 ? '🤒 Hasta, tedavi lazım!' : st === 1 ? '😿 Aç' : '😊 Sağlıklı'}`, items: [
+    { e: '💉', n: 'Tedavi et', r: VET_CURE + ' 💰', off: st !== 2 || ME.money < VET_CURE, fn: () => { if (!spend(VET_CURE)) return; pt.sick = 0; pt.fed = now(); saveMe(); petPub(); payJob(['Veteriner'], Math.round(VET_CURE * 0.5), `💉 ${ME.name}'in ${P.n}'ını tedavi ettin`); toast(`${P.e} İyileşti! Teşekkürler doktor 🩺`); } },
+    { e: '🩺', n: 'Kontrol ve aşı', r: VET_CHECK + ' 💰', off: ME.money < VET_CHECK, fn: () => { if (!spend(VET_CHECK)) return; pt.vac = now(); saveMe(); petPub(); payJob(['Veteriner'], Math.round(VET_CHECK * 0.5), `🩺 ${ME.name} ${P.n} kontrolü yaptırdı`); toast('🩺 Aşılandı, 3 gün hastalanmaz'); } },
+    { e: '🐶', n: 'Sokak hayvanlarını besle', r: '30 💰', off: ME.money < 30, fn: () => { if (!spend(30)) return; ME.energy = Math.min(100, ME.energy + 15); saveMe(); hud(); payJob(['Veteriner'], 30, `🐶 ${ME.name} sokak köpeklerini besledi`); toast('🐶 Hav hav 🧡'); } },
+  ] }]);
+};
+setInterval(() => {   // pets slowly get hungry / sick
+  if (!ME || !ME.pet) return; const pt = ME.pet;
+  if (!pt.sick && !(pt.vac > now() - 3 * 864e5) && Math.random() < 0.004) { pt.sick = 1; saveMe(); toast(`${PETS[pt.t].e} ${pt.name || PETS[pt.t].n} hastalandı! 🤒 Veteriner Kliniği'ne götür`, 6000); }
+  const s = petStatus(pt); if (s !== petPub.last) { petPub.last = s; petPub(); if (s === 1) toast(`${PETS[pt.t].e} acıktı 😿 Mama ver (🎒 Çanta)`, 5000); }
+}, 60000);
 
 // ================= EVENTS =================
 const EV_NAMES = { yangin: '🔥 YANGIN', soygun: '🚨 SOYGUN', festival: '🎉 FESTİVAL' };
@@ -2462,6 +2579,7 @@ async function init3D() {
   BUILD.forEach(b => {
     const cxB = b.x + b.w / 2, czB = b.y + b.h / 2, H = b.H;
     const bg = new THREE.Group(); scene.add(bg); const box = (w, h, d, c, x, y, z, p, cast, m) => boxIn(w, h, d, c, x, y, z, bg, cast, m);
+    if (b.open) { buildStage(bg, box); return; }
     box(b.w - 0.2, H, b.h - 0.2, b.c, cxB, H / 2, czB);
     box(b.w + 0.3, 0.45, b.h + 0.3, b.r, cxB, H + 0.22, czB);
     if (b.id === 'cami') {
@@ -2657,7 +2775,7 @@ function syncPerson(id, p, me, t) {
   if (m.vt !== vt) { if (m.car) scene.remove(m.car); m.car = null; m.vt = vt; if (vt) { m.car = vehMesh(vt, p.color || '#2980b9'); scene.add(m.car); } }
   if (!m.bagM) { m.bagM = new THREE.Group(); box(0.26, 0.3, 0.12, '#f5f5f5', 0.45, 0.55, 0.05, m.bagM); box(0.2, 0.06, 0.13, '#e74c3c', 0.45, 0.72, 0.05, m.bagM, false); m.g.add(m.bagM); }
   m.bagM.visible = (p.bag || 0) > now();
-  if (p.inside) { m.g.visible = false; if (m.car) m.car.visible = false; m.label.style.display = 'none'; m.seen = true; return; }
+  if (p.inside) { if (m.petG) m.petG.visible = false; m.g.visible = false; if (m.car) m.car.visible = false; m.label.style.display = 'none'; m.seen = true; return; }
   const wk = JSON.stringify(p.wear || {}) + p.job; if (wk !== m.wearKey) { m.wearKey = wk; buildAcc(m, p.wear); uniformAcc(m, p.job, p.wear); }
   const [x, z] = [p.x * S3, p.y * S3];
   if (m.px !== undefined) { const dx = x - m.px, dz = z - m.pz; if (Math.abs(dx) + Math.abs(dz) > 0.003) m.ry = Math.atan2(dx, dz); }
@@ -2669,9 +2787,11 @@ function syncPerson(id, p, me, t) {
   const sw = p._mv && !onBike ? Math.sin(t / 110) * 0.6 : 0;
   m.legL.rotation.x = sw; m.legR.rotation.x = -sw; m.armL.rotation.x = -sw * 0.8; m.armR.rotation.x = sw * 0.8;
   m.g.position.y = onBike ? 0.45 : p._mv ? Math.abs(Math.sin(t / 110)) * 0.06 : 0;
+  m.g.rotation.z = 0; const dm = danceMode(me ? myId : id, p); if (dm) { if (dm === 2) m.g.position.y += 0.62; danceAnim(m, dm, t, (String(id).charCodeAt(1) || 0) % 4); }
+  syncPet(m, p, t);
   const r = me ? myRole() : roleOf(id), wanted = p.wanted > now(), jailed = p.jail > now();
   const cls = jailed ? 'jail' : wanted ? 'bad' : r ? 'role' : me ? 'me' : '';
-  const tag = (admins[me ? myId : id] ? '👑 ' : '') + (jailed ? '⛓ ' : wanted ? '🚨 ' : r ? '👑 ' : me ? '⭐ ' : '') + (p.sick ? '🤒 ' : '') + (!me && p.afk ? '💤 ' : '');
+  const tag = (admins[me ? myId : id] ? '👑 ' : '') + (jailed ? '⛓ ' : wanted ? '🚨 ' : r ? '👑 ' : me ? '⭐ ' : '') + (p.sick ? '🤒 ' : '') + petTag(p.pet);
   const bub = p.msg && performance.now() - (p.msgAt || 0) < 6000 ? `<div class="bb">${esc(p.msg)}</div>` : '';
   const html = riding ? '' : `${bub}<div style="text-align:center"><span class="nm ${cls}" data-pid="${me ? '@me' : id}">${flagHtml(parties[PARTYOF[me ? myId : id]], 11)}${mods[me ? myId : id] ? '🛡 ' : ''}${tag}${esc(p.name || '')}</span></div><div class="jb">${esc(r ? ROLES[r].n : (headTitle(me ? myId : id, p.job) || jobTitle(p.job, me ? ME.kd : p.kd)))}${wanted ? ' • ARANIYOR' : ''}</div>`;
   if (m.label._h !== html) { m.label.innerHTML = html; m.label._h = html; }
@@ -2772,7 +2892,7 @@ function frame(t) {
   for (const id in peopleMesh) peopleMesh[id].seen = false;
   if (ME) syncPerson(myId, ME, true, t);
   for (const id in others) if (others[id].hasPos && others[id].name && live(others[id])) syncPerson(id, others[id], false, t);
-  for (const id in peopleMesh) if (!peopleMesh[id].seen) { scene.remove(peopleMesh[id].g); if (peopleMesh[id].car) scene.remove(peopleMesh[id].car); peopleMesh[id].label.remove(); delete peopleMesh[id]; }
+  for (const id in peopleMesh) if (!peopleMesh[id].seen) { scene.remove(peopleMesh[id].g); if (peopleMesh[id].car) scene.remove(peopleMesh[id].car); if (peopleMesh[id].petG) scene.remove(peopleMesh[id].petG); peopleMesh[id].label.remove(); delete peopleMesh[id]; }
   for (const k in plotObjs) { const L = plotObjs[k].label; if (!L) continue; if (Math.hypot(L._p[0] - fx, L._p[2] - fz) < 6 + 3 * zoom) placeLabel(L, ...L._p); else L.style.display = 'none'; }
   renderEvent(t); waveFlag(t); waveRally(t);
   renderer.render(scene, camera3);
@@ -2806,11 +2926,12 @@ function adminLogin() {
     onChildChanged(ref(db, 'reports'), s2 => { reports[s2.key] = s2.val(); });
     onChildAdded(query(ref(db, 'modlog'), limitToLast(20)), s2 => { modlog[s2.key] = s2.val(); });
     adminZones(true); setInterval(() => adminZones(false), 1500);
+    onValue(ref(db, 'akasa'), s2 => { AKASA = s2.val() || 0; });
     zoom = 1.8; adminUI(); setInterval(adminUI, 3000);
   };
 }
 const reports = {}, modlog = {};
-let admAll = 0;
+let admAll = 0, AKASA = 0;
 function adminZones(force) {
   if (!(ADMIN && adminOk) || ME && !admView) return;
   const want = {};
@@ -2836,6 +2957,7 @@ function adminUI() {
   <h3>🗳 Seçimler</h3>
   ${Object.keys(ROLES).map(r => { const e = elections[r], h = roles[r]; return `<div style="font-size:13px;margin:6px 0"><b>${ROLES[r].n}</b>: ${h && h.until > t ? '👑 ' + esc(h.name) : 'boş'}${e ? ` • seçim ${Math.max(0, Math.ceil((e.ends - t) / 60000))} dk (${Object.values(e.cands || {}).map(c => esc(c.name) + ' ' + (c.votes || 0)).join(', ') || 'aday yok'})` : ''}</div>
     <div class="row">${PROLES.includes(r) ? `<button data-el="${r}" data-min="10">Seçim 10 dk</button><button data-el="${r}" data-min="60">60 dk</button>` : `<button disabled style="opacity:.6">🎖 en kıdemli ${PROF[r] || ""}</button>`}${e ? `<button data-end="${r}" style="background:#c0392b">Bitir</button>` : ''}${h ? `<button data-rm="${r}" style="background:#7f8c8d">Görevden al</button>` : ''}</div>`; }).join('')}
+  <h3>💼 Yönetici kasası: ${Math.floor(AKASA).toLocaleString('tr')} 💰</h3><p style="font-size:12px;opacity:.75;margin:0 0 6px">Senin binalarının (market, fırın, AVM, petshop, veteriner, kuaför…) satış gelirleri burada birikir.</p><div class="row"><input id="aAk" type="number" inputmode="numeric" placeholder="miktar" style="flex:3"><button id="aAkB" style="flex:2">➡️ Belediyeye aktar</button></div>
   <h3>🏛 Belediye kasası: ${Math.floor(CITY.kasa || 0).toLocaleString('tr')} 💰</h3><div class="row"><input id="aKasa" type="number" inputmode="numeric" placeholder="miktar" style="flex:3"><button id="aKasaB" style="flex:2">➕ Kasaya koy</button></div>
   <h3>🗳 Adaylar (ekle / çıkar)</h3>${Object.entries(elections).filter(([r, e]) => e && e.ends > t && ROLES[r]).map(([r, e]) => `<div style="font-size:13px;margin:6px 0"><b>${ROLES[r].n}</b> (${Object.keys(e.cands || {}).length} aday)</div>${Object.entries(e.cands || {}).map(([cid, c]) => `<div class="row"><button class="pl" style="flex:4">${c.c ? flagHtml(c, 13) : ''}${esc(c.name)} • ${c.votes || 0} oy</button><button style="flex:1;background:#c0392b" data-rmc="${r}|${cid}">✖</button></div>`).join('')}<div class="row"><input id="aC_${r}" placeholder="oyuncu adı" autocapitalize="off" style="flex:3"><button data-addc="${r}" style="flex:1">➕</button></div>`).join('') || '<p>Açık seçim yok. Yukarıdan seçim başlat.</p>'}
   <h3>🏛 Partiler</h3>${Object.entries(parties).map(([pid, p]) => `<div class="row"><button class="pl" style="flex:4">${flagHtml(p, 13)}${esc(p.name)} • 👥${Object.keys(p.members || {}).length} 💰${Math.floor(p.kasa || 0)}</button><button style="flex:1;background:#c0392b" data-cp="${pid}">Kapat</button></div>`).join('') || '<p>Henüz parti yok.</p>'}
@@ -2847,6 +2969,7 @@ function adminUI() {
   <h3>📋 Moderatör işlemleri</h3>${Object.values(modlog).reverse().map(m => `<div style="font-size:12px;margin:3px 0">${new Date(m.t).toLocaleTimeString('tr', { hour: '2-digit', minute: '2-digit' })} ${esc(m.by)}: ${esc(m.act)} → ${esc(m.target)}</div>`).join('') || '<p style="font-size:13px">Kayıt yok</p>'}`;
   adminEl.querySelector('#aKickAll').onclick = kickAll;
   adminEl.querySelector('#aKickOld').onclick = kickOld;
+  adminEl.querySelector('#aAkB').onclick = async () => { const v = Math.round(+adminEl.querySelector('#aAk').value || 0); if (v <= 0) return; try { const r = await runTransaction(ref(db, 'akasa'), k => (k || 0) >= v ? (k || 0) - v : undefined); if (!r.committed) return alert('❌ Yönetici kasasında o kadar para yok'); await runTransaction(ref(db, 'city/kasa'), k => (k || 0) + v); cityLog('Yönetici kasasından aktarım', v); say(`🏛 Belediye kasasına <b>${v.toLocaleString('tr')} 💰</b> aktarıldı!`, true, 'ann'); alert('✅ Aktarıldı'); adminUI(); } catch (e) { alert('❌ ' + e.message); } };
   adminEl.querySelector('#aWatch').onclick = () => { admAll = admAll > now() ? 0 : now() + 300000; adminZones(true); adminUI(); };
   adminEl.querySelector('#aCapB').onclick = () => { const v = Math.max(0, Math.round(+adminEl.querySelector('#aCap').value || 0)); set(ref(db, 'config/cap'), v).then(() => alert(v ? `🚦 Aynı anda en fazla ${v} kişi` : '🚦 Sınır kaldırıldı')).catch(e => alert('❌ ' + e.message)); };
   adminEl.querySelector('#aKasaB').onclick = async () => { const v = Math.round(+adminEl.querySelector('#aKasa').value || 0); if (!v) return; try { await runTransaction(ref(db, 'city/kasa'), k => Math.max(0, (k || 0) + v)); cityLog(v > 0 ? 'Yönetici kasaya para koydu' : 'Yönetici kasadan aldı', Math.abs(v)); if (v > 0) say(`🏛 Belediye kasasına <b>${v.toLocaleString('tr')} 💰</b> eklendi!`, true, 'ann'); alert('✅ Kasa güncellendi'); adminUI(); } catch (e) { alert('❌ ' + e.message); } };
