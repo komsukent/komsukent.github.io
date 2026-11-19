@@ -143,7 +143,8 @@ const CFG = {
   messagingSenderId: "734007209872",
   appId: "1:734007209872:web:1b379478026d6f73de4d15"
 };
-const APP_V = '2026111902';   // bump on every upload (yyyymmddNN)
+const APP_V = '2026111903';
+let CAP = 0;   // bump on every upload (yyyymmddNN)
 const ADMIN = location.hash === '#yonetim';
 let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off, orderByChild, equalTo;
 let auth = null, AU = {}, authResolve; const authReady = new Promise(r => authResolve = r);
@@ -293,6 +294,7 @@ async function enter2(mode) {
     if ((await get(ref(db, 'bans/' + myId))).exists()) throw { message: 'Bu hesap şehirden uzaklaştırıldı ⛔' };
     const isAdm = (await get(ref(db, 'admins/' + myId))).val() === true;
     const U = auth.currentUser, isG = !U.isAnonymous;
+    if (!isAdm) { const cap = (await get(ref(db, 'config/cap')).catch(() => null))?.val() || 0; if (cap) { const on = (await get(ref(db, 'online')).catch(() => null))?.val() || {}; if (Object.keys(on).filter(k => k !== myId).length >= cap) throw { message: `🚦 Şehir şu an dolu (${cap} kişi). 2-3 dakika sonra tekrar dene, uyuyanlar çıktıkça yer açılıyor 🙏` }; } }
     if (!isAdm && !devCheck(myId)) { try { if (U.isAnonymous) await AU.signOut(auth); } catch (e) { } throw { message: '📵 Bu telefonda en fazla 2 hesap açılabilir. Daha önce girdiğin hesapla gir (aynı isimle misafir ya da aynı Google hesabı).' }; }
     const keyOf = n => fold(n.toLocaleLowerCase('tr')).replace(/[.\s]/g, '_');
     const bad = n => RESERVED.some(r => keyOf(n).replace(/_/g, '').includes(r));
@@ -374,19 +376,20 @@ function listenCommon() {
   };
   onChildAdded(oref, upd); onChildChanged(oref, upd);
   onChildRemoved(oref, s => { delete others[s.key]; hud(); });
-  { const pr = ref(db, 'plots2'), pf = s => { plots[s.key] = s.val(); refreshPlots(); };
-    onChildAdded(pr, pf); onChildChanged(pr, pf); onChildRemoved(pr, s => { delete plots[s.key]; refreshPlots(); }); }
+  const loadPlots = () => get(ref(db, 'plots2')).then(s => { plots = s.val() || {}; refreshPlots(); }).catch(() => { });
+  loadPlots(); setInterval(loadPlots, 15 * 60000);
   onValue(ref(db, 'roles'), s => { roles = s.val() || {}; hud(); });
   onValue(ref(db, 'elections'), s => { elections = s.val() || {}; });
   onValue(ref(db, 'event'), s => { const prevEv = EV; EV = s.val(); if (EV && (!prevEv || prevEv.t0 !== EV.t0)) evStart(); });
   onValue(ref(db, 'cases'), s => { cases = s.val() || {}; });
-  onChildAdded(query(ref(db, 'log'), limitToLast(50)), s => { const v = s.val(); if (v) addLog(s.key, v); });
+  onChildAdded(query(ref(db, 'log'), limitToLast(40)), s => { const v = s.val(); if (!v) return; addLog(s.key, v); if (v.k === 'chat' && v.m && v.uid && others[v.uid] && (v.t || 0) > now() - 15000) { others[v.uid].msg = v.m; others[v.uid].msgAt = performance.now(); } });
   onChildRemoved(query(ref(db, 'log'), limitToLast(50)), s => { const i = chatData.findIndex(c => c.key === s.key); if (i >= 0) { chatData.splice(i, 1); renderChat(); } });
   onValue(ref(db, 'mods'), s => { mods = s.val() || {}; });
   onValue(ref(db, 'admins'), s => { admins = s.val() || {}; });
   onValue(ref(db, 'avm2'), s => { avm = s.val() || {}; });
   onValue(ref(db, 'announce'), s => { const a = s.val(); if (a && now() - a.t < 15000) showAnn(a); });
   listenParties(); listenLaw(); listenMarket2(); listenCity(); listenJobsAds(); listenHeads();
+  onValue(ref(db, 'config/cap'), s => { CAP = s.val() || 0; });
   onValue(ref(db, 'config/ver'), s => {
     const v = s.val(); if (!v) return;
     if (ADMIN && adminOk && v < APP_V) { set(ref(db, 'config/ver'), APP_V).catch(() => { }); return; }
@@ -423,10 +426,13 @@ function setZone(force) {
   const old = myZone; myZone = z;
   if (old) { const r = ref(db, 'pos/' + old + '/' + myId); onDisconnect(r).cancel(); remove(r); }
   const r = ref(db, 'pos/' + z + '/' + myId); onDisconnect(r).remove(); set(r, { x: Math.round(ME.x), y: Math.round(ME.y) });
-  update(ref(db, 'online/' + myId), { z });
-  const [zx, zy] = z.split('_').map(Number), want = {};
-  for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) { const a = zx + dx, b = zy + dy; if (a >= 0 && b >= 0 && a < NZ && b < NZ) want[a + '_' + b] = 1; }
-  syncZoneSubs(want);
+  zoneWant(true);
+}
+function zoneWant(force) {   // subscribe only to the zones the camera can actually show
+  if (!ME || !myZone) return; const [zx, zy] = myZone.split('_').map(Number), lx = ME.x - zx * ZS, ly = ME.y - zy * ZS, M = 260;
+  const ox = lx < M ? -1 : lx > ZS - M ? 1 : 0, oy = ly < M ? -1 : ly > ZS - M ? 1 : 0, want = {};
+  [[0, 0], [ox, 0], [0, oy], [ox, oy]].forEach(([dx, dy]) => { const a = zx + dx, b = zy + dy; if (a >= 0 && b >= 0 && a < NZ && b < NZ) want[a + '_' + b] = 1; });
+  const key = Object.keys(want).sort().join(','); if (!force && key === zoneWant.k) return; zoneWant.k = key; syncZoneSubs(want);
 }
 function syncZoneSubs(want) {
   for (const k in zoneSubs) if (!want[k]) { off(zoneSubs[k]); delete zoneSubs[k]; for (const id in others) if (others[id].pz === k) others[id].hasPos = false; }
@@ -443,7 +449,7 @@ function sendPos(force) {
   const t = performance.now();
   if (!force && (t - lastSent < 700 || Math.hypot(ME.x - sentX, ME.y - sentY) < 16)) return;
   lastSent = t; sentX = ME.x; sentY = ME.y;
-  setZone(false);
+  setZone(false); zoneWant(false);
   set(ref(db, 'pos/' + myZone + '/' + myId), { x: Math.round(ME.x), y: Math.round(ME.y) });
 }
 function saveMe() {
@@ -539,9 +545,9 @@ function sendMsg(txt) {
   if (typeof txt !== 'string') msgIn.value = '';
   lastMsg = { t: now(), s: t }; t = cleanText(t);
   if (CH !== 'g') { if (CH === 'p') sendParty(t); else if (CH === 'r') sendRadio(t); else if (DMF) sendDM(t); else toast('Önce bir arkadaş seç 👆'); return; }
-  ME.msg = t; ME.msgAt = performance.now();
-  update(ref(db, 'online/' + myId), { msg: t, msgT: now() });
-  push(ref(db, 'log'), { h: `<b>${esc(ME.name)}:</b> ${esc(t)}`, k: 'chat', uid: myId, t: serverTimestamp() }).catch(() => toast('Mesaj gönderilemedi'));
+  if (now() - (lastMsg.g || 0) < 10000) { toast('Genel sohbette 10 saniyede 1 mesaj 🙂'); return; }
+  lastMsg.g = now(); ME.msg = t; ME.msgAt = performance.now();
+  push(ref(db, 'log'), { h: `<b>${esc(ME.name)}:</b> ${esc(t)}`, k: 'chat', uid: myId, m: t, t: serverTimestamp() }).catch(() => toast('Mesaj gönderilemedi'));
 }
 document.getElementById('send').onclick = () => sendMsg();
 document.querySelectorAll('#emo button').forEach(b => b.onclick = () => sendMsg(b.textContent));
@@ -1015,7 +1021,8 @@ async function buyPlot(p, type, shop, shopType) {
   if (ME.money < price) { toast(`Para yetmiyor 😅 ${price - Math.floor(ME.money)} 💰 daha lazım`); return; }
   const val = { id: myId, name: ME.name, color: ME.color, type }; if (shop) Object.assign(val, { shop, shopType });
   const res = await runTransaction(ref(db, 'plots2/' + p.k), cur => cur ? undefined : val);
-  if (!res.committed) { toast('Biri senden önce aldı 😬'); return; }
+  if (!res.committed) { toast('Biri senden önce aldı 😬'); get(ref(db, 'plots2/' + p.k)).then(x => { plots[p.k] = x.val(); refreshPlots(); }).catch(() => { }); return; }
+  plots[p.k] = val; refreshPlots();
   ME.money -= price; if (type === 'ev') ME.home = p.k; else { ME.shop = p.k; stat('shop'); } hud(); saveMe();
   payJob(['Emlakçı'], Math.round(price * 0.05), `🏡 ${ME.name} arsa aldı, emlak komisyonun`); payJob(['İnşaatçı'], 60, `🏗 ${ME.name}'in ${type === 'ev' ? 'evini' : 'dükkanını'} inşa ettin`);
   say(type === 'ev' ? `🏡 <b>${esc(ME.name)}</b> ev sahibi oldu!` : `🏪 <b>${esc(ME.name)}</b> dükkan açtı: <b>${esc(shop)}</b> ${SHOPTYPES[shopType]}`, true);
@@ -2077,7 +2084,7 @@ const setJailRec = (id, until) => set(ref(db, 'jail/' + id), until || 0).catch((
 
 // ---------- sleep (idle) ----------
 let lastInput = Date.now();
-['pointerdown', 'keydown', 'touchstart'].forEach(ev => addEventListener(ev, () => { lastInput = Date.now(); if (ME && ME.afk) { ME.afk = 0; pub({ afk: 0 }); } }, { passive: true }));
+['pointerdown', 'keydown', 'touchstart'].forEach(ev => addEventListener(ev, () => { lastInput = Date.now(); if (ME && ME.afk) ME.afk = 0; }, { passive: true }));
 async function goSleep() {
   if (!ME || ME.sleep) return; ME.sleep = 1; CHASE = null;
   try { await remove(ref(db, 'online/' + myId)); if (myZone) await remove(ref(db, 'pos/' + myZone + '/' + myId)); } catch (e) { }
@@ -2096,7 +2103,7 @@ setInterval(() => {
   if (!ME || ME.sleep) return; const idle = Date.now() - lastInput;
   if (ME.jail > now() || task) { return; }
   if (idle > 120000) goSleep();
-  else if (idle > 60000 && !ME.afk) { ME.afk = 1; pub({ afk: 1 }); }
+  else if (idle > 60000 && !ME.afk) ME.afk = 1;
 }, 15000);
 
 // admin-side cleanup: profession roles must be held by the right job, one person one role, no elections for profession roles
@@ -2798,11 +2805,19 @@ function adminLogin() {
     onChildRemoved(ref(db, 'reports'), s2 => { delete reports[s2.key]; });
     onChildChanged(ref(db, 'reports'), s2 => { reports[s2.key] = s2.val(); });
     onChildAdded(query(ref(db, 'modlog'), limitToLast(20)), s2 => { modlog[s2.key] = s2.val(); });
-    const all = {}; for (let a = 0; a < NZ; a++) for (let b = 0; b < NZ; b++) all[a + '_' + b] = 1; syncZoneSubs(all);
+    adminZones(true); setInterval(() => adminZones(false), 1500);
     zoom = 1.8; adminUI(); setInterval(adminUI, 3000);
   };
 }
 const reports = {}, modlog = {};
+let admAll = 0;
+function adminZones(force) {
+  if (!(ADMIN && adminOk) || ME && !admView) return;
+  const want = {};
+  if (admAll > now()) { for (let a = 0; a < NZ; a++) for (let b = 0; b < NZ; b++) want[a + '_' + b] = 1; }
+  else { const zx = Math.floor(adm.cx * T / ZS), zy = Math.floor(adm.cz * T / ZS); for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) { const a = zx + dx, b = zy + dy; if (a >= 0 && b >= 0 && a < NZ && b < NZ) want[a + '_' + b] = 1; } }
+  const key = Object.keys(want).sort().join(','); if (!force && key === adminZones.k) return; adminZones.k = key; syncZoneSubs(want);
+}
 const adminEl = document.getElementById('admin');
 document.getElementById('adminToggle').onclick = () => { adminEl.style.display = adminEl.style.display === 'block' ? 'none' : 'block'; adminUI(); };
 function adminUI() {
@@ -2824,12 +2839,16 @@ function adminUI() {
   <h3>🏛 Belediye kasası: ${Math.floor(CITY.kasa || 0).toLocaleString('tr')} 💰</h3><div class="row"><input id="aKasa" type="number" inputmode="numeric" placeholder="miktar" style="flex:3"><button id="aKasaB" style="flex:2">➕ Kasaya koy</button></div>
   <h3>🗳 Adaylar (ekle / çıkar)</h3>${Object.entries(elections).filter(([r, e]) => e && e.ends > t && ROLES[r]).map(([r, e]) => `<div style="font-size:13px;margin:6px 0"><b>${ROLES[r].n}</b> (${Object.keys(e.cands || {}).length} aday)</div>${Object.entries(e.cands || {}).map(([cid, c]) => `<div class="row"><button class="pl" style="flex:4">${c.c ? flagHtml(c, 13) : ''}${esc(c.name)} • ${c.votes || 0} oy</button><button style="flex:1;background:#c0392b" data-rmc="${r}|${cid}">✖</button></div>`).join('')}<div class="row"><input id="aC_${r}" placeholder="oyuncu adı" autocapitalize="off" style="flex:3"><button data-addc="${r}" style="flex:1">➕</button></div>`).join('') || '<p>Açık seçim yok. Yukarıdan seçim başlat.</p>'}
   <h3>🏛 Partiler</h3>${Object.entries(parties).map(([pid, p]) => `<div class="row"><button class="pl" style="flex:4">${flagHtml(p, 13)}${esc(p.name)} • 👥${Object.keys(p.members || {}).length} 💰${Math.floor(p.kasa || 0)}</button><button style="flex:1;background:#c0392b" data-cp="${pid}">Kapat</button></div>`).join('') || '<p>Henüz parti yok.</p>'}
+  <h3>👀 Canlı izleme</h3><button id="aWatch" style="background:#2e86de;margin-bottom:6px">${admAll > now() ? '👀 Tüm şehir açık (' + Math.ceil((admAll - now()) / 60000) + ' dk)' : '👀 Tüm şehri 5 dk canlı izle'}</button><p style="font-size:12px;opacity:.75;margin:0 0 8px">Normalde sadece kameranın baktığı yeri indirir (kota tasarrufu). Paneli kullanmadığında kapat.</p>
+  <h3>🚦 Kapasite: ${CAP ? CAP + ' kişi' : 'sınırsız'}</h3><div class="row"><input id="aCap" type="number" inputmode="numeric" placeholder="0 = sınırsız" style="flex:3"><button id="aCapB" style="flex:2">Kaydet</button></div>
   <h3>👢 Toplu işlem</h3><button id="aKickOld" style="background:#8e44ad;margin-bottom:6px">📵 Eski sürümdekileri at</button><button id="aKickAll" style="background:#c0392b">👢 Herkesi at + isimleri sıfırla (v2)</button>
   <h3>🛡 Moderatörler</h3>${Object.entries(mods).map(([id, m]) => `<div class="row"><button class="pl" style="flex:4">${esc(m.name || id)}</button><button style="flex:1;background:#c0392b" data-unmod="${id}">✖</button></div>`).join('') || '<p style="font-size:13px">Henüz yok. Oyuncu listesinde ⚙️ ile ekle.</p>'}
   <h3>🚩 Cevapsız şikayetler</h3><p style="font-size:12px;opacity:.8">Suç şikayetleri Savcıya, sohbet şikayetleri moderatörlere gider. Burada sadece kimsenin bakmadıkları var (24 saat sonra kendiliğinden düşer).</p>${Object.entries(reports).filter(([, r]) => r && r.st !== 'kapandi' && r.t > t - 864e5).reverse().map(([k, r]) => `<div style="font-size:12px;margin:4px 0">💬 ${esc(r.byName)} → <b>${esc(r.targetName)}</b>: ${esc(r.reason)}</div><div class="row"><button data-f="${r.target}">Git</button><button data-delrep="${k}" style="background:#7f8c8d">Kapat</button></div>`).join('')}${openCrimes().reverse().map(([k, c]) => `<div style="font-size:12px;margin:4px 0">📂 ${esc(c.byName)} → <b>${esc(c.targetName)}</b>: ${esc(c.reason)} • ${ST[c.st] || ''}</div><div class="row"><button data-f="${c.target}">Git</button><button data-delcr="${k}" style="background:#7f8c8d">Kapat</button></div>`).join('') || ''}${!Object.values(reports).some(r => r && r.st !== 'kapandi' && r.t > t - 864e5) && !openCrimes().length ? '<p style="font-size:13px">Cevapsız şikayet yok 👍</p>' : ''}
   <h3>📋 Moderatör işlemleri</h3>${Object.values(modlog).reverse().map(m => `<div style="font-size:12px;margin:3px 0">${new Date(m.t).toLocaleTimeString('tr', { hour: '2-digit', minute: '2-digit' })} ${esc(m.by)}: ${esc(m.act)} → ${esc(m.target)}</div>`).join('') || '<p style="font-size:13px">Kayıt yok</p>'}`;
   adminEl.querySelector('#aKickAll').onclick = kickAll;
   adminEl.querySelector('#aKickOld').onclick = kickOld;
+  adminEl.querySelector('#aWatch').onclick = () => { admAll = admAll > now() ? 0 : now() + 300000; adminZones(true); adminUI(); };
+  adminEl.querySelector('#aCapB').onclick = () => { const v = Math.max(0, Math.round(+adminEl.querySelector('#aCap').value || 0)); set(ref(db, 'config/cap'), v).then(() => alert(v ? `🚦 Aynı anda en fazla ${v} kişi` : '🚦 Sınır kaldırıldı')).catch(e => alert('❌ ' + e.message)); };
   adminEl.querySelector('#aKasaB').onclick = async () => { const v = Math.round(+adminEl.querySelector('#aKasa').value || 0); if (!v) return; try { await runTransaction(ref(db, 'city/kasa'), k => Math.max(0, (k || 0) + v)); cityLog(v > 0 ? 'Yönetici kasaya para koydu' : 'Yönetici kasadan aldı', Math.abs(v)); if (v > 0) say(`🏛 Belediye kasasına <b>${v.toLocaleString('tr')} 💰</b> eklendi!`, true, 'ann'); alert('✅ Kasa güncellendi'); adminUI(); } catch (e) { alert('❌ ' + e.message); } };
   adminEl.querySelectorAll('[data-rmc]').forEach(b => b.onclick = () => { const [r, cid] = b.dataset.rmc.split('|'); if (confirm('Bu aday çıkarılsın mı?')) remove(ref(db, `elections/${r}/cands/${cid}`)).then(adminUI).catch(e => alert('❌ ' + e.message)); });
   adminEl.querySelectorAll('[data-cp]').forEach(b => b.onclick = () => { if (confirm('Parti kapatılsın mı? Kasası da silinir.')) closeParty(b.dataset.cp).then(adminUI); });
