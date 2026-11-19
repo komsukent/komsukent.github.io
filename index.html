@@ -143,16 +143,16 @@ const CFG = {
   messagingSenderId: "734007209872",
   appId: "1:734007209872:web:1b379478026d6f73de4d15"
 };
-const APP_V = '2026111817';   // bump on every upload (yyyymmddNN)
+const APP_V = '2026111901';   // bump on every upload (yyyymmddNN)
 const ADMIN = location.hash === '#yonetim';
-let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off;
+let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off, orderByChild, equalTo;
 let auth = null, AU = {}, authResolve; const authReady = new Promise(r => authResolve = r);
 const IN_APP = /Instagram|FBAN|FBAV|FB_IAB|TikTok|musical_ly|Snapchat/i.test(navigator.userAgent);
 const fbReady = (async () => {
   const A = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js");
   const D = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js");
   AU = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js");
-  ({ goOffline, goOnline, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off } = D);
+  ({ goOffline, goOnline, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off, orderByChild, equalTo } = D);
   const app = A.initializeApp(CFG);
   db = D.getDatabase(app);
   try { auth = AU.initializeAuth(app, { persistence: [AU.indexedDBLocalPersistence, AU.browserLocalPersistence, AU.inMemoryPersistence], popupRedirectResolver: AU.browserPopupRedirectResolver }); }
@@ -2007,8 +2007,8 @@ async function autoAppoint() {
   const vac = Object.keys(PROF).filter(r => !roles[r] || !(roles[r].until > t));
   if (!vac.length) return; autoAppoint.busy = 1;
   try {
-    const all = (await get(ref(db, 'players'))).val() || {};
     for (const r of vac) {
+      const all = (await get(query(ref(db, 'players'), orderByChild('job'), equalTo(PROF[r]))).catch(() => null))?.val() || {};
       const ex = depose[r] && depose[r].t > t - 7 * 864e5 ? depose[r].id : null;
       const busy = new Set(Object.values(roles).filter(x => x && x.until > t).map(x => x.id));
       const pool = Object.entries(all).filter(([id, p]) => p && p.name && p.job === PROF[r] && id !== ex && !busy.has(id));
@@ -2020,8 +2020,8 @@ async function autoAppoint() {
     }
   } catch (e) { } finally { autoAppoint.busy = 0; }
 }
-setInterval(() => { if (ME || (ADMIN && adminOk)) autoAppoint(); }, 120000);
-setTimeout(() => { if (ME || (ADMIN && adminOk)) autoAppoint(); }, 20000);
+setInterval(() => { if (ADMIN && adminOk) { autoAppoint(); buildRank(); } else if (ME && Math.random() < 0.05) autoAppoint(); }, 300000);
+setTimeout(() => { if (ADMIN && adminOk) { autoAppoint(); buildRank(); } }, 20000);
 function resignMenu() {
   const r = myRole(); if (!r) return;
   modal(`🚪 ${ROLES[r].n} makamından çekil`, [{ label: 'Evet, çekiliyorum', fn: async () => {
@@ -2095,9 +2095,11 @@ setInterval(() => {
 
 // admin-side cleanup: profession roles must be held by the right job, one person one role, no elections for profession roles
 async function adminCleanup() {
-  if (adminCleanup.busy || (adminCleanup.last || 0) > now() - 60000) return; adminCleanup.busy = 1; adminCleanup.last = now();
+  if (adminCleanup.busy || (adminCleanup.last || 0) > now() - 180000) return; adminCleanup.busy = 1; adminCleanup.last = now();
   try {
-    const all = (await get(ref(db, 'players'))).val() || {}, rs = (await get(ref(db, 'roles'))).val() || {}, el = (await get(ref(db, 'elections'))).val() || {}, seen = new Set(); let n = 0;
+    const rs = (await get(ref(db, 'roles'))).val() || {}, all = {};
+    for (const r in rs) if (rs[r] && rs[r].id && PROF[r]) all[rs[r].id] = { job: (await get(ref(db, `players/${rs[r].id}/job`)).catch(() => null))?.val() };
+    const el = (await get(ref(db, 'elections'))).val() || {}, seen = new Set(); let n = 0;
     for (const r of Object.keys(PROF)) if (el[r]) { await remove(ref(db, 'elections/' + r)).catch(() => { }); n++; }
     for (const r of [...PROLES, ...Object.keys(PROF)]) {
       const h = rs[r]; if (!h || !(h.until > now())) continue;
@@ -2264,12 +2266,20 @@ setInterval(() => { if (ME && EV && EV.type === 'festival' && !EV.done && now() 
 
 // ================= RANKING =================
 async function rankMenu() {
+  const c = (await get(ref(db, 'rank')).catch(() => null))?.val();
+  if (!c || !c.html) return modal('🏆 Bu ayın yıldızları', [], '<p>Sıralama hazırlanıyor, biraz sonra tekrar bak 🙂</p>');
+  modal('🏆 Bu ayın yıldızları', [], c.html + `<p style="opacity:.6;font-size:12px">Sıralama yarım saatte bir güncellenir.</p>`);
+}
+async function buildRank() {   // admin only, every 30 min: one full read instead of one per player per click
+  if (buildRank.last > now() - 1800000) return; buildRank.last = now();
   const all = (await get(ref(db, 'players'))).val() || {}, m = MK();
+  let html = '';
   const arr = Object.values(all).filter(p => p && p.name);
   const top = (f, n = 5) => arr.map(p => [p.name, f(p)]).filter(x => x[1] > 0).sort((a, b) => b[1] - a[1]).slice(0, n);
   const sec = (title, list, unit) => `<h3 style="color:#ffd23f;margin:12px 0 4px">${title}</h3>` + (list.length ? list.map(([n, v], i) => `<div>${['🥇', '🥈', '🥉', '4.', '5.'][i]} ${esc(n)} — <b>${Math.floor(v)}</b> ${unit}</div>`).join('') : '<div style="opacity:.6">Henüz kimse yok</div>');
   const g = (p, k) => (p.m && p.m[m] && p.m[m][k]) || 0;
-  modal('🏆 Bu ayın yıldızları', [], sec('💰 En zengin', top(p => p.money || 0), '💰') + sec('💼 En çalışkan', top(p => g(p, 'worked')), 'mesai') + sec('🚔 En çok yakalayan', top(p => g(p, 'arrests')), 'yakalama') + sec('🤏 En azılı hırsız', top(p => g(p, 'stolen')), '💰'));
+  html = (sec('💰 En zengin', top(p => p.money || 0), '💰') + sec('💼 En çalışkan', top(p => g(p, 'worked')), 'mesai') + sec('🚔 En çok yakalayan', top(p => g(p, 'arrests')), 'yakalama') + sec('🤏 En azılı hırsız', top(p => g(p, 'stolen')), '💰'));
+  await set(ref(db, 'rank'), { t: now(), html }).catch(() => { });
 }
 document.getElementById('bRank').onclick = () => db && rankMenu();
 document.getElementById('bWard').onclick = () => ME && wardrobe(null);
