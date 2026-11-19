@@ -146,7 +146,7 @@ const CFG = {
   messagingSenderId: "734007209872",
   appId: "1:734007209872:web:1b379478026d6f73de4d15"
 };
-const APP_V = '2026111908';
+const APP_V = '2026111909';
 let CAP = 0;   // bump on every upload (yyyymmddNN)
 const ADMIN = location.hash === '#yonetim';
 let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off, orderByChild, equalTo;
@@ -484,7 +484,7 @@ setInterval(() => {
   if (!ME || ME.sleep) return;
   const d = new Date().toISOString().slice(0, 10); ME.play += 30000; ME.pd = { [d]: (ME.pd[d] || 0) + 30000 };
   if (ME.sick) ME.energy = Math.max(0, ME.energy - 1); else ME.energy = Math.min(100, ME.energy + (ME.inv.saat ? 2 : 1));
-  if (!ME.sick && Math.random() < 0.03) { ME.sick = 1; pub({ sick: 1 }); toast('🤒 Hastalandın! Enerjin düşüyor, hastaneye git', 5000); }
+  if (!ME.sick && Math.random() < (ME.energy < 30 ? 0.025 : 0.012)) { ME.sick = 1; pub({ sick: 1 }); toast('🤒 Hastalandın! Enerjin düşüyor, hastaneye git', 5000); }
   if (ME.drive && Math.random() < 0.06) { const v = ME.veh[ME.drive]; if (v) { v.br = Math.random() < 0.5 ? 'motor' : 'lastik'; toast(`💥 ${VEH[v.t].n} bozuldu! (${v.br === 'motor' ? 'motor arızası → Tamirci' : 'lastik patladı → Lastikçi'}) Sanayiye götür`, 5500); ME.drive = null; pub({ drive: null }); } }
   saveMe(); hud();
 }, 30000);
@@ -844,7 +844,7 @@ function questMenu() {
 function afterLogin() {
   const day = new Date().toISOString().slice(0, 10);
   if (ME.taxDay && ME.taxDay !== day) {
-    const tax = Math.round(Object.values(ME.veh).reduce((a, v) => a + VEH[v.t].p * 0.02, 0) + (ME.home ? 30 : 0) + (ME.shop ? 60 : 0));
+    const tax = Math.round(Object.values(ME.veh).reduce((a, v) => a + VEH[v.t].p * 0.02, 0) + (ME.home ? 30 : 0) + myShops() * 60);
     if (tax > 0) { const paid = Math.min(tax, Math.floor(ME.money)); ME.money -= paid; if (paid > 0) runTransaction(ref(db, 'city/kasa'), k => (k || 0) + paid).catch(() => { }); setTimeout(() => toast(`🧾 Günlük vergi kesildi: ${paid} 💰 → belediye kasasına`, 5000), 2500); }
   }
   ME.taxDay = day; saveMe(); setTimeout(payday, 6000);
@@ -958,13 +958,15 @@ function computeActs() {
   if (p) {
     const own = plots[p.k];
     if (!own) {
-      L.push({ label: `🏗 Arsa: ev ${HOUSE_PRICE} / dükkan ${SHOP_PRICE} 💰`, fn: () => plotMenu(p) });
+      L.push({ label: `🏗 Arsa: ev ${HOUSE_PRICE} / dükkan ${shopPrice()} 💰`, fn: () => plotMenu(p) });
     } else if (own.id === myId) {
       if (own.type === 'ev') L.push({ label: '😴 Evinde dinlen (⚡ dolsun)', disabled: ME.energy >= 100, fn: () => startTask('rest', REST_MS, () => nearPlot(p, 30), () => { ME.energy = 100; hud(); saveMe(); toast('😴 Dinlendin, enerji full!'); }, '😴 Dinleniyor') });
-      else L.push({ label: `🧾 Dükkanında çalış (+50 💰, -${SHIFT_E}⚡)`, disabled: ME.energy < SHIFT_E, fn: () => startTask('work', SHIFT_MS, () => nearPlot(p, 40), () => { ME.energy -= SHIFT_E; stat('worked'); earn(50, '🧾 Dükkan kapandı, kasa dolu!'); }, '🧾 Dükkanda') });
+      else if (own.closed > t) L.push({ label: `🔥 Dükkanın yandı! Onarımda (${Math.ceil((own.closed - t) / 60000)} dk)`, cls: 'gray', dyn: 1 }, { label: `🔨 Hemen onart (${REPAIR_P} 💰)`, disabled: ME.money < REPAIR_P, fn: () => repairShop(p.k) });
+      else L.push({ label: `💰 Fiyatını belirle (şu an ${shopP(own)} 💰)`, fn: () => priceMenu(p.k) }, { label: `🧾 Dükkanında çalış (+50 💰, -${SHIFT_E}⚡)`, disabled: ME.energy < SHIFT_E, fn: () => startTask('work', SHIFT_MS, () => nearPlot(p, 40), () => { ME.energy -= SHIFT_E; stat('worked'); earn(50, '🧾 Dükkan kapandı, kasa dolu!'); }, '🧾 Dükkanda') });
     } else if (own.type !== 'ev') {
-      if (own.shopType === 'Butik') L.push({ label: `👗 ${own.shop}'den alışveriş`, fn: () => wardrobe(own) });
-      else L.push({ label: `${SHOPTYPES[own.shopType] || '🛍'} ${own.shop}: ye-iç (20 💰, +30⚡)`, disabled: ME.money < 20 || ME.energy >= 100, fn: () => { ME.money -= 20; ME.energy = Math.min(100, ME.energy + 30); payTo(own.id, 20); notify(own.id, `💸 ${ME.name} dükkanından alışveriş yaptı`); hud(); saveMe(); toast('😋 Afiyet olsun! +30⚡'); } });
+      if (own.closed > t) L.push({ label: `🔥 ${own.shop} yandı, onarımda`, cls: 'gray' });
+      else if (own.shopType === 'Butik') L.push({ label: `👗 ${own.shop}'den alışveriş`, fn: () => wardrobe(own) });
+      else L.push({ label: `${SHOPTYPES[own.shopType] || '🛍'} ${own.shop}: ye-iç (${shopP(own)} 💰, +30⚡)`, disabled: ME.money < shopP(own) || ME.energy >= 100, fn: () => buyAtShop(p.k) });
     }
   }
   // street jobs
@@ -1053,21 +1055,21 @@ function judgeMenu(id, c) {
 function plotMenu(p) {
   modal('🏗 Satılık arsa', [
     { label: '🏠 Ev yap', right: HOUSE_PRICE + ' 💰', disabled: ME.home || ME.money < HOUSE_PRICE, fn: () => buyPlot(p, 'ev') },
-    { label: '🏪 Dükkan aç', right: SHOP_PRICE + ' 💰', disabled: ME.shop || ME.money < SHOP_PRICE, fn: () => shopNameMenu(p) },
-  ], `<p>${ME.home ? 'Zaten bir evin var. ' : ''}${ME.shop ? 'Zaten bir dükkanın var. ' : ''}Paran: ${Math.floor(ME.money)} 💰</p>`);
+    { label: `🏪 ${myShops() ? (myShops() + 1) + '. dükkanını aç' : 'Dükkan aç'}`, right: shopPrice() + ' 💰', disabled: ME.money < shopPrice(), fn: () => shopNameMenu(p) },
+  ], `<p>${ME.home ? 'Zaten bir evin var. ' : ''}${myShops() ? `${myShops()} dükkanın var, her yeni dükkan bir öncekinin 2 katı.` : ''} Paran: ${Math.floor(ME.money)} 💰</p>`);
 }
 function shopNameMenu(p) {
   modal('🏪 Dükkanın adı ne olsun?', Object.keys(SHOPTYPES).map(ty => ({ label: `${SHOPTYPES[ty]} ${ty}`, fn: () => { const n = clean(document.getElementById('shopname').value || ''); if (n.length < 2) { toast('Dükkan adını yaz'); return; } buyPlot(p, 'dukkan', n, ty); } })),
     `<input id="shopname" maxlength="20" placeholder="ör. Azra Market"><p style="margin-top:10px">Dükkan türünü seç:</p>`);
 }
 async function buyPlot(p, type, shop, shopType) {
-  const price = type === 'ev' ? HOUSE_PRICE : SHOP_PRICE;
+  const price = type === 'ev' ? HOUSE_PRICE : shopPrice();
   if (ME.money < price) { toast(`Para yetmiyor 😅 ${price - Math.floor(ME.money)} 💰 daha lazım`); return; }
-  const val = { id: myId, name: ME.name, color: ME.color, type }; if (shop) Object.assign(val, { shop, shopType });
+  const val = { id: myId, name: ME.name, color: ME.color, type }; if (shop) Object.assign(val, { shop, shopType, price: 20 });
   const res = await runTransaction(ref(db, 'plots2/' + p.k), cur => cur ? undefined : val);
   if (!res.committed) { toast('Biri senden önce aldı 😬'); get(ref(db, 'plots2/' + p.k)).then(x => { plots[p.k] = x.val(); refreshPlots(); }).catch(() => { }); return; }
   plots[p.k] = val; refreshPlots();
-  ME.money -= price; if (type === 'ev') ME.home = p.k; else { ME.shop = p.k; stat('shop'); } hud(); saveMe();
+  ME.money -= price; if (type === 'ev') ME.home = p.k; else { ME.shop = ME.shop || p.k; stat('shop'); } hud(); saveMe();
   payJob(['Emlakçı'], Math.round(price * 0.05), `🏡 ${ME.name} arsa aldı, emlak komisyonun`); payJob(['İnşaatçı'], 60, `🏗 ${ME.name}'in ${type === 'ev' ? 'evini' : 'dükkanını'} inşa ettin`);
   say(type === 'ev' ? `🏡 <b>${esc(ME.name)}</b> ev sahibi oldu!` : `🏪 <b>${esc(ME.name)}</b> dükkan açtı: <b>${esc(shop)}</b> ${SHOPTYPES[shopType]}`, true);
 }
@@ -2469,7 +2471,7 @@ BMENU.veteriner.open = () => {
 };
 setInterval(() => {   // pets slowly get hungry / sick
   if (!ME || !ME.pet) return; const pt = ME.pet;
-  if (!pt.sick && !(pt.vac > now() - 3 * 864e5) && Math.random() < 0.004) { pt.sick = 1; saveMe(); toast(`${PETS[pt.t].e} ${pt.name || PETS[pt.t].n} hastalandı! 🤒 Veteriner Kliniği'ne götür`, 6000); }
+  if (!pt.sick && !(pt.vac > now() - 3 * 864e5) && Math.random() < 0.01) { pt.sick = 1; saveMe(); toast(`${PETS[pt.t].e} ${pt.name || PETS[pt.t].n} hastalandı! 🤒 Veteriner Kliniği'ne götür`, 6000); }
   const s = petStatus(pt); if (s !== petPub.last) { petPub.last = s; petPub(); if (s === 1) toast(`${PETS[pt.t].e} acıktı 😿 Mama ver (🎒 Çanta)`, 5000); }
 }, 60000);
 
@@ -2541,7 +2543,7 @@ function editBio() {
 
 // ================= EVENTS =================
 const EV_NAMES = { yangin: '🔥 YANGIN', soygun: '🚨 SOYGUN', festival: '🎉 FESTİVAL' };
-function evStart() { if (EV && !EV.done) { const b = BMAP[EV.b]; toast(`${EV_NAMES[EV.type]}${b ? ' — ' + b.n : ''}!`, 5000); } }
+function evStart() { if (EV && !EV.done) { const b = evB(); toast(`${EV_NAMES[EV.type]}${b ? ' — ' + b.n : ''}!`, 5000); } }
 function robberPos(i, t) {
   const b = BMAP[EV.b], bx = Math.floor(b.x / BLK) * BLK, by = Math.floor(b.y / BLK) * BLK;
   const pts = [[bx, by], [bx + BLK, by], [bx + BLK, by + BLK], [bx, by + BLK]].map(([x, y]) => [x + 1, y + 1]);
@@ -2550,7 +2552,7 @@ function robberPos(i, t) {
   return { x: (a[0] + (c[0] - a[0]) * f) * T, y: (a[1] + (c[1] - a[1]) * f) * T };
 }
 function evActs(L) {
-  const t = now(), b = BMAP[EV.b];
+  const t = now(), b = evB();
   if (EV.type === 'yangin' && b && nearB(b, 90)) {
     const cd = (ME.lastHose || 0) + 1500 - t;
     if (ME.job === 'İtfaiyeci') L.push({ label: `🚒 Söndür! (yangın %${Math.max(0, EV.hp || 0)})`, cls: 'blue', dyn: 1, disabled: cd > 0, fn: hose });
@@ -2560,6 +2562,57 @@ function evActs(L) {
     for (let i = 0; i < 3; i++) if (!(EV.caught && EV.caught[i]) && dist(robberPos(i, t), ME) < 90) L.push({ label: `🚔 Soyguncu ${i + 1}'i yakala (+60 💰)`, cls: 'blue', fn: () => catchRobber(i) });
   }
   if (EV.type === 'festival' && nearB(BMAP.belediye, 260)) L.push({ label: '🎉 Festivaldesin! Her 10 sn +3 💰', cls: 'gray' });
+}
+function evB(e = EV) {
+  if (!e || !e.b) return null;
+  if (String(e.b).startsWith('p:')) {
+    const k = e.b.slice(2), p = PMAP[k], o = plots[k]; if (!p) return null;
+    return { id: e.b, n: o ? (o.type === 'ev' ? `${o.name}'in evi` : (o.shop || 'Dükkan')) : 'Arsa', x: p.x, y: p.y, w: p.w, h: p.h, H: 2.6 };
+  }
+  return BMAP[e.b];
+}
+// ---- random fires: any player may light one when the last event is 40+ min old; owner pays if nobody puts it out
+const FIRE_GAP = 40 * 60000, REPAIR_P = 300;
+setInterval(async () => {
+  if (!ME || ME.sleep || !db || (EV && now() - EV.t0 < FIRE_GAP) || Math.random() > 0.08) return;
+  const owned = Object.entries(plots).filter(([k, o]) => o && PMAP[k]);
+  const pub_ = BUILD.filter(b => !b.open && b.id !== 'itfaiye');
+  const b = owned.length && Math.random() < 0.6 ? 'p:' + owned[Math.floor(Math.random() * owned.length)][0] : pub_[Math.floor(Math.random() * pub_.length)].id;
+  const nev = { type: 'yangin', b, t0: now(), hp: 100, done: 0 };
+  const r = await runTransaction(ref(db, 'event'), cur => (cur && now() - (cur.t0 || 0) < FIRE_GAP) ? undefined : nev).catch(() => null);
+  if (r && r.committed) { const bb = evB(nev); say(`🔥 <b>${esc(bb ? bb.n : 'Bir bina')}</b> yanıyor! İtfaiyeciler koşun! 🚒`, true, 'ann'); }
+}, 120000);
+setInterval(async () => {   // the owner's own game applies the damage of a fire nobody put out
+  if (!ME || !EV || EV.type !== 'yangin' || EV.done || EV.pen || now() < EV.t0 + 300000 || !String(EV.b).startsWith('p:')) return;
+  const k = EV.b.slice(2), o = plots[k]; if (!o || o.id !== myId) return;
+  const r = await runTransaction(ref(db, 'event/pen'), v => v ? undefined : 1).catch(() => null); if (!r || !r.committed) return;
+  const loss = Math.min(300, Math.floor(ME.money * 0.1)); ME.money -= loss; hud(); saveMe();
+  if (o.type !== 'ev') { const until = now() + 3600000; o.closed = until; update(ref(db, 'plots2/' + k), { closed: until }).catch(() => { }); refreshPlots(); }
+  toast(`🔥 Kimse söndürmedi! ${loss} 💰 zarar${o.type !== 'ev' ? ', dükkanın 1 saat kapalı' : ''} 😢`, 6000);
+  say(`🔥 <b>${esc(o.type === 'ev' ? ME.name + "'in evi" : o.shop)}</b> söndürülemedi... İtfaiye neredeydi? 😢`, true);
+}, 20000);
+// ---- shops: many per player, owner sets the price
+const myShops = () => Object.values(plots).filter(o => o && o.id === myId && o.type !== 'ev').length;
+const shopPrice = () => SHOP_PRICE * Math.pow(2, myShops());
+const shopP = o => Math.max(5, Math.min(500, Math.round(+o.price || 20)));
+function priceMenu(k) {
+  const o = plots[k]; if (!o) return;
+  modal(`💰 ${esc(o.shop)} fiyatı`, [{ label: '✅ Kaydet', fn: () => {
+    const v = Math.round(+document.getElementById('pIn').value); if (!(v >= 5 && v <= 500)) { toast('Fiyat 5 ile 500 💰 arası olmalı'); return; }
+    o.price = v; update(ref(db, 'plots2/' + k), { price: v }).then(() => toast(`💰 Yeni fiyat: ${v} 💰`)).catch(() => toast('Kaydedilemedi')); refreshPlots();
+  } }], `<p>Müşteri bu fiyatı öder, paranın hepsi sana gelir. Pahalı satarsan müşteri komşu dükkana gidebilir 😉</p><input id="pIn" type="number" inputmode="numeric" min="5" max="500" value="${shopP(o)}">`);
+}
+async function buyAtShop(k) {
+  let o = plots[k]; if (!o) return;
+  try { const v = (await get(ref(db, 'plots2/' + k))).val(); if (v) { o = plots[k] = v; } } catch (e) { }
+  if (o.closed > now()) { toast('🔥 Bu dükkan yandı, onarımda'); refreshPlots(); return; }
+  const pr = shopP(o); if (!spend(pr)) return;
+  ME.energy = Math.min(100, ME.energy + 30); payTo(o.id, pr); notify(o.id, `💸 ${ME.name} ${o.shop} dükkanından ${pr} 💰'lik alışveriş yaptı`); hud(); saveMe(); toast(`😋 Afiyet olsun! -${pr} 💰 +30⚡`);
+}
+function repairShop(k) {
+  const o = plots[k]; if (!o || !spend(REPAIR_P)) return;
+  o.closed = null; update(ref(db, 'plots2/' + k), { closed: null }).catch(() => { }); refreshPlots(); saveMe();
+  payJob(['İnşaatçı'], 100, `🔨 ${ME.name}'in dükkanını onardın`); toast('🔨 Dükkanın onarıldı, tekrar açık!');
 }
 async function hose() {
   ME.lastHose = now();
@@ -2918,7 +2971,7 @@ function renderEvent(t) {
   const active = EV && !EV.done && now() < EV.t0 + 300000;
   fireGroup.visible = !!(active && EV.type === 'yangin');
   if (fireGroup.visible) {
-    const b = BMAP[EV.b], cx0 = b.x + b.w / 2, cz0 = b.y + b.h / 2, k = Math.max(0.25, (EV.hp ?? 100) / 100);
+    const b = evB() || BMAP.belediye, cx0 = b.x + b.w / 2, cz0 = b.y + b.h / 2, k = Math.max(0.25, (EV.hp ?? 100) / 100);
     fireGroup.children.forEach((c, i) => {
       if (i < 14) { const h = (0.8 + Math.abs(Math.sin(t / 150 + i * 1.7)) * 2.2) * k; c.scale.set(0.6, h, 0.6); c.position.set(cx0 - 2.2 + (i % 7) * 0.75, b.H + 0.4 + h / 2, cz0 - 1.5 + Math.floor(i / 7) * 3); }
       else { const ph = ((t / 2600) + (i - 14) / 8) % 1, s = 0.6 + ph * 1.8; c.scale.set(s, s, s); c.position.set(cx0 + Math.sin(i * 2.1) * ph * 2, b.H + 2 + ph * 9, cz0 + Math.cos(i) * ph); }
