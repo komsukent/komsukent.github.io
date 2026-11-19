@@ -62,6 +62,8 @@ button:disabled{opacity:.45}
 @keyframes flout{to{opacity:0;transform:translateY(-6px)}}
 #chatList{max-height:calc(7 * 1.45em + 16px);overflow-y:auto;background:rgba(10,18,35,.82);border-radius:14px;padding:8px 11px;font-size:13px;line-height:1.45em;pointer-events:auto;-webkit-overflow-scrolling:touch}
 #chatList div{word-break:break-word}
+#chatList .cn{cursor:pointer;text-decoration:underline dotted rgba(255,255,255,.35);text-underline-offset:3px}
+.pf{display:flex;gap:12px;align-items:center;margin:2px 0 8px}.pf svg{flex:none;background:#22314f;border-radius:12px}.pfb{display:flex;flex-wrap:wrap;gap:5px;margin:4px 0}.pfb span{background:#2a3b60;border-radius:9px;padding:2px 8px;font-size:12px}.pfs{display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;font-size:13px;margin:6px 0}.pfq{font-style:italic;opacity:.9;margin:4px 0}
 .k-sys{color:#ffd23f}.k-ann{color:#d6a5ff;font-weight:700}.k-mod{color:#ff8a8a}.k-chat{color:#fff}
 #emo{display:flex;gap:6px;pointer-events:auto}#emo button{flex:1;padding:7px 0;font-size:20px;background:rgba(15,25,45,.85);border-radius:14px}
 .badge{position:absolute;top:-4px;right:-4px;background:#e74c3c;color:#fff;font-size:11px;min-width:18px;height:18px;border-radius:9px;line-height:18px;display:none}
@@ -143,7 +145,7 @@ const CFG = {
   messagingSenderId: "734007209872",
   appId: "1:734007209872:web:1b379478026d6f73de4d15"
 };
-const APP_V = '2026111905';
+const APP_V = '2026111906';
 let CAP = 0;   // bump on every upload (yyyymmddNN)
 const ADMIN = location.hash === '#yonetim';
 let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off, orderByChild, equalTo;
@@ -331,7 +333,7 @@ async function enter2(mode) {
     const job = JOBS.includes(prev.job) ? prev.job : 'İşsiz';
     ME = { name, job, color: myColor, money: prev.money ?? (isG ? 300 : 100), energy: prev.energy ?? 100, home: prev.home ?? null, shop: prev.shop ?? null,
       acc: prev.acc || {}, wear: prev.wear || {}, m: prev.m || {}, inv: prev.inv || {}, veh: prev.veh || {}, q: prev.q || {}, lvl: prev.lvl || 0, sick: prev.sick || 0,
-      play: prev.play || 0, pleft: prev.pleft || 0, jobDay: prev.jobDay || '', payDay: prev.payDay || '', jobChanged: prev.jobChanged || 0, pet: prev.pet || null, kd: undefined, stealDay: prev.stealDay || null, islah: prev.islah || 0, islahN: prev.islahN || 0, pd: prev.pd || {}, joined: prev.joined || now(), taxDay: prev.taxDay || '', drive: null, inside: null, bag: 0,
+      play: prev.play || 0, pleft: prev.pleft || 0, jobDay: prev.jobDay || '', payDay: prev.payDay || '', jobChanged: prev.jobChanged || 0, pet: prev.pet || null, bio: prev.bio || '', kd: undefined, stealDay: prev.stealDay || null, islah: prev.islah || 0, islahN: prev.islahN || 0, pd: prev.pd || {}, joined: prev.joined || now(), taxDay: prev.taxDay || '', drive: null, inside: null, bag: 0,
       x: prev.x ?? (SPAWN.x + (Math.random() - .5) * 200), y: prev.y ?? SPAWN.y, wanted: 0, jail: 0, ride: null };
     if (blocked(ME.x, ME.y) || ME.x > WORLD || ME.y > WORLD || (prev.v || 0) < 3) { ME.x = SPAWN.x + (Math.random() - .5) * 200; ME.y = SPAWN.y; }
     try { localStorage.setItem('kk_me', JSON.stringify({ name, job, color: myColor })); } catch (e) { }
@@ -489,13 +491,13 @@ function renderChat() {
   if (CH === 'p') {
     const p = parties[PARTYOF[myId]];
     html = !ME ? '<div class="k-sys">Önce oyuna gir</div>' : !p ? '<div class="k-sys">🏛 Bir partin yok. <button class="cbtn" data-act="parties">Partilere bak / parti kur</button></div>'
-      : `<div class="k-ann">${flagHtml(p)}${esc(p.name)} <button class="cbtn" data-act="myparty">⚙ Parti</button></div>${p.pin ? `<div class="k-sys">📌 ${esc(p.pin)}</div>` : ''}` + (pchatData.map(m => `<div class="k-chat"><b>${PR(m.uid, p)}${esc(m.n)}:</b> ${esc(m.h)}</div>`).join('') || '<div class="k-sys">Parti sohbeti boş. İlk mesajı sen yaz!</div>');
+      : `<div class="k-ann">${flagHtml(p)}${esc(p.name)} <button class="cbtn" data-act="myparty">⚙ Parti</button></div>${p.pin ? `<div class="k-sys">📌 ${esc(p.pin)}</div>` : ''}` + (pchatData.map(m => `<div class="k-chat" data-cuid="${m.uid || ''}" data-cn="${esc(m.n)}"><b class="cn">${PR(m.uid, p)}${esc(m.n)}:</b> ${esc(m.h)}</div>`).join('') || '<div class="k-sys">Parti sohbeti boş. İlk mesajı sen yaz!</div>');
   } else if (CH === 'f') {
     html = !ME ? '<div class="k-sys">Önce oyuna gir</div>' : !DMF ? friendListHtml()
       : `<div class="k-ann"><button class="cbtn" data-act="back">← Arkadaşlar</button> 💬 ${esc(friends[DMF] || '')}</div>` + ((dmData[DMF] || []).map(m => `<div class="k-chat"><b>${esc(m.n)}:</b> ${esc(m.h)}</div>`).join('') || '<div class="k-sys">Henüz mesaj yok. Selam ver 👋</div>');
   } else if (CH === 'r') {
-    html = radioData.map(m => `<div class="k-chat"><b>📻 ${m.j ? esc(m.j) + ' ' : ''}${esc(m.n)}:</b> ${esc(m.h)}</div>`).join('') || '<div class="k-sys">📻 Telsiz sessiz. Emniyet Müdürü ve tüm güvenlik güçleri burada konuşur.</div>';
-  } else html = chatData.map(e => `<div class="k-${e.k}">${e.h}</div>`).join('');
+    html = radioData.map(m => `<div class="k-chat" data-cuid="${m.uid || ''}" data-cn="${esc(m.n)}"><b class="cn">📻 ${m.j ? esc(m.j) + ' ' : ''}${esc(m.n)}:</b> ${esc(m.h)}</div>`).join('') || '<div class="k-sys">📻 Telsiz sessiz. Emniyet Müdürü ve tüm güvenlik güçleri burada konuşur.</div>';
+  } else html = chatData.map(e => `<div class="k-${e.k}"${e.uid && e.k === 'chat' ? ` data-cuid="${e.uid}"` : ''}>${e.uid && e.k === 'chat' ? e.h.replace('<b>', '<b class="cn">') : e.h}</div>`).join('');
   chatEl.innerHTML = html;
   if (atBottom || renderChat.first) { chatEl.scrollTop = chatEl.scrollHeight; renderChat.first = false; }
 }
@@ -559,12 +561,14 @@ const iAmMod = () => IS_ADMIN || !!mods[myId];
 labelsEl0().addEventListener('click', e => { const el = e.target.closest('[data-pid]'); if (!el) return; const id = el.dataset.pid; if (id === '@me') accountMenu(); else profileMenu(id); });
 function labelsEl0() { return document.getElementById('labels'); }
 function modLog(act, id, name) { push(ref(db, 'modlog'), { by: IS_ADMIN ? 'Yönetici' : ME.name, act, target: name, t: now() }).catch(() => { }); }
-function profileMenu(id) {
-  const o = others[id]; if (!o) return;
+function profileMenu(id, nameHint) {
+  if (id === myId) return myProfile();
+  const o = others[id] || { name: nameHint || 'Oyuncu', job: '' };
   const t = now(), r = roleOf(id), targetMod = !!mods[id], items = [];
   const pp0 = parties[PARTYOF[id]];
-  const info = `${pp0 ? `<p>${flagHtml(pp0)}<b>${esc(pp0.name)}</b> • ${PR(id, pp0)}${PRN(id, pp0)}</p>` : ''}${sabika[id] ? `<p>📁 Sabıka kaydı: <b>${sabika[id]}</b>${sabika[id] >= 3 ? ' (güvenlik ve yargı mesleklerine giremez)' : ''}</p>` : ''}<p>${mods[id] ? '🛡 Moderatör • ' : ''}${esc(r ? '👑 ' + ROLES[r].n : o.job)}${o.wanted > t ? ' • 🚨 Aranıyor' : ''}${o.jail > t ? ' • ⛓ Hapiste' : ''}</p>`;
+  const info = `${pp0 ? `<p>${flagHtml(pp0)}<b>${esc(pp0.name)}</b> • ${PR(id, pp0)}${PRN(id, pp0)}</p>` : ''}${sabika[id] ? `<p>📁 Sabıka kaydı: <b>${sabika[id]}</b>${sabika[id] >= 3 ? ' (güvenlik ve yargı mesleklerine giremez)' : ''}</p>` : ''}<p>${mods[id] ? '🛡 Moderatör • ' : ''}${esc(r ? '👑 ' + ROLES[r].n : (o.job || ''))}${o.wanted > t ? ' • 🚨 Aranıyor' : ''}${o.jail > t ? ' • ⛓ Hapiste' : ''}</p>`;
   const opp = parties[PARTYOF[id]];
+  items.push({ label: '👤 Profili gör', fn: () => showProfile(id, o.name) });
   if (ME) {
     if (friends[id]) items.push({ label: '💬 Özel mesaj', fn: () => openChat('f', id) }, { label: '➖ Arkadaşlıktan çıkar', fn: () => removeFriend(id) });
     else if (freqs[id]) items.push({ label: '✅ Arkadaşlık isteğini kabul et', fn: () => acceptFriend(id) });
@@ -595,6 +599,7 @@ function accountMenu() {
     try { await AU.linkWithPopup(u, new AU.GoogleAuthProvider()); toast('✅ Hesabın Google\'a bağlandı! Artık her cihazdan girebilirsin', 4000); }
     catch (x) { toast(x.code === 'auth/credential-already-in-use' ? 'Bu Google hesabı zaten başka bir oyuncuya bağlı' : (AUTH_ERR[x.code] || 'Bağlanamadı'), 4500); }
   } });
+  items.unshift({ label: '👤 Profilim', fn: myProfile }, { label: '✏️ Hakkımda yazısı', fn: editBio });
   if (mods[myId]) items.unshift({ label: '🚩 Sohbet şikayetleri', fn: modReports });
   items.push({ label: '🚪 Çıkış yap', fn: async () => { await remove(ref(db, 'online/' + myId)); if (myZone) await remove(ref(db, 'pos/' + myZone + '/' + myId)); await AU.signOut(auth); location.reload(); } });
   modal('👤 Hesabım', items, `<p>${u.isAnonymous ? 'Misafir hesap: başka cihazdan girersen ilerlemen görünmez. Kaybetmemek için Google\'a bağla.' : '✅ Google hesabınla giriş yaptın, ilerlemen her cihazda kayıtlı.'}${mods[myId] ? '<br>🛡 Moderatörsün: oyunculara dokunarak sustur/at yapabilirsin.' : ''}</p>`);
@@ -970,7 +975,7 @@ async function steal(id, o) {
   const r = await runTransaction(ref(db, 'players/' + id + '/money'), m => { m = m || 0; taken = Math.min(cap, Math.floor(m * pct)); return m - taken; });
   if (!r.committed || taken <= 0) { toast('Cebi boş çıktı 😅'); return; }
   ME.wanted = now() + WANTED_MS; update(ref(db, 'online/' + myId), { wanted: ME.wanted });
-  stealDone(id, taken); stat('stolen', taken); earn(taken, thief ? '🤏 Kimse görmedi...' : '🃏 Tapu satıldı!');
+  stealDone(id, taken); stat('stolen', taken); stat('crime'); earn(taken, thief ? '🤏 Kimse görmedi...' : '🃏 Tapu satıldı!');
   notify(id, thief ? `😱 Cebinden ${taken} 💰 çalındı! Hırsız: ${ME.name}. Polisi çağır!` : `🃏 ${ME.name} sana sahte tapu sattı, ${taken} 💰 gitti!`);
   say(`🚨 <b>${esc(ME.name)}</b> aranıyor! (${thief ? 'hırsızlık' : 'dolandırıcılık'})`, true);
 }
@@ -1122,6 +1127,8 @@ function friendListHtml() {
   return rq + (fl || '<div class="k-sys">Henüz arkadaşın yok. Bir oyuncunun ismine dokun → ➕ Arkadaş ekle</div>');
 }
 chatEl.addEventListener('click', e => {
+  const cn = e.target.closest('.cn'), row = cn && cn.closest('[data-cuid]');
+  if (row && row.dataset.cuid && row.dataset.cuid !== 'sys') { const id = row.dataset.cuid; if (id === myId) myProfile(); else { const m = (row.textContent.match(/^([^:]+):/) || [])[1]; profileMenu(id, row.dataset.cn || (m || '').trim()); } return; }
   const b = e.target.closest('button'); if (!b) return;
   if (b.dataset.dm) setCh('f', b.dataset.dm);
   else if (b.dataset.acc) acceptFriend(b.dataset.acc);
@@ -2286,7 +2293,7 @@ BMENU.konser = { btn: '🎤 Konser alanı', open: () => {
       ...(perf ? [{ e: '🎤', n: 'Konser ver (5 dk)', r: '+120 💰', off: on || ME.energy < 25, fn: async () => {
         const r = await runTransaction(ref(db, 'concert'), c => (c && c.until > now()) ? undefined : { by: myId, name: ME.name, until: now() + 300000, heard: null }).catch(() => null);
         if (!r || !r.committed) return toast('Sahne dolu');
-        ME.energy -= 25; stat('worked'); earn(120, '🎤 Konser başladı!'); const sp = STAGE_SPOT(); ME.x = sp.x; ME.y = sp.y; target = null; sendPos(true); toast('🎤 Sahnedesin! 5 dakika boyunca dans ederek söylüyorsun', 4000); say(`🎤 <b>${esc(ME.name)}</b> Konser Alanı'nda KONSER veriyor! Gelen herkese +20 💰 🎶`, true, 'ann');
+        ME.energy -= 25; stat('worked'); stat('concert'); earn(120, '🎤 Konser başladı!'); const sp = STAGE_SPOT(); ME.x = sp.x; ME.y = sp.y; target = null; sendPos(true); toast('🎤 Sahnedesin! 5 dakika boyunca dans ederek söylüyorsun', 4000); say(`🎤 <b>${esc(ME.name)}</b> Konser Alanı'nda KONSER veriyor! Gelen herkese +20 💰 🎶`, true, 'ann');
       }, stay: false }] : []),
       ...(on && concert.by !== myId ? [{ e: '🎶', n: 'Konseri dinle', r: heard ? 'dinledin ✓' : '+20 💰 +10⚡', off: !!heard, fn: async () => {
         const r = await runTransaction(ref(db, `concert/heard/${myId}`), x => x ? undefined : 1).catch(() => null);
@@ -2427,6 +2434,72 @@ setInterval(() => {   // pets slowly get hungry / sick
   if (!pt.sick && !(pt.vac > now() - 3 * 864e5) && Math.random() < 0.004) { pt.sick = 1; saveMe(); toast(`${PETS[pt.t].e} ${pt.name || PETS[pt.t].n} hastalandı! 🤒 Veteriner Kliniği'ne götür`, 6000); }
   const s = petStatus(pt); if (s !== petPub.last) { petPub.last = s; petPub(); if (s === 1) toast(`${PETS[pt.t].e} acıktı 😿 Mama ver (🎒 Çanta)`, 5000); }
 }, 60000);
+
+// ================= OYUNCU PROFİLİ (tek seferlik okuma, canlı değil) =================
+function avatarSvg(color, wear) {
+  wear = wear || {}; const sh = wear.sh || color || '#3498db', hc = wear.hc || '#3b2a1e';
+  return `<svg width="64" height="84" viewBox="0 0 64 84"><rect x="20" y="8" width="24" height="7" rx="2" fill="${esc(hc)}"/><rect x="21" y="13" width="22" height="20" rx="3" fill="#f2c9a0"/><rect x="26" y="20" width="3" height="3" fill="#222"/><rect x="35" y="20" width="3" height="3" fill="#222"/><rect x="16" y="34" width="32" height="28" rx="4" fill="${esc(sh)}"/><rect x="9" y="35" width="7" height="24" rx="3" fill="${esc(sh)}"/><rect x="48" y="35" width="7" height="24" rx="3" fill="${esc(sh)}"/>${wear.dress ? `<path d="M16 58 L48 58 L52 72 L12 72 Z" fill="${esc(sh)}"/>` : `<rect x="19" y="62" width="11" height="16" fill="#2c3e50"/><rect x="34" y="62" width="11" height="16" fill="#2c3e50"/>`}${wear.k ? '<rect x="18" y="16" width="4" height="9" rx="2" fill="#111"/><rect x="42" y="16" width="4" height="9" rx="2" fill="#111"/>' : ''}</svg>`;
+}
+const pfSum = (p, k) => { let s = 0; for (const m in (p && p.m) || {}) s += (p.m[m][k] || 0); return s; };
+function daysSince(t) { const d = Math.floor((now() - (t || now())) / 86400000); return d <= 0 ? 'bugün geldi' : d + ' gündür'; }
+const pfCache = {};
+async function showProfile(id, nameHint) {
+  // aynı profil 2 dk içinde tekrar açılırsa yeniden indirilmez
+  let c = pfCache[id];
+  if (!c || now() - c.at > 120000) {
+    toast('👤 Profil açılıyor...', 900);
+    try {
+      const [ps, fs] = await Promise.all([get(ref(db, 'players/' + id)), get(ref(db, 'friends/' + id))]);
+      c = pfCache[id] = { p: ps.val(), fc: fs.exists() ? Object.keys(fs.val() || {}).length : 0, at: now() };
+    } catch (e) { toast('Profil açılamadı'); return; }
+  }
+  const p = c.p; if (!p) { toast('Bu oyuncunun profili yok'); return; }
+  const o = others[id] || {}, t = now(), r = roleOf(id), pid = PARTYOF[id], pp = parties[pid];
+  const job = p.job || o.job || '', head = job ? headTitle(id, job) : '';
+  const w = pfSum(p, 'worked'), kl = kidemLv(w), kn = kl ? KIDEM[3 - kl][1] : '';
+  const badges = [];
+  if (r) badges.push(`👑 ${ROLES[r].n}`);
+  if (mods[id]) badges.push('🛡 Moderatör');
+  if (head) badges.push(`⭐ ${head}`);
+  if (kn) badges.push(`🎖 ${kn}`);
+  if (pp) badges.push(`${flagHtml(pp, 11)}${esc(pp.name)}`);
+  if (o.jail > t) badges.push('⛓ Hapiste'); else if (o.wanted > t) badges.push('🚨 Aranıyor');
+  const mine = Object.values(plots).filter(x => x && x.id === id);
+  const ev = mine.some(x => x.type === 'ev'), shops = mine.filter(x => x.type !== 'ev').map(x => esc(x.shop || 'Dükkan'));
+  const pet = p.pet && PETS[p.pet.t] ? `${PETS[p.pet.t].e} ${esc(p.pet.name || PETS[p.pet.t].n)}` : '—';
+  const online = !!others[id];
+  const html = `<div class="pf">${avatarSvg(p.color || o.color, p.wear || o.wear)}<div><div style="font-size:15px"><b>${esc(job || 'İşsiz')}</b></div><div style="opacity:.8;font-size:12px">🏙 Komşukent'te ${daysSince(p.joined)}${online ? ' • 🟢 şehirde' : ''}</div><div style="opacity:.8;font-size:12px">👥 ${c.fc} arkadaş</div></div></div>`
+    + (p.bio ? `<div class="pfq">💬 “${esc(p.bio)}”</div>` : '')
+    + (badges.length ? `<div class="pfb">${badges.map(b => `<span>${b}</span>`).join('')}</div>` : '')
+    + `<div class="pfs"><div>🏠 Ev: <b>${ev ? 'Var' : 'Yok'}</b></div><div>🏪 Dükkan: <b>${shops.length ? shops.join(', ') : 'Yok'}</b></div>`
+    + `<div>🐾 Hayvan: <b>${pet}</b></div><div>📋 Karne: <b>${karneScore(id) || '—'}</b></div>`
+    + `<div>💼 Mesai: <b>${w}</b></div><div>🎤 Konser: <b>${pfSum(p, 'concert')}</b></div>`
+    + `<div>🦹 Suç: <b>${pfSum(p, 'crime')}</b></div><div>📁 Sabıka: <b>${sabika[id] || 0}</b></div></div>`;
+  const items = [];
+  if (id !== myId) {
+    if (ME) {
+      if (friends[id]) items.push({ label: '💬 Özel mesaj', fn: () => openChat('f', id) });
+      else if (freqs[id]) items.push({ label: '✅ Arkadaşlık isteğini kabul et', fn: () => acceptFriend(id) });
+      else items.push({ label: '➕ Arkadaş ekle', fn: () => addFriend(id, p.name) });
+    }
+    if (iAmMod() && (IS_ADMIN || !mods[id])) items.push({ label: '🛡 Yönetim seçenekleri', fn: () => profileMenu(id, p.name) });
+  } else items.push({ label: '✏️ Hakkımda yazısını değiştir', fn: editBio });
+  modal(esc(p.name || nameHint || 'Oyuncu'), items, html);
+}
+function myProfile() { if (!ME) return; delete pfCache[myId]; saveMe(); setTimeout(() => showProfile(myId, ME.name), 300); }
+function editBio() {
+  if (!ME) return;
+  mcard.innerHTML = `<h2>✏️ Hakkımda</h2><p>Profilinde görünür. En fazla 60 harf.</p><input id="bioIn" maxlength="60" style="width:100%;padding:10px;border-radius:10px;border:0;font-size:15px;box-sizing:border-box" value="${esc(ME.bio || '')}" placeholder="Örn: Komşukent'in en hızlı taksicisi 🚕"><div id="mitems"></div><button class="mi" style="justify-content:center;background:#2e7d32" id="bioOk">Kaydet</button><button class="mi" style="justify-content:center;background:#3a4a6b" id="mclose">Vazgeç</button>`;
+  modalEl.style.display = 'flex';
+  mcard.querySelector('#mclose').onclick = closeModal;
+  mcard.querySelector('#bioOk').onclick = () => {
+    if ((ME.bioAt || 0) > now() - 30000) return toast('Biraz bekle, 30 saniyede bir değiştirebilirsin');
+    const v = cleanText((mcard.querySelector('#bioIn').value || '').trim().slice(0, 60));
+    ME.bio = v; ME.bioAt = now(); delete pfCache[myId];
+    set(ref(db, 'players/' + myId + '/bio'), v || null).then(() => toast('✅ Hakkımda kaydedildi')).catch(() => toast('Kaydedilemedi'));
+    closeModal();
+  };
+}
 
 // ================= EVENTS =================
 const EV_NAMES = { yangin: '🔥 YANGIN', soygun: '🚨 SOYGUN', festival: '🎉 FESTİVAL' };
