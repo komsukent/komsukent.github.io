@@ -146,7 +146,7 @@ const CFG = {
   messagingSenderId: "734007209872",
   appId: "1:734007209872:web:1b379478026d6f73de4d15"
 };
-const APP_V = '2026111907';
+const APP_V = '2026111908';
 let CAP = 0;   // bump on every upload (yyyymmddNN)
 const ADMIN = location.hash === '#yonetim';
 let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off, orderByChild, equalTo;
@@ -457,7 +457,7 @@ function syncZoneSubs(want) {
   for (const k in want) if (!zoneSubs[k]) {
     const r = ref(db, 'pos/' + k); zoneSubs[k] = r;
     const f = s => { if (s.key === myId) return; const v = s.val(); if (!v) return; const o = others[s.key] || (others[s.key] = {}); o._seen = Date.now();
-      if (!o.hasPos) { o.x = v.x; o.y = v.y; } o.tx = v.x; o.ty = v.y; o.pz = k; o.hasPos = true; };
+      const nt = performance.now(), gap = Math.min(2600, Math.max(500, nt - (o._rt || nt - 1800))); o._rt = nt; if (!o.hasPos) { o.x = v.x; o.y = v.y; } o._sp = Math.min(0.7, Math.max(0.05, Math.hypot(v.x - o.x, v.y - o.y) / gap)); o.tx = v.x; o.ty = v.y; o.pz = k; o.hasPos = true; };
     onChildAdded(r, f); onChildChanged(r, f);
     onChildRemoved(r, s => { const o = others[s.key]; if (o && o.pz === k) o.hasPos = false; });
   }
@@ -465,7 +465,13 @@ function syncZoneSubs(want) {
 function sendPos(force) {
   if (ME && ME.sleep) return;
   const t = performance.now();
-  if (!force && (t - lastSent < 700 || Math.hypot(ME.x - sentX, ME.y - sentY) < 16)) return;
+  if (!force) {
+    const dx = ME.x - sentX, dy = ME.y - sentY, d = Math.hypot(dx, dy); if (d < 24) return;
+    // steady walking: every 1.8 s; a real turn: after 0.7 s (others glide in between at our speed)
+    const dir = Math.atan2(dy, dx), turn = sendPos.dir == null ? 0 : Math.abs(Math.atan2(Math.sin(dir - sendPos.dir), Math.cos(dir - sendPos.dir)));
+    if (t - lastSent < (turn > 0.6 ? 700 : 1800)) return;
+    sendPos.dir = dir;
+  } else sendPos.dir = null;
   lastSent = t; sentX = ME.x; sentY = ME.y;
   setZone(false); zoneWant(false);
   set(ref(db, 'pos/' + myZone + '/' + myId), { x: Math.round(ME.x), y: Math.round(ME.y) });
@@ -2982,7 +2988,7 @@ function frame(t) {
     if (adm.follow && others[adm.follow] && others[adm.follow].hasPos) { const o = others[adm.follow]; adm.cx += (o.x * S3 - adm.cx) * 0.1; adm.cz += (o.y * S3 - adm.cz) * 0.1; }
     fx = adm.cx; fz = adm.cz;
   } else { const a = t / 9000; fx = WN / 2 + Math.sin(a) * 8; fz = WN / 2 + Math.cos(a) * 8; }
-  for (const id in others) { const o = others[id]; if (!o.hasPos) continue; const ox = o.x, oy = o.y; o.x += (o.tx - o.x) * 0.09; o.y += (o.ty - o.y) * 0.09; o._mv = Math.hypot(o.x - ox, o.y - oy) > 0.3; }
+  for (const id in others) { const o = others[id]; if (!o.hasPos) continue; const ox = o.x, oy = o.y, ddx = o.tx - o.x, ddy = o.ty - o.y, dd = Math.hypot(ddx, ddy); if (dd > 600 || !o._sp) { o.x += ddx * 0.09; o.y += ddy * 0.09; } else if (dd > 0.01) { const st = Math.min(dd, o._sp * dt); o.x += ddx / dd * st; o.y += ddy / dd * st; } o._mv = Math.hypot(o.x - ox, o.y - oy) > 0.3; }
   const dist3 = 15 * zoom; camera3.position.set(fx, dist3 * 1.05, fz + dist3 * 0.95); camera3.lookAt(fx, 0.8, fz);
   sun.position.set(fx + 12, 25, fz + 8); sun.target.position.set(fx, 0, fz);
   // day / night
