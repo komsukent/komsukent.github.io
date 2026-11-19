@@ -65,6 +65,7 @@ button:disabled{opacity:.45}
 #chatList .cn{cursor:pointer;text-decoration:underline dotted rgba(255,255,255,.35);text-underline-offset:3px}
 .pf{display:flex;gap:12px;align-items:center;margin:2px 0 8px}.pf svg{flex:none;background:#22314f;border-radius:12px}.pfb{display:flex;flex-wrap:wrap;gap:5px;margin:4px 0}.pfb span{background:#2a3b60;border-radius:9px;padding:2px 8px;font-size:12px}.pfs{display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;font-size:13px;margin:6px 0}.pfq{font-style:italic;opacity:.9;margin:4px 0}
 .k-sys{color:#ffd23f}.k-ann{color:#d6a5ff;font-weight:700}.k-mod{color:#ff8a8a}.k-chat{color:#fff}
+#mega{background:#8e44ad!important;padding:0 10px!important;font-size:18px}
 #emo{display:flex;gap:6px;pointer-events:auto}#emo button{flex:1;padding:7px 0;font-size:20px;background:rgba(15,25,45,.85);border-radius:14px}
 .badge{position:absolute;top:-4px;right:-4px;background:#e74c3c;color:#fff;font-size:11px;min-width:18px;height:18px;border-radius:9px;line-height:18px;display:none}
 #side button{position:relative}
@@ -112,7 +113,7 @@ table.pl{width:100%;font-size:12px;border-collapse:collapse}table.pl td{padding:
 <div id="toast" class="ui"></div>
 <div id="ann" class="ui"></div>
 <div id="log" class="ui"></div>
-<div id="bottom" class="ui"><div id="ctabs"><button data-c="g" class="on">💬 Genel<i></i></button><button data-c="p">🏛 Parti<i></i></button><button data-c="f">👥 Arkadaş<i></i></button><button data-c="r" style="display:none">📻 Telsiz<i></i></button></div><div id="chatList"></div><div id="emo"><button>👋</button><button>😂</button><button>👍</button><button>😡</button><button>❤️</button><button>🎉</button></div><div id="bar"><input id="msg" maxlength="60" placeholder="Komşulara bir şey yaz…"><button id="send">Gönder</button></div></div>
+<div id="bottom" class="ui"><div id="ctabs"><button data-c="g" class="on">💬 Yakın<i></i></button><button data-c="p">🏛 Parti<i></i></button><button data-c="f">👥 Arkadaş<i></i></button><button data-c="r" style="display:none">📻 Telsiz<i></i></button></div><div id="chatList"></div><div id="emo"><button>👋</button><button>😂</button><button>👍</button><button>😡</button><button>❤️</button><button>🎉</button></div><div id="bar"><input id="msg" maxlength="60" placeholder="Yakınındakilere yaz…"><button id="mega" title="Megafon: herkese duyur">📢</button><button id="send">Gönder</button></div></div>
 <div id="elnight"></div>
 <div id="sleepEl" style="display:none"><div class="slb"><div style="font-size:54px">😴</div><h2>Uyudun</h2><p>2 dakika hareket etmediğin için şehirden çıktın, başkalarına yer açılsın diye.</p><button id="sleepBtn">☀️ Devam et</button></div></div>
 <button id="adminToggle" class="ui">☰ Yönetim</button>
@@ -145,7 +146,7 @@ const CFG = {
   messagingSenderId: "734007209872",
   appId: "1:734007209872:web:1b379478026d6f73de4d15"
 };
-const APP_V = '2026111906';
+const APP_V = '2026111907';
 let CAP = 0;   // bump on every upload (yyyymmddNN)
 const ADMIN = location.hash === '#yonetim';
 let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off, orderByChild, equalTo;
@@ -437,7 +438,21 @@ function zoneWant(force) {   // subscribe only to the zones the camera can actua
   [[0, 0], [ox, 0], [0, oy], [ox, oy]].forEach(([dx, dy]) => { const a = zx + dx, b = zy + dy; if (a >= 0 && b >= 0 && a < NZ && b < NZ) want[a + '_' + b] = 1; });
   const key = Object.keys(want).sort().join(','); if (!force && key === zoneWant.k) return; zoneWant.k = key; syncZoneSubs(want);
 }
+const zchatSubs = {}, zchatSeen = new Set();
+function syncZchat(want) {
+  for (const k in zchatSubs) if (!want[k]) { zchatSubs[k].forEach(u => u()); delete zchatSubs[k]; }
+  for (const k in want) if (!zchatSubs[k]) {
+    const q = query(ref(db, 'zchat/' + k), limitToLast(3));
+    zchatSubs[k] = [onChildAdded(q, s => {
+      const v = s.val(), id = k + '/' + s.key; if (!v || zchatSeen.has(id)) return; zchatSeen.add(id);
+      if ((v.t || now()) < now() - 60000) return;
+      addLog(s.key, { h: `<b>${esc(v.n || '')}:</b> ${esc(v.m || '')}`, k: 'chat', uid: v.uid, t: v.t, path: 'zchat/' + k + '/' + s.key });
+      if (v.uid && others[v.uid] && (v.t || 0) > now() - 15000) { others[v.uid].msg = v.m; others[v.uid].msgAt = performance.now(); }
+    }), onChildRemoved(q, s => { const i = chatData.findIndex(c => c.path === 'zchat/' + k + '/' + s.key); if (i >= 0) { chatData.splice(i, 1); renderChat(); } })];
+  }
+}
 function syncZoneSubs(want) {
+  syncZchat(want);
   for (const k in zoneSubs) if (!want[k]) { off(zoneSubs[k]); delete zoneSubs[k]; for (const id in others) if (others[id].pz === k) others[id].hasPos = false; }
   for (const k in want) if (!zoneSubs[k]) {
     const r = ref(db, 'pos/' + k); zoneSubs[k] = r;
@@ -476,7 +491,7 @@ const chatData = []; let unread = 0, mods = {}, myMute = 0, lastMsg = { t: 0, s:
 const chatEl = document.getElementById('chatList'), feedEl = document.getElementById('log'), badgeEl = document.getElementById('badge'), bottomEl = document.getElementById('bottom');
 const chatOpen = () => bottomEl.classList.contains('open');
 function addLog(key, v) {
-  const e = { key, h: v.h, k: v.k || 'sys', uid: v.uid, t: v.t || now() };
+  const e = { key, h: v.h, k: v.k || 'sys', uid: v.uid, t: v.t || now(), path: v.path };
   chatData.push(e); if (chatData.length > 60) chatData.shift();
   const fresh = !v.t || v.t > loginT - 3000;
   if (chatOpen()) { renderChat(); return; }
@@ -540,18 +555,34 @@ function cleanText(t) {
   return t.replace(/[\p{L}\p{N}]+/gu, w => { const n = w.toLocaleLowerCase('tr'); return (BAD.has(fold(n)) || BADP.some(p => n.startsWith(p))) ? '*'.repeat(w.length) : w; });
 }
 function sendMsg(txt) {
+  const mega = sendMsg.mega; sendMsg.mega = 0;
   let t = (typeof txt === 'string' ? txt : msgIn.value).trim().slice(0, 60); if (!t) return;
   if (!ME) { if (!IS_ADMIN) return; if (typeof txt !== 'string') msgIn.value = ''; push(ref(db, 'log'), { h: `<b>👑 Yönetici:</b> ${esc(t)}`, k: 'ann', uid: myId, t: serverTimestamp() }); return; }
   if (myMute > now()) { toast(`🔇 Susturuldun, ${Math.ceil((myMute - now()) / 60000)} dk sonra yazabilirsin`); return; }
   if (now() - lastMsg.t < 3000) { toast('Biraz yavaş 🙂 3 saniyede 1 mesaj'); return; }
   if (t === lastMsg.s && now() - lastMsg.t < 30000) { toast('Aynı mesajı tekrar atma 🙂'); return; }
   if (typeof txt !== 'string') msgIn.value = '';
-  lastMsg = { t: now(), s: t }; t = cleanText(t);
+  lastMsg = { t: now(), s: t, g: lastMsg.g }; t = cleanText(t);
   if (CH !== 'g') { if (CH === 'p') sendParty(t); else if (CH === 'r') sendRadio(t); else if (DMF) sendDM(t); else toast('Önce bir arkadaş seç 👆'); return; }
-  if (now() - (lastMsg.g || 0) < 10000) { toast('Genel sohbette 10 saniyede 1 mesaj 🙂'); return; }
+  if (!mega && now() - (lastMsg.g || 0) < 5000) { toast('5 saniyede 1 mesaj 🙂'); return; }
+  if (mega) {
+    if ((ME.megaAt || 0) > now() - MEGA_CD) { lastMsg.t = 0; return toast(`📢 Megafon ${Math.ceil((ME.megaAt + MEGA_CD - now()) / 1000)} sn sonra hazır`); }
+    if (!spend(MEGA_P)) { lastMsg.t = 0; return; }
+    ME.megaAt = now(); lastMsg.g = now(); ME.msg = t; ME.msgAt = performance.now(); saveMe();
+    push(ref(db, 'log'), { h: `<b>📢 ${esc(ME.name)}:</b> ${esc(t)}`, k: 'chat', uid: myId, m: t, t: serverTimestamp() }).catch(() => toast('Mesaj gönderilemedi'));
+    return;
+  }
+  if (!myZone) return toast('Önce uyan ☀️');
   lastMsg.g = now(); ME.msg = t; ME.msgAt = performance.now();
-  push(ref(db, 'log'), { h: `<b>${esc(ME.name)}:</b> ${esc(t)}`, k: 'chat', uid: myId, m: t, t: serverTimestamp() }).catch(() => toast('Mesaj gönderilemedi'));
+  push(ref(db, 'zchat/' + myZone), { uid: myId, n: ME.name, m: t, t: serverTimestamp() }).catch(() => toast('Mesaj gönderilemedi'));
 }
+const MEGA_P = 50, MEGA_CD = 120000;
+document.getElementById('mega').onclick = () => {
+  if (!ME) return; const v = msgIn.value.trim();
+  if (!v) return toast(`📢 Megafon: önce mesajını yaz, sonra 📢'ye bas. Bütün şehir duyar! (${MEGA_P} 💰, 2 dakikada bir)`, 4500);
+  if (CH !== 'g') setCh('g');
+  sendMsg.mega = 1; sendMsg();
+};
 document.getElementById('send').onclick = () => sendMsg();
 document.querySelectorAll('#emo button').forEach(b => b.onclick = () => sendMsg(b.textContent));
 msgIn.addEventListener('keydown', e => { if (e.key === 'Enter') sendMsg(); });
@@ -578,7 +609,7 @@ function profileMenu(id, nameHint) {
   if (!IS_ADMIN) items.push({ label: '🚩 Şikayet et', fn: () => reportMenu(id, o) });
   if (iAmMod() && (IS_ADMIN || !targetMod)) {
     items.push({ label: '🔇 10 dakika sustur', fn: () => mute(id, o, 10) }, { label: '🔇 1 saat sustur', fn: () => mute(id, o, 60) });
-    items.push({ label: '🗑 Son mesajlarını sil', fn: () => { chatData.filter(c => c.uid === id && c.key).forEach(c => remove(ref(db, 'log/' + c.key))); modLog('mesajları sildi', id, o.name); toast('🗑 Silindi'); } });
+    items.push({ label: '🗑 Son mesajlarını sil', fn: () => { chatData.filter(c => c.uid === id && c.key).forEach(c => remove(ref(db, c.path || 'log/' + c.key))); modLog('mesajları sildi', id, o.name); toast('🗑 Silindi'); } });
     items.push({ label: '👢 Oyundan at (5 dk)', fn: () => { update(ref(db, 'online/' + id), { kick: now() }); modLog('oyundan attı', id, o.name); say(`👢 <b>${esc(o.name)}</b> oyundan atıldı`, true, 'mod'); } });
   }
   if (IS_ADMIN) {
@@ -2118,6 +2149,7 @@ setInterval(() => {
 // admin-side cleanup: profession roles must be held by the right job, one person one role, no elections for profession roles
 async function adminCleanup() {
   if (adminCleanup.busy || (adminCleanup.last || 0) > now() - 180000) return; adminCleanup.busy = 1; adminCleanup.last = now();
+  if ((adminCleanup.zw || 0) < now() - 1800000) { adminCleanup.zw = now(); remove(ref(db, 'zchat')).catch(() => { }); }
   try {
     const rs = (await get(ref(db, 'roles'))).val() || {}, all = {};
     for (const r in rs) if (rs[r] && rs[r].id && PROF[r]) all[rs[r].id] = { job: (await get(ref(db, `players/${rs[r].id}/job`)).catch(() => null))?.val() };
