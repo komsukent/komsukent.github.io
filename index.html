@@ -171,7 +171,7 @@ const COUNTRIES = {
 const FULL1 = true;   // Komşukent dolu: yeni gelenler diğer ülkelere yönlendirilir
 const C = (() => { let c = 0; try { const u = +new URLSearchParams(location.search).get('c'), st = +localStorage.getItem('kk_c'), known = !!(localStorage.getItem('kk_me') || localStorage.getItem('kk_id')); c = u || (known ? st : 0) || (FULL1 ? 2 + Math.floor(Math.random() * 2) : 1); } catch (e) { c = 1; } if (!COUNTRIES[c] || !COUNTRIES[c].cfg) c = 1; try { localStorage.setItem('kk_c', String(c)); } catch (e) { } return c; })();
 const FB = {};
-const APP_V = '2026112105';
+const APP_V = '2026112106';
 let CAP = 0;   // bump on every upload (yyyymmddNN)
 const ADMIN = location.hash === '#yonetim';
 let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off, orderByChild, equalTo;
@@ -3236,7 +3236,7 @@ async function ecoShift(bid) {
   if (bid === 'maden') {
     const ms = MINES(); if (!ms.length) return;
     const k = ms[Math.floor(Math.random() * ms.length)], q = 1 + (e.maden || 0);
-    await depoTx(d => { d[k] = (d[k] || 0) + q; return d; }).catch(() => { });
+    await runTransaction(ref(db, 'city/depo/' + k), x => (x || 0) + q).catch(() => { });
     gdpAdd(q * priceOf(k)); toast(`⛏ ${q} ${RAW[k].e} ${RAW[k].n} çıkardın → ülke deposu`, 3500);
   }
   if (bid === 'fabrika') {
@@ -3290,7 +3290,7 @@ function harvest(i) {
     const r = await runTransaction(ref(db, 'city/tarla/' + i), x => { got = null; if (!x || x.rd > now()) return; got = x; return null; }).catch(() => null);
     if (!r || !r.committed || !got) return toast('Bu ürün toplanmış');
     const q = kurak() ? 5 : 10;
-    await depoTx(d => { d[got.c] = (d[got.c] || 0) + q; return d; }).catch(() => { });
+    await runTransaction(ref(db, 'city/depo/' + got.c), x => (x || 0) + q).catch(() => { });
     gdpAdd(q * priceOf(got.c)); ME.energy -= 8; stat('worked');
     earn(60, `🧺 ${q} ${ITEM(got.c).e} ${ITEM(got.c).n} depoya girdi!${kurak() ? ' (🌵 kuraklık: yarı ürün)' : ''}`);
   }, '🧺 Hasat');
