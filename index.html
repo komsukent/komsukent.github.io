@@ -136,6 +136,7 @@ table.pl{width:100%;font-size:12px;border-collapse:collapse}table.pl td{padding:
 <button id="gSwitch" class="lg" style="display:none;background:#2e86de">🔑 Giriş yap (başka hesap)</button>
 <div id="igWarn">⚠️ Instagram / TikTok'un içinde Google girişi çalışmaz.<br>Sağ üstteki <b>⋯</b> → <b>"Tarayıcıda aç"</b> de, sonra <b>Google ile gir</b> (ilerlemen hiç kaybolmaz).<br>Ya da aşağıdan isim yazıp <b>misafir</b> gir.</div>
 <div id="err"></div>
+<p style="font-size:12px;opacity:.85;text-align:center;margin:8px 0 0">⚠️ 7 gün oyuna girmeyen hesap otomatik silinir</p>
 </div></div>
 
 <script>
@@ -171,7 +172,7 @@ const COUNTRIES = {
 let FULL1 = true; try { FULL1 = localStorage.getItem('kk_full1') !== '0'; } catch (e) { }   // Komşukent dolu mu: yönetici panelden açar/kapatır (pub/full1)
 const C = (() => { let c = 0; try { const u = +new URLSearchParams(location.search).get('c'), st = +localStorage.getItem('kk_c'), known = !!(localStorage.getItem('kk_me') || localStorage.getItem('kk_id')); c = u || (known ? st : 0) || (FULL1 ? 2 + Math.floor(Math.random() * 2) : 1); } catch (e) { c = 1; } if (!COUNTRIES[c] || !COUNTRIES[c].cfg) c = 1; try { localStorage.setItem('kk_c', String(c)); } catch (e) { } return c; })();
 const FB = {};
-const APP_V = '2026112110';
+const APP_V = '2026112111';
 let CAP = 0;   // bump on every upload (yyyymmddNN)
 const ADMIN = location.hash === '#yonetim';
 let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off, orderByChild, equalTo;
@@ -537,7 +538,7 @@ function sendPos(force) {
 }
 function saveMe() {
   if (!ME) return;
-  update(ref(db, 'players/' + myId), { v: 3, inv: ME.inv, veh: ME.veh, q: ME.q, lvl: ME.lvl, sick: ME.sick, play: ME.play, pd: ME.pd, joined: ME.joined, taxDay: ME.taxDay, money: Math.floor(ME.money), energy: Math.round(ME.energy), home: ME.home, shop: ME.shop, acc: ME.acc, wear: ME.wear, m: ME.m, x: Math.round(ME.x), y: Math.round(ME.y), name: ME.name, color: ME.color, job: ME.job, gocUsed: ME.gocUsed || 0, jx: ME.jx || 0, jxv: ME.jxv || 0 });
+  update(ref(db, 'players/' + myId), { v: 3, seen: serverTimestamp(), inv: ME.inv, veh: ME.veh, q: ME.q, lvl: ME.lvl, sick: ME.sick, play: ME.play, pd: ME.pd, joined: ME.joined, taxDay: ME.taxDay, money: Math.floor(ME.money), energy: Math.round(ME.energy), home: ME.home, shop: ME.shop, acc: ME.acc, wear: ME.wear, m: ME.m, x: Math.round(ME.x), y: Math.round(ME.y), name: ME.name, color: ME.color, job: ME.job, gocUsed: ME.gocUsed || 0, jx: ME.jx || 0, jxv: ME.jxv || 0 });
 }
 setInterval(() => {
   if (!ME || ME.sleep) return;
@@ -915,6 +916,7 @@ function afterLogin() {
   }
   ME.taxDay = day; saveMe(); setTimeout(payday, 6000); setTimeout(cbPayday, 9000);
   if (auth && auth.currentUser && auth.currentUser.isAnonymous) setTimeout(() => ME && toast('👤 Misafir girdin. Başka cihazda ilerlemen kaybolmasın diye sol üstte adına dokun → <b>Google\'a bağla</b>', 7000), 120000);
+  setTimeout(() => ME && toast('⚠️ Unutma: <b>7 gün</b> oyuna girmeyen hesap otomatik silinir! Her gün bir uğra 🏙', 6000), 20000);
   if (!Object.keys(ME.q).length) setTimeout(() => toast('📋 Ne yapacağını bilmiyor musun? Sağdaki 📋 Görevler\'e bak!', 6000), 4000);
 }
 // players list (admin + mods)
@@ -1196,7 +1198,7 @@ function announceMenu() {
 // elections housekeeping: auto-open vacant roles, finish ended ones
 async function electionTick() {
   if (!db || (!ME && !ADMIN)) return;
-  if (ADMIN && adminOk) adminCleanup();
+  if (ADMIN && adminOk) { adminCleanup(); setTimeout(inactiveSweep, 20000); }
   const t = now();
   for (const r in ROLES) {
     const e = elections[r], holder = roles[r];
@@ -2264,6 +2266,36 @@ setInterval(() => {
 }, 15000);
 
 // admin-side cleanup: profession roles must be held by the right job, one person one role, no elections for profession roles
+// ---- Yönetici: 7 gün girmeyen hesapları sil (yöneticiler hariç)
+const INACT_MS = 7 * 864e5;
+function lastSeen(p) {
+  let t = Math.max(+p.seen || 0, +p.joined || 0, (p.moved && +p.moved.t) || 0);
+  for (const d of Object.keys(p.pd || {})) { const x = Date.parse(d); if (x) t = Math.max(t, x + 864e5 - 1); }
+  return t;
+}
+async function inactiveSweep() {
+  if (inactiveSweep.busy || (inactiveSweep.last || 0) > now() - 6 * 3600000) return; inactiveSweep.busy = 1; inactiveSweep.last = now();
+  try {
+    const [pS, plS, rS, aS, tS] = await Promise.all(['players', 'plots2', 'roles', 'admins', 'transfers'].map(k => get(ref(db, k)).catch(() => null)));
+    const all = (pS && pS.val()) || {}, pl = (plS && plS.val()) || {}, rl = (rS && rS.val()) || {}, adm = (aS && aS.val()) || {}, trs = (tS && tS.val()) || {};
+    const cut = now() - INACT_MS, upd = {}, gone = [];
+    for (const [id, p] of Object.entries(all)) {
+      if (!p || adm[id] === true || id === myId) continue;
+      const t = lastSeen(p); if (!t || t > cut) continue;      // tarihi bilinmeyene dokunma
+      gone.push(id); upd['players/' + id] = null; upd['online/' + id] = null; upd['mods/' + id] = null; upd['goc/' + id] = null;
+    }
+    const G = new Set(gone);
+    for (const [k, o] of Object.entries(pl)) if (o && G.has(o.id)) upd['plots2/' + k] = null;
+    for (const [r, h] of Object.entries(rl)) if (h && G.has(h.id)) upd['roles/' + r] = null;
+    if (CB && G.has(CB.id)) upd['cb'] = null;
+    let tn = 0;   // 7 gündür alınmamış taşıma paketleri ve onlara ayrılan arsalar
+    for (const [code, tr] of Object.entries(trs)) if (tr && !tr.by && (tr.t || 0) < cut) { upd['transfers/' + code] = null; tn++; for (const [k, o] of Object.entries(pl)) if (o && o.code === code) upd['plots2/' + k] = null; }
+    const keys = Object.keys(upd);
+    for (let i = 0; i < keys.length; i += 300) { const part = {}; keys.slice(i, i + 300).forEach(k => part[k] = upd[k]); await update(ref(db), part); }
+    if (gone.length || tn) { console.log('sweep', gone.length, tn); toast(`🧹 7 gündür girmeyen ${gone.length} hesap silindi${tn ? ` • ${tn} bekleyen taşıma paketi temizlendi` : ''}`, 6000); }
+  } catch (e) { console.log('sweep err', e); } finally { inactiveSweep.busy = 0; }
+}
+
 async function adminCleanup() {
   if (adminCleanup.busy || (adminCleanup.last || 0) > now() - 180000) return; adminCleanup.busy = 1; adminCleanup.last = now();
   if ((adminCleanup.zw || 0) < now() - 1800000) { adminCleanup.zw = now(); remove(ref(db, 'zchat')).catch(() => { }); }
