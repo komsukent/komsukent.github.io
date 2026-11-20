@@ -170,7 +170,7 @@ const COUNTRIES = {
 };
 const C = (() => { let c = 0; try { c = +new URLSearchParams(location.search).get('c') || +localStorage.getItem('kk_c') || 1; } catch (e) { c = 1; } if (!COUNTRIES[c] || !COUNTRIES[c].cfg) c = 1; try { localStorage.setItem('kk_c', String(c)); } catch (e) { } return c; })();
 const FB = {};
-const APP_V = '2026112003';
+const APP_V = '2026112004';
 let CAP = 0;   // bump on every upload (yyyymmddNN)
 const ADMIN = location.hash === '#yonetim';
 let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off, orderByChild, equalTo;
@@ -2654,14 +2654,26 @@ function watchMoved() { if (movedSub || !db || !myId || IS_ADMIN) return; movedS
 
 // ---- Yönetici: diğer ülkelere bağlan, göçleri işle, cumhurbaşkanı ata
 const DBS = {};
-async function connectCountry(c) {
-  if (DBS[c]) return DBS[c];
-  if (c === C) return (DBS[c] = { db, uid: myId });
+// other countries' auth is prepared as soon as the panel opens, so a tap can open the Google popup at once (Safari blocks late popups)
+const CAUTH = {};
+function prepCountry(c) {
+  if (CAUTH[c] || c === C || !ctryOn(c)) return CAUTH[c];
   const app = FB.A.initializeApp(COUNTRIES[c].cfg, 'c' + c);
   let au; try { au = AU.initializeAuth(app, { persistence: [AU.indexedDBLocalPersistence, AU.browserLocalPersistence], popupRedirectResolver: AU.browserPopupRedirectResolver }); } catch (e) { au = AU.getAuth(app); }
-  await new Promise(r => { const un = AU.onAuthStateChanged(au, () => { un(); r(); }); setTimeout(r, 3000); });
-  if (!au.currentUser || au.currentUser.isAnonymous) await AU.signInWithPopup(au, new AU.GoogleAuthProvider());
-  const d = FB.D.getDatabase(app), uid = au.currentUser.uid;
+  const ready = new Promise(r => { const un = AU.onAuthStateChanged(au, () => { un(); r(); }); setTimeout(r, 4000); });
+  CAUTH[c] = { app, au, ready };
+  ready.then(() => { if (au.currentUser && !au.currentUser.isAnonymous) connectCountry(c).then(() => { gocRun(); adminUI(); }).catch(() => { }); });
+  return CAUTH[c];
+}
+async function connectCountry(c, viaTap) {
+  if (DBS[c]) return DBS[c];
+  if (c === C) return (DBS[c] = { db, uid: myId });
+  const P = prepCountry(c), au = P.au;
+  if (viaTap && (!au.currentUser || au.currentUser.isAnonymous)) await AU.signInWithPopup(au, new AU.GoogleAuthProvider());   // first thing on the tap
+  await P.ready;
+  if (!au.currentUser || au.currentUser.isAnonymous) throw { message: 'Önce bu ülkeye Google ile bağlanmalısın (düğmeye tekrar bas)' };
+  if (DBS[c]) return DBS[c];
+  const d = FB.D.getDatabase(P.app), uid = au.currentUser.uid;
   const ok = (await get(ref(d, 'admins/' + uid))).val() === true;
   if (!ok) throw { message: `${ctryName(c)} veritabanında yönetici değilsin. O projede admins altına ${uid} = true ekle.` };
   DBS[c] = { db: d, uid };
@@ -2731,7 +2743,8 @@ function adminCountryHTML() {
 }
 function adminCountryWire(el) {
   el.querySelectorAll('[data-cc]').forEach(b => b.onclick = () => { const c = +b.dataset.cc; if (c !== C) goCountry(c); });
-  el.querySelectorAll('[data-con]').forEach(b => b.onclick = async () => { b.textContent = 'Bağlanılıyor…'; try { await connectCountry(C); await connectCountry(+b.dataset.con); gocRun(); } catch (e) { alert(e.message || e.code || e); } adminUI(); });
+  el.querySelectorAll('[data-con]').forEach(b => b.onclick = () => { if (connectCountry.busy) return; connectCountry.busy = 1; b.textContent = 'Bağlanılıyor…';
+    connectCountry(+b.dataset.con, true).then(() => gocRun()).catch(e => { if (e && e.code !== 'auth/cancelled-popup-request' && e.code !== 'auth/popup-closed-by-user') alert(e.message || e.code || e); }).finally(() => { connectCountry.busy = 0; adminUI(); }); });
   const rm = el.querySelector('#aCbRm'); if (rm) rm.onclick = () => { if (!confirm('Cumhurbaşkanı görevden alınsın mı?')) return; const id = CB.id; remove(ref(db, 'cb')); remove(ref(db, 'mods/' + id)); say(`🏛 Cumhurbaşkanı <b>${esc(CB.name)}</b> görevden alındı`, true, 'ann'); };
 }
 
@@ -3279,7 +3292,7 @@ function adminLogin() {
       const uid = auth.currentUser.uid; e.textContent = 'Sunucuya bağlanılıyor…';
       const ok = await withTimeout(get(ref(db, 'admins/' + uid)), 15000, '⚠️ Sunucuya bağlanılamadı. Büyük ihtimalle sunucu dolu (ücretsiz planda aynı anda en fazla 100 bağlantı). Biraz sonra tekrar dene.').catch(x => { throw x; });
       if (!ok || ok.val() !== true) { e.innerHTML = `Bu hesap yönetici değil.<br><br>Yönetici olmak için Firebase'de <b>Realtime Database → Data</b> bölümüne <b>admins</b> altına şu kimliği <b>true</b> değeriyle ekle:<br><code style="user-select:all;-webkit-user-select:all;background:#000;padding:4px;display:block;margin-top:6px">${uid}</code>`; return; }
-      IS_ADMIN = true; myId = uid; DBS[C] = { db, uid }; onChildAdded(ref(db, 'goc'), s2 => gocQueue(C, s2.key, s2.val()));
+      IS_ADMIN = true; myId = uid; DBS[C] = { db, uid }; Object.keys(COUNTRIES).forEach(c => { try { prepCountry(+c); } catch (e) { } }); onChildAdded(ref(db, 'goc'), s2 => gocQueue(C, s2.key, s2.val()));
     } catch (x) { e.textContent = AUTH_ERR[x.code] || ('Bağlanamadı: ' + (x.code || x.message)); return; }
     adminOk = true; loginT = now(); document.getElementById('panel').style.display = 'none';
     ['hud', 'acts', 'bWard', 'bRank', 'bQuest', 'bBag', 'bVeh'].forEach(i => document.getElementById(i).style.display = 'none'); document.getElementById('bPl').style.display = 'block';
