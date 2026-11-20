@@ -171,7 +171,7 @@ const COUNTRIES = {
 let FULL1 = true; try { FULL1 = localStorage.getItem('kk_full1') !== '0'; } catch (e) { }   // Komşukent dolu mu: yönetici panelden açar/kapatır (pub/full1)
 const C = (() => { let c = 0; try { const u = +new URLSearchParams(location.search).get('c'), st = +localStorage.getItem('kk_c'), known = !!(localStorage.getItem('kk_me') || localStorage.getItem('kk_id')); c = u || (known ? st : 0) || (FULL1 ? 2 + Math.floor(Math.random() * 2) : 1); } catch (e) { c = 1; } if (!COUNTRIES[c] || !COUNTRIES[c].cfg) c = 1; try { localStorage.setItem('kk_c', String(c)); } catch (e) { } return c; })();
 const FB = {};
-const APP_V = '2026112109';
+const APP_V = '2026112110';
 let CAP = 0;   // bump on every upload (yyyymmddNN)
 const ADMIN = location.hash === '#yonetim';
 let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off, orderByChild, equalTo;
@@ -373,7 +373,7 @@ async function enter2(mode) {
         const tr = (await get(ref(db, 'transfers/' + tcode))).val();
         if (tr && tr.to === C && !tr.by) {
           const r = await runTransaction(ref(db, 'transfers/' + tcode + '/by'), cur => cur ? undefined : myId);
-          if (r && r.committed) { claimed = tr; prev = Object.assign({}, prev || {}, { money: tr.money, job: tr.job, energy: tr.energy, acc: tr.acc || {}, wear: tr.wear || {}, m: tr.m || {}, inv: tr.inv || {}, veh: tr.veh || {}, lvl: tr.lvl || 0, pet: tr.pet || null, bio: tr.bio || '', jobChanged: tr.jobChanged || 0, jx: tr.jx || 0, jxv: 1, gocUsed: 1, home: tr.home || null, shop: tr.shop || null }); }
+          if (r && r.committed) { claimed = tr; prev = Object.assign({}, prev || {}, { money: tr.money, job: tr.job, energy: tr.energy, acc: tr.acc || {}, wear: tr.wear || {}, m: tr.m || {}, inv: tr.inv || {}, veh: tr.veh || {}, lvl: tr.lvl || 0, pet: tr.pet || null, bio: tr.bio || '', jobChanged: tr.jobChanged || 0, jx: tr.jx || 0, jxv: 1, gocUsed: 1, home: tr.home || null, shop: tr.shop || null, play: tr.play || 0, pd: tr.pd || {}, q: tr.q || {}, joined: tr.joined || undefined, pleft: tr.pleft || 0, preJob: tr.preJob || '' }); }
         }
       } catch (e) { }
       try { localStorage.removeItem('kk_tcode'); } catch (e) { }
@@ -2786,7 +2786,7 @@ async function transferPlayer(src, uid, to, role, cache) {
   for (const [r, h] of Object.entries(rl)) if (h && h.id === uid) upd['roles/' + r] = null;
   const cbS = (await get(ref(S, 'cb'))).val(); if (cbS && cbS.id === uid) upd['cb'] = null;
   const pkg = { name: p.name || 'Komşu', job: p.job === 'Cumhurbaşkanı' ? (p.preJob || 'İşsiz') : (p.job || 'İşsiz'), money: Math.floor((p.money || 0) + refund), energy: p.energy ?? 100, acc: p.acc || null, wear: p.wear || null, m: p.m || null,
-    inv: p.inv || null, veh: p.veh || null, lvl: p.lvl || 0, pet: p.pet || null, bio: p.bio || '', jobChanged: p.jobChanged || 0, jx: p.jx || 0, color: p.color || null, from: src, to, role: role || null, t: Date.now(),
+    inv: p.inv || null, veh: p.veh || null, lvl: p.lvl || 0, pet: p.pet || null, bio: p.bio || '', jobChanged: p.jobChanged || 0, jx: p.jx || 0, color: p.color || null, play: p.play || 0, pd: p.pd || null, q: p.q || null, joined: p.joined || null, pleft: p.pleft || 0, preJob: p.preJob || null, from: src, to, role: role || null, t: Date.now(),
     plots: kept.length ? kept : null, home: kept.includes(p.home) ? p.home : null, shop: kept.includes(p.shop) ? p.shop : (kept.find(k => tp[k].type !== 'ev') || null) };
   await set(ref(T, 'transfers/' + code), pkg);
   if (kept.length) await update(ref(T), tupd).catch(() => { });
@@ -2825,6 +2825,7 @@ function adminCountryHTML() {
   <p style="font-size:12px;opacity:.8;margin:4px 0">Dokun: o ülkenin paneline geç. Uzun bas / alttaki düğme: göç ve cumhurbaşkanı taşıma için bağlan.</p>
   <div class="row">${Object.keys(COUNTRIES).map(Number).filter(c => c !== C && ctryOn(c)).map(c => `<button data-con="${c}" style="background:#2e86de">${DBS[c] ? '🔗 ' + esc(ctryName(c)) + ' bağlı' : '🔌 ' + esc(ctryName(c)) + "'e bağlan"}</button>`).join('')}</div>
   <button id="aWKey" style="background:#b8860b;margin:4px 0">🔑 Zirve anahtarlarını ver (cumhurbaşkanları için)</button>
+  <button id="aBack" style="background:#8e44ad;margin:4px 0">↩️ Taşınanları geri getir</button>
   <p style="font-size:13px;margin:4px 0">🧳 Bekleyen göç: <b>${q}</b>${q ? ' (hedef ülkeye bağlanınca otomatik işlenir)' : ''}</p>`;
 }
 function adminCountryWire(el) {
@@ -2832,7 +2833,62 @@ function adminCountryWire(el) {
   el.querySelectorAll('[data-con]').forEach(b => b.onclick = () => { if (connectCountry.busy) return; connectCountry.busy = 1; b.textContent = 'Bağlanılıyor…';
     connectCountry(+b.dataset.con, true).then(() => gocRun()).catch(e => { if (e && e.code !== 'auth/cancelled-popup-request' && e.code !== 'auth/popup-closed-by-user') alert(e.message || e.code || e); }).finally(() => { connectCountry.busy = 0; adminUI(); }); });
   const wk = el.querySelector('#aWKey'); if (wk) wk.onclick = worldKeysAll;
+  const bk = el.querySelector('#aBack'); if (bk) bk.onclick = backMenu;
   const rm = el.querySelector('#aCbRm'); if (rm) rm.onclick = () => { if (!confirm('Cumhurbaşkanı görevden alınsın mı?')) return; const id = CB.id; remove(ref(db, 'cb')); remove(ref(db, 'mods/' + id)); say(`🏛 Cumhurbaşkanı <b>${esc(CB.name)}</b> görevden alındı`, true, 'ann'); };
+}
+
+// ---- Yönetici: taşınanları geri getir (gönderim gruplarına göre)
+async function backMenu() {
+  toast('↩️ Taşınanlar yükleniyor…', 1500);
+  const all = (await get(ref(db, 'players'))).val() || {};
+  const mv = Object.entries(all).filter(([, p]) => p && p.moved && p.moved.code && p.moved.code !== 'back').map(([id, p]) => ({ id, p, t: p.moved.t || 0, to: p.moved.to })).sort((a, b) => b.t - a.t);
+  if (!mv.length) return toast('Bu ülkeden taşınan oyuncu yok');
+  const G = []; for (const m of mv) { const g = G[G.length - 1]; if (g && g.t0 - m.t < 180000) { g.L.push(m); g.t0 = m.t; } else G.push({ t1: m.t, t0: m.t, L: [m] }); }
+  const hm = t => new Date(t).toLocaleString('tr', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+  const items = G.slice(0, 15).map(g => {
+    const by = {}; g.L.forEach(m => by[m.to] = (by[m.to] || 0) + 1);
+    return { label: `↩️ ${hm(g.t0)} → ${hm(g.t1).slice(-5)} • <b>${g.L.length} kişi</b><br><small>${Object.entries(by).map(([c, n]) => `${COUNTRIES[c] ? COUNTRIES[c].f : ''} ${esc(ctryName(+c))}: ${n}`).join(' • ')}</small>`, fn: () => runBack(g.L) };
+  });
+  items.push({ label: `↩️ Hepsini geri getir (${mv.length} kişi)`, cls: 'red', fn: () => runBack(mv) });
+  modal('↩️ Taşınanları geri getir', items, `<p>Hangi gönderimi geri alayım? <b>En yenisi en üstte.</b> Oyuncular parası, mesleği, eşyaları ve evleriyle ${esc(ctryName(C))}'e döner. Yeni ülkeye girmiş olanlar oradaki güncel hesaplarıyla döner.</p><p style="font-size:12px;opacity:.8">Önce gönderdiğin ülkelere 🔌 bağlı olmalısın.</p>`);
+}
+async function runBack(list) {
+  const need = [...new Set(list.map(m => m.to))].filter(c => !DBS[c]);
+  if (need.length) return alert(`Önce panelden şu ülkelere 🔌 bağlan: ${need.map(c => ctryName(+c)).join(', ')}`);
+  if (!confirm(`${list.length} oyuncu ${ctryName(C)}'e geri getirilsin mi?`)) return;
+  if (!DBS[C]) DBS[C] = { db, uid: myId };
+  let ok = 0, fail = 0; const cache = {};
+  const pr = document.createElement('div'); pr.style.cssText = 'position:fixed;top:70px;left:50%;transform:translateX(-50%);background:#14213d;color:#fff;padding:12px 18px;border-radius:12px;z-index:9999;font-weight:800;box-shadow:0 4px 20px #0008'; document.body.appendChild(pr);
+  for (const m of list) { pr.textContent = `↩️ Geri getiriliyor ${ok + fail + 1}/${list.length} • panelden çıkma`; try { await bringBack(m.id, m.p, cache); ok++; } catch (e) { fail++; console.log('back', m.id, e); } }
+  pr.remove(); alert(`✅ ${ok} oyuncu ${ctryName(C)}'e geri geldi${fail ? `\n❌ ${fail} oyuncu getirilemedi` : ''}`);
+  if (ok) say(`↩️ ${ok} komşu ${esc(ctryName(C))}'e geri döndü! Hoş geldiniz 🏠`, true, 'ann');
+}
+async function bringBack(uid, p, cache) {
+  const mv = p.moved, T = DBS[mv.to].db;
+  const tr = (await get(ref(T, 'transfers/' + mv.code))).val();
+  if (!tr) throw 'paket yok';
+  const sp = cache.sp || (cache.sp = (await get(ref(db, 'plots2'))).val() || {});
+  const tp = cache['tp' + mv.to] || (cache['tp' + mv.to] = (await get(ref(T, 'plots2'))).val() || {});
+  const supd = {}, tupd = {}, keep = []; let data, refund = 0;
+  const backPlot = (k, o) => { tupd['plots2/' + k] = null; delete tp[k]; if (!sp[k] || sp[k].id === uid) { sp[k] = Object.assign({}, o, { id: uid, name: p.name || o.name || '', code: null }); supd['plots2/' + k] = sp[k]; keep.push(k); } else refund += o.type === 'ev' ? HOUSE_PRICE : SHOP_PRICE; };
+  if (tr.by) {        // yeni ülkeye girmiş: oradaki güncel hesabını getir
+    data = (await get(ref(T, 'players/' + tr.by))).val() || tr;
+    for (const [k, o] of Object.entries(tp)) if (o && o.id === tr.by) backPlot(k, o);
+    Object.assign(tupd, { ['players/' + tr.by + '/moved']: { to: C, code: 'back', t: Date.now() }, ['players/' + tr.by + '/money']: 0, ['players/' + tr.by + '/home']: null, ['players/' + tr.by + '/shop']: null, ['online/' + tr.by]: null });
+  } else {            // daha girmemiş: paketi geri al
+    data = tr;
+    (tr.plots || []).forEach(k => { if (tp[k]) backPlot(k, tp[k]); });
+    tupd['transfers/' + mv.code] = null;
+  }
+  const P = 'players/' + uid + '/', pick = k => data[k] !== undefined ? data[k] : (p[k] !== undefined ? p[k] : null);
+  Object.assign(supd, {
+    [P + 'moved']: null, [P + 'gocUsed']: 0, [P + 'money']: Math.floor((data.money || 0) + refund),
+    [P + 'job']: data.job === 'Cumhurbaşkanı' ? (data.preJob || 'İşsiz') : (data.job || p.job || 'İşsiz'),
+    [P + 'home']: keep.includes(data.home) ? data.home : null, [P + 'shop']: keep.includes(data.shop) ? data.shop : (keep.find(k => sp[k] && sp[k].type !== 'ev') || null),
+  });
+  ['energy', 'acc', 'wear', 'm', 'inv', 'veh', 'lvl', 'pet', 'bio', 'jobChanged', 'jx', 'play', 'pd', 'q', 'joined'].forEach(k => { const v = pick(k); if (v !== null) supd[P + k] = v; });
+  if (Object.keys(tupd).length) await update(ref(T), tupd);
+  await update(ref(db), supd);
 }
 
 // ---- Yönetici: haftalık güç sıralaması (cumhurbaşkanı seçmek için)
