@@ -151,12 +151,19 @@ const CFG = {
 // ---- ÜLKELER: 2. ve 3. ülkenin firebaseConfig'i gelince cfg: null yerine yapıştırılır
 const COUNTRIES = {
   1: { n: 'Komşukent', f: '🏙', cfg: CFG },
-  2: { n: 'Ülke 2', f: '🌄', cfg: null },
-  3: { n: 'Ülke 3', f: '🏝', cfg: null },
+  2: { n: 'Kuzeykent', f: '❄️', cfg: {
+    apiKey: "AIzaSyCcDE8J82UiKrCslKN8hSxt9eI5B3YoMWM",
+    authDomain: "komsukent-2.firebaseapp.com",
+    databaseURL: "https://komsukent-2-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "komsukent-2",
+    storageBucket: "komsukent-2.firebasestorage.app",
+    messagingSenderId: "897715828074",
+    appId: "1:897715828074:web:bc59b2e94098db0837e113" } },
+  3: { n: 'Doğuşehir', f: '🌅', cfg: null },
 };
 const C = (() => { let c = 0; try { c = +new URLSearchParams(location.search).get('c') || +localStorage.getItem('kk_c') || 1; } catch (e) { c = 1; } if (!COUNTRIES[c] || !COUNTRIES[c].cfg) c = 1; try { localStorage.setItem('kk_c', String(c)); } catch (e) { } return c; })();
 const FB = {};
-const APP_V = '2026112001';
+const APP_V = '2026112002';
 let CAP = 0;   // bump on every upload (yyyymmddNN)
 const ADMIN = location.hash === '#yonetim';
 let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off, orderByChild, equalTo;
