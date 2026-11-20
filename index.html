@@ -171,7 +171,7 @@ const COUNTRIES = {
 const FULL1 = true;   // Komşukent dolu: yeni gelenler diğer ülkelere yönlendirilir
 const C = (() => { let c = 0; try { const u = +new URLSearchParams(location.search).get('c'), st = +localStorage.getItem('kk_c'), known = !!(localStorage.getItem('kk_me') || localStorage.getItem('kk_id')); c = u || (known ? st : 0) || (FULL1 ? 2 + Math.floor(Math.random() * 2) : 1); } catch (e) { c = 1; } if (!COUNTRIES[c] || !COUNTRIES[c].cfg) c = 1; try { localStorage.setItem('kk_c', String(c)); } catch (e) { } return c; })();
 const FB = {};
-const APP_V = '2026112101';
+const APP_V = '2026112102';
 let CAP = 0;   // bump on every upload (yyyymmddNN)
 const ADMIN = location.hash === '#yonetim';
 let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off, orderByChild, equalTo;
@@ -917,10 +917,20 @@ async function playersMenu() {
   if (IS_ADMIN) {
     const bar = document.createElement('div'); bar.style.cssText = 'position:sticky;top:0;z-index:2;background:#14213d;padding:8px;border-radius:12px;margin:0 0 8px;display:flex;flex-wrap:wrap;gap:6px;align-items:center';
     const tos = Object.keys(COUNTRIES).map(Number).filter(c => c !== C && ctryOn(c));
-    bar.innerHTML = `<b id="selN" style="flex:1 0 100%">☑️ Seçili: 0</b>` + tos.map(c => `<button data-bulk="${c}" style="flex:1;padding:8px;border-radius:10px;border:0;background:#2e86de;color:#fff;font-weight:700">${COUNTRIES[c].f} ${esc(ctryName(c))}'e aktar</button>`).join('');
+    bar.innerHTML = `<div style="flex:1 0 100%;display:flex;gap:6px"><input id="rndN" type="number" inputmode="numeric" placeholder="kaç kişi?" style="flex:1;min-width:0;padding:8px;border-radius:10px;border:0;font-size:15px"><button id="rndB" style="flex:1;padding:8px;border-radius:10px;border:0;background:#8e44ad;color:#fff;font-weight:700">🎲 Rastgele seç</button></div><b id="selN" style="flex:1 0 100%">☑️ Seçili: 0</b>` + tos.map(c => `<button data-bulk="${c}" style="flex:1;padding:8px;border-radius:10px;border:0;background:#2e86de;color:#fff;font-weight:700">${COUNTRIES[c].f} ${esc(ctryName(c))}'e aktar</button>`).join('');
     mcard.querySelector('h2').after(bar);
-    const sel = () => [...mcard.querySelectorAll('[data-sel]:checked')].map(x => x.dataset.sel);
-    mcard.querySelectorAll('[data-sel]').forEach(x => x.onchange = () => { bar.querySelector('#selN').textContent = '☑️ Seçili: ' + sel().length; });
+    const RND = new Set();
+    const sel = () => [...new Set([...RND, ...[...mcard.querySelectorAll('[data-sel]:checked')].map(x => x.dataset.sel)])];
+    const showN = () => { bar.querySelector('#selN').textContent = '☑️ Seçili: ' + sel().length + (RND.size ? ` (🎲 ${RND.size} rastgele)` : ''); };
+    mcard.querySelectorAll('[data-sel]').forEach(x => x.onchange = () => { if (!x.checked) RND.delete(x.dataset.sel); showN(); });
+    bar.querySelector('#rndB').onclick = () => {
+      const n = Math.max(0, Math.round(+bar.querySelector('#rndN').value || 0));
+      const pool = Object.entries(all).filter(([id, p]) => p && p.name && !p.moved && !admins[id] && !isCB(id) && !RND.has(id)).map(([id]) => id);
+      for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+      RND.clear(); pool.slice(0, n).forEach(id => RND.add(id));
+      mcard.querySelectorAll('[data-sel]').forEach(x => { x.checked = RND.has(x.dataset.sel); });
+      showN(); toast(`🎲 ${RND.size} kişi rastgele seçildi (cumhurbaşkanı ve yöneticiler hariç)`);
+    };
     bar.querySelectorAll('[data-bulk]').forEach(b => b.onclick = async () => {
       const to = +b.dataset.bulk, ids = sel(); if (!ids.length) return toast('Önce kutucuklardan oyuncu seç');
       if (!DBS[to]) return alert(`Önce panelden ${ctryName(to)}'e 🔌 bağlan`);
