@@ -172,7 +172,7 @@ const COUNTRIES = {
 let FULL1 = true; try { FULL1 = localStorage.getItem('kk_full1') !== '0'; } catch (e) { }   // Komşukent dolu mu: yönetici panelden açar/kapatır (pub/full1)
 const C = (() => { let c = 0; try { const u = +new URLSearchParams(location.search).get('c'), st = +localStorage.getItem('kk_c'), known = !!(localStorage.getItem('kk_me') || localStorage.getItem('kk_id')); c = u || (known ? st : 0) || (FULL1 ? 2 + Math.floor(Math.random() * 2) : 1); } catch (e) { c = 1; } if (!COUNTRIES[c] || !COUNTRIES[c].cfg) c = 1; try { localStorage.setItem('kk_c', String(c)); } catch (e) { } return c; })();
 const FB = {};
-const APP_V = '2026112111';
+const APP_V = '2026112112';
 let CAP = 0;   // bump on every upload (yyyymmddNN)
 const ADMIN = location.hash === '#yonetim';
 let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off, orderByChild, equalTo;
@@ -480,7 +480,7 @@ function listenPlayer() {
   onChildAdded(ref(db, 'notify/' + myId), s => { const v = s.val(); if (v) toast(v.m, 4000); remove(s.ref); });
   onValue(ref(db, 'mutes/' + myId), s => { let lm = 0; try { lm = +localStorage.getItem('kk_mute') || 0; } catch (e) { } myMute = Math.max((s.val() || {}).until || 0, lm); });
   onValue(ref(db, 'bans/' + myId), s => { if (s.exists()) kicked(true); });
-  onValue(ref(db, 'players/' + myId + '/money'), s => { const v = s.val(); if (typeof v === 'number' && Math.abs(v - ME.money) > 0.5) { ME.money = v; hud(); } });
+  onValue(ref(db, 'players/' + myId + '/money'), s => moneyListen(s.val()));
 }
 // zone-based position sharing (saves bandwidth)
 const zoneSubs = {};
@@ -536,9 +536,39 @@ function sendPos(force) {
   setZone(false); zoneWant(false);
   set(ref(db, 'pos/' + myZone + '/' + myId), { x: Math.round(ME.x), y: Math.round(ME.y) });
 }
+// ---- para senkronu: yerel değişiklik veritabanına fark olarak (en fazla +150'lik adımlarla) yazılır,
+// başkasının yaptığı ödeme/hırsızlık da yerel paraya eklenir; böylece hiçbir kazanç kaybolmaz
+let MBASE = null, MBUSY = false, MLAST = null;
+function moneyListen(v) {
+  if (typeof v !== 'number' || !ME) return;
+  if (MBUSY) { MLAST = v; return; }
+  if (MBASE === null) { MBASE = v; syncMoney(); return; }
+  if (Math.abs(v - MBASE) > 0.5) { ME.money += v - MBASE; MBASE = v; hud(); }
+}
+async function syncMoney() {
+  if (MBUSY || MBASE === null || !ME || !db || !myId) return;
+  let d = Math.floor(ME.money) - MBASE; if (Math.abs(d) < 1) return;
+  MBUSY = true; MLAST = null;
+  try {
+    for (let i = 0; i < 60 && Math.abs(d) >= 1; i++) {
+      const step = d > 0 ? Math.min(150, d) : d; let got = 0;
+      const r = await runTransaction(ref(db, 'players/' + myId + '/money'), m => { got = m || 0; return Math.max(0, got + step); });
+      if (!r || !r.committed) break;
+      if (Math.abs(got - MBASE) > 0.5) ME.money += got - MBASE;   // arada dışarıdan gelen
+      MBASE = r.snapshot.val() || 0; if (ME.money < 0) ME.money = 0;
+      d = Math.floor(ME.money) - MBASE;
+    }
+  } catch (e) { console.log('money', e); }
+  finally {
+    MBUSY = false;
+    if (MLAST !== null && Math.abs(MLAST - MBASE) > 0.5) { const v = MLAST; MLAST = null; moneyListen(v); }
+    hud(); if (Math.abs(Math.floor(ME.money) - MBASE) >= 1) setTimeout(syncMoney, 1500);
+  }
+}
 function saveMe() {
   if (!ME) return;
-  update(ref(db, 'players/' + myId), { v: 3, seen: serverTimestamp(), inv: ME.inv, veh: ME.veh, q: ME.q, lvl: ME.lvl, sick: ME.sick, play: ME.play, pd: ME.pd, joined: ME.joined, taxDay: ME.taxDay, money: Math.floor(ME.money), energy: Math.round(ME.energy), home: ME.home, shop: ME.shop, acc: ME.acc, wear: ME.wear, m: ME.m, x: Math.round(ME.x), y: Math.round(ME.y), name: ME.name, color: ME.color, job: ME.job, gocUsed: ME.gocUsed || 0, jx: ME.jx || 0, jxv: ME.jxv || 0 });
+  syncMoney();
+  update(ref(db, 'players/' + myId), { v: 3, seen: serverTimestamp(), inv: ME.inv, veh: ME.veh, q: ME.q, lvl: ME.lvl, sick: ME.sick, play: ME.play, pd: ME.pd, joined: ME.joined, taxDay: ME.taxDay, energy: Math.round(ME.energy), home: ME.home, shop: ME.shop, acc: ME.acc, wear: ME.wear, m: ME.m, x: Math.round(ME.x), y: Math.round(ME.y), name: ME.name, color: ME.color, job: ME.job, gocUsed: ME.gocUsed || 0, jx: ME.jx || 0, jxv: ME.jxv || 0 });
 }
 setInterval(() => {
   if (!ME || ME.sleep) return;
@@ -816,7 +846,7 @@ const BMENU = {
         { e: '🏛', n: 'Partiler & sıralama', fn: partyMenu, stay: false },
         ...(PARTYOF[myId] ? [{ e: '⚙', n: 'Partimi yönet', fn: myPartyMenu, stay: false }] : [{ e: '➕', n: 'Parti kur', r: '5.000 💰', off: ME.money < PARTY_PRICE || Object.keys(parties).length >= MAX_PARTY || penalty() > 0, fn: createParty, stay: false }]),
         ...(debate && debate.ends > t ? [{ e: '🎤', n: 'Münazarayı izle', fn: debateView, stay: false }] : [])] },
-      { n: '💼 İş Kur', info: `Mesleğin: <b>${esc(ME.job)}</b><br>${(() => { const n = (ME.jobChanged ? 0 : 1) + (ME.jx || 0); return n ? `✅ <b>${n}</b> meslek değiştirme hakkın var.${ME.jx ? ' (🎁 yeni sürüm hediyesi dahil)' : ''} Dikkatli kullan!` : '❌ Meslek değiştirme hakkını kullandın.'; })()}`, items: [{ e: '📋', n: 'İş ilanları & ek iş', r: Object.keys(ilan).length ? Object.keys(ilan).length + ' ilan' : '', fn: () => iskurMenu(), stay: false }, ...(ME.jobChanged ? [] : [{ e: '💼', n: 'Meslek değiştir', r: '1 hak', fn: () => jobPicker(true), stay: false }])] },
+      { n: '💼 İş Kur', info: `Mesleğin: <b>${esc(ME.job)}</b><br>${(() => { const n = (ME.jobChanged ? 0 : 1) + (ME.jx || 0); return n ? `✅ <b>${n}</b> meslek değiştirme hakkın var.${ME.jx ? ' (🎁 yeni sürüm hediyesi dahil)' : ''} Dikkatli kullan!` : '❌ Meslek değiştirme hakkını kullandın.'; })()}`, items: [{ e: '📋', n: 'İş ilanları & ek iş', r: Object.keys(ilan).length ? Object.keys(ilan).length + ' ilan' : '', fn: () => iskurMenu(), stay: false }, ...((ME.jobChanged && !(ME.jx > 0)) || isCB() ? [] : [{ e: '💼', n: 'Meslek değiştir', r: ((ME.jobChanged ? 0 : 1) + (ME.jx || 0)) + ' hak', fn: () => jobPicker(true), stay: false }])] },
       budgetTab(),
       karneTab(),
       { n: '✋ Güvensizlik', info: 'Görevdeki Belediye Başkanı ya da Muhtar işini yapmıyorsa imza topla. Yeterli imza olursa düşer, erken seçim olur.', items: [{ e: '✋', n: 'Güvensizlik oylaması', fn: gensoruMenu, stay: false }] },
@@ -2094,7 +2124,7 @@ async function payday() {
     const r = await runTransaction(ref(db, 'city/kasa'), x => (x || 0) >= amt ? (x || 0) - amt : undefined).catch(() => null);
     if (r && r.committed) {
       ME.payDay = d; await update(ref(db, 'players/' + myId), { payDay: d });
-      for (let left = amt; left > 0; left -= 150) { ME.money += Math.min(150, left); await update(ref(db, 'players/' + myId), { money: Math.floor(ME.money) }).catch(() => { }); }
+      ME.money += amt; syncMoney();
       hud(); toast(`💵 Maaş günü! Belediyeden ${amt} 💰 yattı (${r0 ? ROLES[r0].n : 'Memur'})`, 5000); cityLog(`Maaş: ${r0 ? ROLES[r0].n : 'Memur'}`, amt);
       if ((r.snapshot.val() || 0) < 100) kasaCrisis();
     } else if (CITY.unpaid !== d) {
@@ -3493,7 +3523,7 @@ async function cbPayday() {
     const r = await runTransaction(ref(db, 'city/cbk'), x => (x || 0) >= 300 ? (x || 0) - 300 : undefined).catch(() => null);
     if (r && r.committed) {
       ME.cbPd = d; await update(ref(db, 'players/' + myId), { cbPd: d }).catch(() => { });
-      for (let left = 300; left > 0; left -= 150) { ME.money += 150; await update(ref(db, 'players/' + myId), { money: Math.floor(ME.money) }).catch(() => { }); }
+      ME.money += 300; syncMoney();
       hud(); toast('🏛 Cumhurbaşkanı maaşı: 300 💰 yattı', 5000);
     }
   } finally { cbPayday.busy = 0; }
