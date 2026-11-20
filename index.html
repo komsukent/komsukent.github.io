@@ -172,7 +172,7 @@ const COUNTRIES = {
 let FULL1 = true; try { FULL1 = localStorage.getItem('kk_full1') !== '0'; } catch (e) { }   // Komşukent dolu mu: yönetici panelden açar/kapatır (pub/full1)
 const C = (() => { let c = 0; try { const u = +new URLSearchParams(location.search).get('c'), st = +localStorage.getItem('kk_c'), known = !!(localStorage.getItem('kk_me') || localStorage.getItem('kk_id')); c = u || (known ? st : 0) || (FULL1 ? 2 + Math.floor(Math.random() * 2) : 1); } catch (e) { c = 1; } if (!COUNTRIES[c] || !COUNTRIES[c].cfg) c = 1; try { localStorage.setItem('kk_c', String(c)); } catch (e) { } return c; })();
 const FB = {};
-const APP_V = '2026112201';
+const APP_V = '2026112202';
 let CAP = 0;   // bump on every upload (yyyymmddNN)
 const ADMIN = location.hash === '#yonetim';
 let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off, orderByChild, equalTo;
@@ -4566,9 +4566,16 @@ function adminUI() {
   adminEl.querySelectorAll('[data-addc]').forEach(b => b.onclick = async () => {
     const r = b.dataset.addc, v = clean(adminEl.querySelector('#aC_' + r).value); if (v.length < 2) return;
     try {
-      const uid = (await get(ref(db, 'names/' + fold(v.toLocaleLowerCase('tr')).replace(/[.\s]/g, '_')))).val(); if (!uid) return alert('❌ Bu isimde oyuncu bulunamadı');
+      const fv = fold(v.toLocaleLowerCase('tr'));
+      let uid = (await get(ref(db, 'names/' + fv.replace(/[.\s]/g, '_')))).val();
+      if (!uid) {   // isim dizininde yoksa oyuncu listesinde ara (tam ya da başı tutan isim)
+        const all = (await get(ref(db, 'players'))).val() || {}, hits = Object.entries(all).filter(([id, p]) => p && p.name && !p.moved);
+        const ex = hits.find(([id, p]) => fold(p.name.toLocaleLowerCase('tr')) === fv) || hits.find(([id, p]) => fold(p.name.toLocaleLowerCase('tr')).startsWith(fv));
+        if (ex) uid = ex[0];
+      }
+      if (!uid) return alert('❌ "' + v + '" adında oyuncu bulunamadı. Oyuncu listesindeki adını aynen yaz.');
       const nm = (await get(ref(db, `players/${uid}/name`))).val() || v, pid = PARTYOF[uid], p = parties[pid];
-      if (PROLES.includes(r) && !p) return alert('❌ Belediye Başkanı / Muhtar adayı bir partiye üye olmalı');
+      if (PROLES.includes(r) && !p && !confirm(`${nm} bir partiye üye değil. Bağımsız aday olarak eklensin mi?`)) return;
       await set(ref(db, `elections/${r}/cands/${uid}`), Object.assign({ name: nm, votes: 0 }, p ? { p: pid, pn: p.name, c: p.c, s: p.s } : {}));
       say(`🗳 <b>${esc(nm)}</b> ${ROLES[r].n} adayı oldu!`, true); alert(`✅ ${nm} aday eklendi`); adminUI();
     } catch (e) { alert('❌ ' + e.message); }
