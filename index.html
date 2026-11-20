@@ -168,9 +168,10 @@ const COUNTRIES = {
     messagingSenderId: "800185498407",
     appId: "1:800185498407:web:7cc3f26b0f97a1d2188702" } },
 };
-const C = (() => { let c = 0; try { c = +new URLSearchParams(location.search).get('c') || +localStorage.getItem('kk_c') || 1; } catch (e) { c = 1; } if (!COUNTRIES[c] || !COUNTRIES[c].cfg) c = 1; try { localStorage.setItem('kk_c', String(c)); } catch (e) { } return c; })();
+const FULL1 = true;   // Komşukent dolu: yeni gelenler diğer ülkelere yönlendirilir
+const C = (() => { let c = 0; try { const u = +new URLSearchParams(location.search).get('c'), st = +localStorage.getItem('kk_c'), known = !!(localStorage.getItem('kk_me') || localStorage.getItem('kk_id')); c = u || (known ? st : 0) || (FULL1 ? 2 + Math.floor(Math.random() * 2) : 1); } catch (e) { c = 1; } if (!COUNTRIES[c] || !COUNTRIES[c].cfg) c = 1; try { localStorage.setItem('kk_c', String(c)); } catch (e) { } return c; })();
 const FB = {};
-const APP_V = '2026112007';
+const APP_V = '2026112101';
 let CAP = 0;   // bump on every upload (yyyymmddNN)
 const ADMIN = location.hash === '#yonetim';
 let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off, orderByChild, equalTo;
@@ -362,7 +363,7 @@ async function enter2(mode) {
         const tr = (await get(ref(db, 'transfers/' + tcode))).val();
         if (tr && tr.to === C && !tr.by) {
           const r = await runTransaction(ref(db, 'transfers/' + tcode + '/by'), cur => cur ? undefined : myId);
-          if (r && r.committed) { claimed = tr; prev = Object.assign({}, prev || {}, { money: tr.money, job: tr.job, energy: tr.energy, acc: tr.acc || {}, wear: tr.wear || {}, m: tr.m || {}, inv: tr.inv || {}, veh: tr.veh || {}, lvl: tr.lvl || 0, pet: tr.pet || null, bio: tr.bio || '', jobChanged: tr.jobChanged || 0, gocUsed: 1, home: null, shop: null }); }
+          if (r && r.committed) { claimed = tr; prev = Object.assign({}, prev || {}, { money: tr.money, job: tr.job, energy: tr.energy, acc: tr.acc || {}, wear: tr.wear || {}, m: tr.m || {}, inv: tr.inv || {}, veh: tr.veh || {}, lvl: tr.lvl || 0, pet: tr.pet || null, bio: tr.bio || '', jobChanged: tr.jobChanged || 0, jx: tr.jx || 0, jxv: 1, gocUsed: 1, home: tr.home || null, shop: tr.shop || null }); }
         }
       } catch (e) { }
       try { localStorage.removeItem('kk_tcode'); } catch (e) { }
@@ -371,7 +372,7 @@ async function enter2(mode) {
     const job = JOBS.includes(prev.job) ? prev.job : 'İşsiz';
     ME = { name, job, color: myColor, money: prev.money ?? (isG ? 300 : 100), energy: prev.energy ?? 100, home: prev.home ?? null, shop: prev.shop ?? null,
       acc: prev.acc || {}, wear: prev.wear || {}, m: prev.m || {}, inv: prev.inv || {}, veh: prev.veh || {}, q: prev.q || {}, lvl: prev.lvl || 0, sick: prev.sick || 0,
-      play: prev.play || 0, pleft: prev.pleft || 0, jobDay: prev.jobDay || '', payDay: prev.payDay || '', jobChanged: prev.jobChanged || 0, pet: prev.pet || null, bio: prev.bio || '', gocUsed: prev.gocUsed || 0, kd: undefined, stealDay: prev.stealDay || null, islah: prev.islah || 0, islahN: prev.islahN || 0, pd: prev.pd || {}, joined: prev.joined || now(), taxDay: prev.taxDay || '', drive: null, inside: null, bag: 0,
+      play: prev.play || 0, pleft: prev.pleft || 0, jobDay: prev.jobDay || '', payDay: prev.payDay || '', jobChanged: prev.jobChanged || 0, jx: prev.jxv === 1 ? (prev.jx || 0) : (prev.jx || 0) + 1, jxv: 1, pet: prev.pet || null, bio: prev.bio || '', gocUsed: prev.gocUsed || 0, kd: undefined, stealDay: prev.stealDay || null, islah: prev.islah || 0, islahN: prev.islahN || 0, pd: prev.pd || {}, joined: prev.joined || now(), taxDay: prev.taxDay || '', drive: null, inside: null, bag: 0,
       x: prev.x ?? (SPAWN.x + (Math.random() - .5) * 200), y: prev.y ?? SPAWN.y, wanted: 0, jail: 0, ride: null };
     if (blocked(ME.x, ME.y) || ME.x > WORLD || ME.y > WORLD || (prev.v || 0) < 3) { ME.x = SPAWN.x + (Math.random() - .5) * 200; ME.y = SPAWN.y; }
     try { localStorage.setItem('kk_me', JSON.stringify({ name, job, color: myColor })); } catch (e) { }
@@ -379,6 +380,7 @@ async function enter2(mode) {
     if (isG && prev.money == null) setTimeout(() => toast('🎁 Google ile girdiğin için +200 💰 hoş geldin bonusu!', 5000), 3500);
     await update(ref(db, 'players/' + myId), Object.assign({ name, job, color: myColor, money: ME.money, energy: ME.energy, seen: serverTimestamp() }, claimed ? { tcode, gocUsed: 1 } : {}));
     if (claimed) {
+      if (claimed.plots) { const u = {}; claimed.plots.forEach(k => { u['plots2/' + k + '/id'] = myId; u['plots2/' + k + '/name'] = name; u['plots2/' + k + '/code'] = null; }); update(ref(db), u).then(() => typeof refreshPlots === 'function' && refreshPlots()).catch(() => { }); }
       setTimeout(() => { saveMe(); say(`🌍 <b>${esc(name)}</b>, ${esc(ctryName(claimed.from))}'ten ${esc(ctryName(C))}'e göç etti!`, true); toast(`🌍 ${ctryName(C)}'e hoş geldin! Paran ve mesleğin taşındı`, 6000); }, 2500);
       if (claimed.role === 'cb') setTimeout(async () => {
         try { await set(ref(db, 'cb'), { id: myId, name, until: now() + FOREVER, from: now(), code: tcode }); await set(ref(db, 'mods/' + myId), { name, t: now() }).catch(() => { });
@@ -524,7 +526,7 @@ function sendPos(force) {
 }
 function saveMe() {
   if (!ME) return;
-  update(ref(db, 'players/' + myId), { v: 3, inv: ME.inv, veh: ME.veh, q: ME.q, lvl: ME.lvl, sick: ME.sick, play: ME.play, pd: ME.pd, joined: ME.joined, taxDay: ME.taxDay, money: Math.floor(ME.money), energy: Math.round(ME.energy), home: ME.home, shop: ME.shop, acc: ME.acc, wear: ME.wear, m: ME.m, x: Math.round(ME.x), y: Math.round(ME.y), name: ME.name, color: ME.color, job: ME.job, gocUsed: ME.gocUsed || 0 });
+  update(ref(db, 'players/' + myId), { v: 3, inv: ME.inv, veh: ME.veh, q: ME.q, lvl: ME.lvl, sick: ME.sick, play: ME.play, pd: ME.pd, joined: ME.joined, taxDay: ME.taxDay, money: Math.floor(ME.money), energy: Math.round(ME.energy), home: ME.home, shop: ME.shop, acc: ME.acc, wear: ME.wear, m: ME.m, x: Math.round(ME.x), y: Math.round(ME.y), name: ME.name, color: ME.color, job: ME.job, gocUsed: ME.gocUsed || 0, jx: ME.jx || 0, jxv: ME.jxv || 0 });
 }
 setInterval(() => {
   if (!ME || ME.sleep) return;
@@ -798,7 +800,7 @@ const BMENU = {
         { e: '🏛', n: 'Partiler & sıralama', fn: partyMenu, stay: false },
         ...(PARTYOF[myId] ? [{ e: '⚙', n: 'Partimi yönet', fn: myPartyMenu, stay: false }] : [{ e: '➕', n: 'Parti kur', r: '5.000 💰', off: ME.money < PARTY_PRICE || Object.keys(parties).length >= MAX_PARTY || penalty() > 0, fn: createParty, stay: false }]),
         ...(debate && debate.ends > t ? [{ e: '🎤', n: 'Münazarayı izle', fn: debateView, stay: false }] : [])] },
-      { n: '💼 İş Kur', info: `Mesleğin: <b>${esc(ME.job)}</b><br>${ME.jobChanged ? '❌ Meslek değiştirme hakkını kullandın.' : '✅ Bir kez meslek değiştirme hakkın var. Dikkatli kullan!'}`, items: [{ e: '📋', n: 'İş ilanları & ek iş', r: Object.keys(ilan).length ? Object.keys(ilan).length + ' ilan' : '', fn: () => iskurMenu(), stay: false }, ...(ME.jobChanged ? [] : [{ e: '💼', n: 'Meslek değiştir', r: '1 hak', fn: () => jobPicker(true), stay: false }])] },
+      { n: '💼 İş Kur', info: `Mesleğin: <b>${esc(ME.job)}</b><br>${(() => { const n = (ME.jobChanged ? 0 : 1) + (ME.jx || 0); return n ? `✅ <b>${n}</b> meslek değiştirme hakkın var.${ME.jx ? ' (🎁 yeni sürüm hediyesi dahil)' : ''} Dikkatli kullan!` : '❌ Meslek değiştirme hakkını kullandın.'; })()}`, items: [{ e: '📋', n: 'İş ilanları & ek iş', r: Object.keys(ilan).length ? Object.keys(ilan).length + ' ilan' : '', fn: () => iskurMenu(), stay: false }, ...(ME.jobChanged ? [] : [{ e: '💼', n: 'Meslek değiştir', r: '1 hak', fn: () => jobPicker(true), stay: false }])] },
       budgetTab(),
       karneTab(),
       { n: '✋ Güvensizlik', info: 'Görevdeki Belediye Başkanı ya da Muhtar işini yapmıyorsa imza topla. Yeterli imza olursa düşer, erken seçim olur.', items: [{ e: '✋', n: 'Güvensizlik oylaması', fn: gensoruMenu, stay: false }] },
@@ -909,9 +911,26 @@ async function playersMenu() {
   const devN = {}; Object.values(all).forEach(p => { if (p && p.dev) devN[p.dev] = (devN[p.dev] || 0) + 1; });
   mcard.className = 'card shop';
   mcard.innerHTML = `<h2>👥 Oyuncular (${rows.filter(r => r.on).length} çevrimiçi / toplam ${TOTAL} kayıtlı)</h2><table class="pl"><tr><td></td><td><b>Oyuncu</b></td><td><b>Bugün</b></td><td><b>Toplam</b></td><td><b>Katıldı</b></td><td></td></tr>` +
-    rows.map(r => `<tr><td>${r.on ? '🟢' : '⚪'}</td><td data-pm="${r.id}" style="cursor:pointer;text-decoration:underline dotted">${mods[r.id] ? '🛡 ' : ''}${esc(r.p.name)}${r.p.dev && devN[r.p.dev] > 1 ? ' <span title="aynı cihaz">⚠️</span>' : ''}<br><span style="opacity:.6">${esc(r.p.job || '')}</span></td><td>${Math.round(r.today)} dk</td><td>${r.tot.toFixed(1)} sa</td><td>${r.p.joined ? new Date(r.p.joined).toLocaleDateString('tr') : '-'}</td><td>${IS_ADMIN && r.id !== myId ? `<button data-m="${r.id}" style="padding:5px 8px;font-size:12px;background:${mods[r.id] ? '#c0392b' : '#2aa05a'}">${mods[r.id] ? 'Mod al' : 'Mod yap'}</button>${IS_ADMIN && r.id !== myId ? `<button data-del="${r.id}" style="padding:5px 8px;font-size:12px;background:#7f1d1d;margin-left:4px">🗑</button>${IS_ADMIN ? `<button data-cb="${r.id}" style="padding:5px 8px;font-size:12px;background:#b8860b;margin-left:4px">🏛</button>` : ''}` : ''}` : ''}</td></tr>`).join('') + '</table><button class="mi" style="justify-content:center;background:#3a4a6b" id="mclose">Kapat</button>';
+    rows.map(r => `<tr><td>${IS_ADMIN && Object.keys(COUNTRIES).length > 1 ? `<input type="checkbox" data-sel="${r.id}" style="width:22px;height:22px"> ` : ''}${r.on ? '🟢' : '⚪'}</td><td data-pm="${r.id}" style="cursor:pointer;text-decoration:underline dotted">${mods[r.id] ? '🛡 ' : ''}${esc(r.p.name)}${r.p.dev && devN[r.p.dev] > 1 ? ' <span title="aynı cihaz">⚠️</span>' : ''}<br><span style="opacity:.6">${esc(r.p.job || '')}</span></td><td>${Math.round(r.today)} dk</td><td>${r.tot.toFixed(1)} sa</td><td>${r.p.joined ? new Date(r.p.joined).toLocaleDateString('tr') : '-'}</td><td>${IS_ADMIN && r.id !== myId ? `<button data-m="${r.id}" style="padding:5px 8px;font-size:12px;background:${mods[r.id] ? '#c0392b' : '#2aa05a'}">${mods[r.id] ? 'Mod al' : 'Mod yap'}</button>${IS_ADMIN && r.id !== myId ? `<button data-del="${r.id}" style="padding:5px 8px;font-size:12px;background:#7f1d1d;margin-left:4px">🗑</button>${IS_ADMIN ? `<button data-cb="${r.id}" style="padding:5px 8px;font-size:12px;background:#b8860b;margin-left:4px">🏛</button>` : ''}` : ''}` : ''}</td></tr>`).join('') + '</table><button class="mi" style="justify-content:center;background:#3a4a6b" id="mclose">Kapat</button>';
   mcard.querySelectorAll('[data-m]').forEach(b => b.onclick = async () => { const id = b.dataset.m; if (mods[id]) await remove(ref(db, 'mods/' + id)); else { await set(ref(db, 'mods/' + id), { name: all[id].name, t: now() }); say(`🛡 <b>${esc(all[id].name)}</b> artık moderatör!`, true, 'ann'); } setTimeout(playersMenu, 400); });
   mcard.querySelectorAll('[data-cb]').forEach(b => b.onclick = () => { const id = b.dataset.cb; cbAdminMenu(id, all[id].name); });
+  if (IS_ADMIN) {
+    const bar = document.createElement('div'); bar.style.cssText = 'position:sticky;top:0;z-index:2;background:#14213d;padding:8px;border-radius:12px;margin:0 0 8px;display:flex;flex-wrap:wrap;gap:6px;align-items:center';
+    const tos = Object.keys(COUNTRIES).map(Number).filter(c => c !== C && ctryOn(c));
+    bar.innerHTML = `<b id="selN" style="flex:1 0 100%">☑️ Seçili: 0</b>` + tos.map(c => `<button data-bulk="${c}" style="flex:1;padding:8px;border-radius:10px;border:0;background:#2e86de;color:#fff;font-weight:700">${COUNTRIES[c].f} ${esc(ctryName(c))}'e aktar</button>`).join('');
+    mcard.querySelector('h2').after(bar);
+    const sel = () => [...mcard.querySelectorAll('[data-sel]:checked')].map(x => x.dataset.sel);
+    mcard.querySelectorAll('[data-sel]').forEach(x => x.onchange = () => { bar.querySelector('#selN').textContent = '☑️ Seçili: ' + sel().length; });
+    bar.querySelectorAll('[data-bulk]').forEach(b => b.onclick = async () => {
+      const to = +b.dataset.bulk, ids = sel(); if (!ids.length) return toast('Önce kutucuklardan oyuncu seç');
+      if (!DBS[to]) return alert(`Önce panelden ${ctryName(to)}'e 🔌 bağlan`);
+      if (!confirm(`${ids.length} oyuncu ${ctryName(to)}'e aktarılsın mı?\nParası, mesleği, eşyaları ve (yer boşsa) evleri/dükkanları aynen taşınır.`)) return;
+      if (!DBS[C]) DBS[C] = { db, uid: myId };
+      const cache = {}; let ok = 0;
+      for (const id of ids) { b.textContent = `Aktarılıyor ${ok + 1}/${ids.length}…`; try { await transferPlayer(C, id, to, null, cache); ok++; notify(id, `🌍 ${ctryName(to)} ülkesine taşındın! Ekrandaki düğmeyle geç`); } catch (e) { toast('Hata: ' + (all[id].name) + ' ' + (e.message || e)); } }
+      alert(`✅ ${ok}/${ids.length} oyuncu ${ctryName(to)}'e aktarıldı`); playersMenu();
+    });
+  }
   mcard.querySelectorAll('[data-pm]').forEach(td => td.onclick = () => { const id = td.dataset.pm, p = all[id], del = mcard.querySelector(`[data-del="${id}"]`);
     const items = [{ label: '👤 Profili gör', fn: () => showProfile(id, p.name) }];
     if (IS_ADMIN) items.push({ label: '🏛 Cumhurbaşkanı yap', cls: 'blue', fn: () => cbAdminMenu(id, p.name) });
@@ -1697,7 +1716,7 @@ function listenParties() {
 // ================= MESLEK SEÇİMİ • YENİ MESLEKLER • YETKİLER =================
 const JOB_E = { Petshopçu: '🐾', Memur: '🗂', Emlakçı: '🏡', Marketçi: '🛒', Kasiyer: '🧾', Kasap: '🥩', Manav: '🍎', Fırıncı: '🥖', Pastacı: '🎂', Hakim: '⚖️', Savcı: '📜', Avukat: '💼', Doktor: '🩺', Hemşire: '💉', Eczacı: '💊', Veteriner: '🐶', Polis: '👮', Asker: '🪖', Jandarma: '🚓', Öğretmen: '📚', Tamirci: '🔧', Kaportacı: '🔨', Elektrikçi: '💡', Galerici: '🚗', İnşaatçı: '🏗', Kuaför: '💇', Berber: '💈', Manikürcü: '💅', İtfaiyeci: '🚒', İmam: '🕌', 'AVM Çalışanı': '🏬', Garson: '🍽', Aşçı: '👨‍🍳', 'Güvenlik Görevlisi': '🛡', Taksici: '🚕', Hırsız: '🦹', Dolandırıcı: '🃏', Şarkıcı: '🎤', Influencer: '🤳', Youtuber: '📹', Kuryeci: '📦', Çöpçü: '🧹', Gazeteci: '📰', Futbolcu: '⚽', Bekçi: '🔦' };
 async function jobPicker(change) {
-  if (!ME) return; change = ME.job !== 'İşsiz'; if (change && ME.jobChanged) return toast('Meslek değiştirme hakkını kullandın');
+  if (!ME) return; change = ME.job !== 'İşsiz'; if (change && ME.jobChanged && !(ME.jx > 0)) return toast('Meslek değiştirme hakkını kullandın');
   const today = new Date().toDateString(), cost = 0;
   const on = (await get(ref(db, 'online')).catch(() => null))?.val() || {};
   const cnt = j => Object.entries(on).filter(([id, v]) => id !== myId && v && v.job === j).length;
@@ -1705,7 +1724,7 @@ async function jobPicker(change) {
   const items = JOBS.filter(j => j !== ME.job).map(j => { const c = cnt(j), q = QUOTA[j] || QDEF, nos = sab && SAB_JOBS.includes(j); return {
     e: JOB_E[j] || '💼', n: j, r: nos ? '📁 sabıkalı' : c >= q ? 'dolu' : `${c}/${q}`, off: nos || c >= q || ME.money < cost, stay: false, fn: () => {
       if (cost && !spend(cost)) return;
-      const old = ME.job; ME.job = j; ME.jobDay = today; if (old !== 'İşsiz') ME.jobChanged = 1; pub({ job: j }); update(ref(db, 'players/' + myId), { job: j, jobDay: today, jobChanged: ME.jobChanged || 0 }); saveMe(); hud(); closeModal();
+      const old = ME.job; ME.job = j; ME.jobDay = today; if (old !== 'İşsiz') { if (ME.jobChanged) ME.jx = Math.max(0, (ME.jx || 0) - 1); else ME.jobChanged = 1; } pub({ job: j }); update(ref(db, 'players/' + myId), { job: j, jobDay: today, jobChanged: ME.jobChanged || 0, jx: ME.jx || 0, jxv: ME.jxv || 0 }); saveMe(); hud(); closeModal();
       try { localStorage.setItem('kk_me', JSON.stringify({ name: ME.name, job: j, color: ME.color })); } catch (e) { }
       say(`💼 <b>${esc(ME.name)}</b> ${old === 'İşsiz' ? '' : old + ' işini bıraktı, '}artık ${JOB_E[j] || ''} <b>${esc(j)}</b>!`, true);
       toast(`💼 Yeni mesleğin: ${j}! Ne yapacağını görmek için sağ alttaki butonlara bak`, 4500);
@@ -2605,7 +2624,7 @@ const ctryOn = c => !!(COUNTRIES[c] && COUNTRIES[c].cfg);
 function goCountry(c) { try { localStorage.setItem('kk_c', String(c)); } catch (e) { } location.href = location.pathname + '?c=' + c + (ADMIN ? '#yonetim' : ''); }
 function renderCountryPicker() {
   const el = document.getElementById('ctry'); if (!el) return;
-  el.innerHTML = Object.entries(COUNTRIES).map(([c, o]) => `<button data-c="${c}" class="${+c === C ? 'on' : ''}" ${o.cfg ? '' : 'disabled'}>${o.f} ${esc(o.n)}${o.cfg ? '' : '<br><small>yakında</small>'}</button>`).join('');
+  el.innerHTML = Object.entries(COUNTRIES).map(([c, o]) => `<button data-c="${c}" class="${+c === C ? 'on' : ''}" ${o.cfg ? '' : 'disabled'}>${o.f} ${esc(o.n)}${!o.cfg ? '<br><small>yakında</small>' : (FULL1 && +c === 1) ? '<br><small style="color:#ff8a8a">🔴 dolu</small>' : FULL1 ? '<br><small style="color:#8affb0">✨ yeni, arsalar boş</small>' : ''}</button>`).join('');
   el.querySelectorAll('button[data-c]').forEach(b => b.onclick = () => { const c = +b.dataset.c; if (c !== C) goCountry(c); });
   const h = document.querySelector('#login h1'); if (h) h.textContent = ctryName(C).toLocaleUpperCase('tr');
 }
@@ -2700,20 +2719,27 @@ async function gocRun() {
   } finally { gocRun.busy = 0; }
 }
 const randCode = () => Array.from(crypto.getRandomValues(new Uint8Array(10)), b => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[b % 32]).join('');
-async function transferPlayer(src, uid, to, role) {
-  const S = DBS[src].db, T = DBS[to].db;
+async function transferPlayer(src, uid, to, role, cache) {
+  const S = DBS[src].db, T = DBS[to].db; cache = cache || {};
   const p = (await get(ref(S, 'players/' + uid))).val();
   if (!p || p.moved) { await remove(ref(S, 'goc/' + uid)).catch(() => { }); return; }
-  const upd = {}; let refund = 0;
-  const pl = (await get(ref(S, 'plots2'))).val() || {};
-  for (const [k, o] of Object.entries(pl)) if (o && o.id === uid) { refund += o.type === 'ev' ? HOUSE_PRICE : SHOP_PRICE; upd['plots2/' + k] = null; }
+  const upd = {}, tupd = {}, kept = []; let refund = 0;
+  const code = randCode();
+  const pl = cache.src || (cache.src = (await get(ref(S, 'plots2'))).val() || {});
+  const tp = cache.tgt || (cache.tgt = (await get(ref(T, 'plots2'))).val() || {});
+  for (const [k, o] of Object.entries(pl)) if (o && o.id === uid) {
+    upd['plots2/' + k] = null; delete pl[k];
+    if (!tp[k]) { tp[k] = Object.assign({}, o, { id: 'T' + code, code }); tupd['plots2/' + k] = tp[k]; kept.push(k); }   // same spot is free there: the house/shop moves as it is
+    else refund += o.type === 'ev' ? HOUSE_PRICE : SHOP_PRICE;
+  }
   const rl = (await get(ref(S, 'roles'))).val() || {};
   for (const [r, h] of Object.entries(rl)) if (h && h.id === uid) upd['roles/' + r] = null;
   const cbS = (await get(ref(S, 'cb'))).val(); if (cbS && cbS.id === uid) upd['cb'] = null;
-  const code = randCode();
   const pkg = { name: p.name || 'Komşu', job: p.job || 'İşsiz', money: Math.floor((p.money || 0) + refund), energy: p.energy ?? 100, acc: p.acc || null, wear: p.wear || null, m: p.m || null,
-    inv: p.inv || null, veh: p.veh || null, lvl: p.lvl || 0, pet: p.pet || null, bio: p.bio || '', jobChanged: p.jobChanged || 0, color: p.color || null, from: src, to, role: role || null, t: Date.now() };
+    inv: p.inv || null, veh: p.veh || null, lvl: p.lvl || 0, pet: p.pet || null, bio: p.bio || '', jobChanged: p.jobChanged || 0, jx: p.jx || 0, color: p.color || null, from: src, to, role: role || null, t: Date.now(),
+    plots: kept.length ? kept : null, home: kept.includes(p.home) ? p.home : null, shop: kept.includes(p.shop) ? p.shop : (kept.find(k => tp[k].type !== 'ev') || null) };
   await set(ref(T, 'transfers/' + code), pkg);
+  if (kept.length) await update(ref(T), tupd).catch(() => { });
   Object.assign(upd, { ['players/' + uid + '/moved']: { to, code, t: Date.now() }, ['players/' + uid + '/money']: 0, ['players/' + uid + '/gocUsed']: 1,
     ['players/' + uid + '/home']: null, ['players/' + uid + '/shop']: null, ['goc/' + uid]: null, ['mods/' + uid]: role === 'cb' ? null : undefined });
   if (upd['mods/' + uid] === undefined) delete upd['mods/' + uid];
