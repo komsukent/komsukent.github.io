@@ -172,7 +172,7 @@ const COUNTRIES = {
 let FULL1 = true; try { FULL1 = localStorage.getItem('kk_full1') !== '0'; } catch (e) { }   // Komşukent dolu mu: yönetici panelden açar/kapatır (pub/full1)
 const C = (() => { let c = 0; try { const u = +new URLSearchParams(location.search).get('c'), st = +localStorage.getItem('kk_c'), known = !!(localStorage.getItem('kk_me') || localStorage.getItem('kk_id')); c = u || (known ? st : 0) || (FULL1 ? 2 + Math.floor(Math.random() * 2) : 1); } catch (e) { c = 1; } if (!COUNTRIES[c] || !COUNTRIES[c].cfg) c = 1; try { localStorage.setItem('kk_c', String(c)); } catch (e) { } return c; })();
 const FB = {};
-const APP_V = '2026112112';
+const APP_V = '2026112113';
 let CAP = 0;   // bump on every upload (yyyymmddNN)
 const ADMIN = location.hash === '#yonetim';
 let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off, orderByChild, equalTo;
@@ -2111,11 +2111,13 @@ function budgetTab() {
 }
 async function spendCity(k) {
   const b = BUDGET[k]; if ((myRole() !== 'baskan' && !isCB()) || cityOn(k)) return;
-  const r = await runTransaction(ref(db, isCB() ? 'city/cbk' : 'city/kasa'), x => (x || 0) >= b.p ? (x || 0) - b.p : undefined).catch(() => null);
-  if (!r || !r.committed) return toast('Kasada yeterli para yok');
-  await set(ref(db, 'city/' + k), now() + b.ms).catch(() => { });
+  let left = 0;
+  if (isCB()) { const er = await cbkTake(b.p); if (er) return toast(er, 6000); left = cbk(); }
+  else { const r = await runTransaction(ref(db, 'city/kasa'), x => (x || 0) >= b.p ? (x || 0) - b.p : undefined).catch(e => ({ err: e }));
+    if (!r || !r.committed) return toast(r && r.err ? 'Kasa işlemi reddedildi: ' + r.err.message : 'Kasada yeterli para yok', 6000); left = r.snapshot.val() || 0; }
+  await set(ref(db, 'city/' + k), now() + b.ms).catch(e => toast('Kaydedilemedi: ' + e.message, 6000));
   cityLog(b.n, b.p); say(`🏛 ${isCB() ? 'Cumhurbaşkanı' : 'Belediye Başkanı'} <b>${esc(ME.name)}</b>: ${b.n}! ${b.d}`, true, 'ann');
-  if ((r.snapshot.val() || 0) < 100) kasaCrisis();
+  if (!isCB() && left < 100) kasaCrisis();
 }
 async function payday() {
   if (!ME || !db) return; const r0 = myRole(), amt = r0 ? 300 : ME.job === 'Memur' ? 100 : 0, d = today();
@@ -3504,14 +3506,21 @@ function ecoCbMenu() {
   ];
   modal('🏭 Ekonomi • yatırım', items, `<p>🏛 Cumhurbaşkanlığı kasası: <b>${cbk().toLocaleString('tr')} 💰</b><br>📈 GSYİH: <b>${Math.floor(CITY.gdp || 0).toLocaleString('tr')}</b>${kurak() ? '<br>🌵 Kuraklık var: hasat yarıya düştü' : ''}</p><p style="font-size:13px">📦 Depo: ${depoTxt()}</p><p style="font-size:12px;opacity:.8">Bu kasa sadece ülkeye yatırım için. Senin maaşın günde 300 💰 buradan otomatik yatar.</p>`);
 }
+async function cbkTake(cost) {   // Cumhurbaşkanlığı kasasından güvenli çekim: '' = tamam, yoksa hata metni
+  try { await get(ref(db, 'city/cbk')); } catch (e) { }
+  let took = false;
+  try {
+    const r = await runTransaction(ref(db, 'city/cbk'), x => { took = false; if (x === null || x === undefined) return 0; if (x >= cost) { took = true; return x - cost; } return; });
+    return r && r.committed && took ? '' : `Kasada yeterli para yok (kasa ${cbk().toLocaleString('tr')} 💰, gereken ${cost.toLocaleString('tr')} 💰)`;
+  } catch (e) { return 'Kasa işlemi reddedildi: ' + (e && e.message || e); }
+}
 async function invest(kind, sub) {
   if (!isCB()) return; const e = eco();
   const cost = kind === 'tarla' ? ECO_COST.tarla[e.tarla || 0] : kind === 'maden' ? ECO_COST.maden[e.maden || 0] : kind === 'liman' ? (e.liman ? 0 : ECO_COST.liman) : (e.fab || {})[sub] ? 0 : ECO_COST.fab;
   if (!cost) return;
-  const r = await runTransaction(ref(db, 'city/cbk'), x => (x || 0) >= cost ? (x || 0) - cost : undefined).catch(() => null);
-  if (!r || !r.committed) return toast('Kasada yeterli para yok');
+  const er = await cbkTake(cost); if (er) return toast(er, 6000);
   const path = kind === 'fab' ? 'city/eco/fab/' + sub : 'city/eco/' + kind, val = kind === 'tarla' || kind === 'maden' ? (e[kind] || 0) + 1 : 1;
-  try { await set(ref(db, path), val); } catch (x) { runTransaction(ref(db, 'city/cbk'), y => (y || 0) + cost).catch(() => { }); return toast('Yatırım yapılamadı'); }
+  try { await set(ref(db, path), val); } catch (x) { runTransaction(ref(db, 'city/cbk'), y => (y || 0) + cost).catch(() => { }); return toast('Yatırım yapılamadı: ' + (x && x.message || x), 6000); }
   const what = kind === 'tarla' ? `tarlaları genişletti (${tarlaN() + 4} parsel)` : kind === 'maden' ? 'madeni derinleştirdi' : kind === 'liman' ? 'limanı açtı! 🚢 Artık ihracat var' : `${PROD[sub].e} ${PROD[sub].n} üretim hattını açtı! Fabrika işçileri iş başına`;
   cityLog('Yatırım: ' + kind + (sub ? ' ' + sub : ''), cost);
   say(`🏛 Cumhurbaşkanı <b>${esc(ME.name)}</b> ${what} (${cost.toLocaleString('tr')} 💰)`, true, 'ann');
@@ -3520,8 +3529,7 @@ async function invest(kind, sub) {
 async function cbPayday() {
   if (!ME || !db || !isCB() || cbPayday.busy) return; const d = today(); if (ME.cbPd === d) return; cbPayday.busy = 1;
   try {
-    const r = await runTransaction(ref(db, 'city/cbk'), x => (x || 0) >= 300 ? (x || 0) - 300 : undefined).catch(() => null);
-    if (r && r.committed) {
+    if (!(await cbkTake(300))) {
       ME.cbPd = d; await update(ref(db, 'players/' + myId), { cbPd: d }).catch(() => { });
       ME.money += 300; syncMoney();
       hud(); toast('🏛 Cumhurbaşkanı maaşı: 300 💰 yattı', 5000);
