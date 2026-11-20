@@ -54,6 +54,7 @@ button:disabled{opacity:.45}
 .mi span{color:#ffd23f;font-size:13px}
 .row{display:flex;gap:8px;flex-wrap:wrap}.row button{flex:1}
 #cols{display:flex;gap:8px;flex-wrap:wrap}
+#ctry{display:flex;gap:6px;margin:0 0 10px}#ctry button{flex:1;padding:8px 4px;border-radius:12px;border:2px solid transparent;background:#2a3b60;color:#fff;font-weight:700;font-size:13px}#ctry button.on{border-color:#ffd23c;background:#3b5285}#ctry button:disabled{opacity:.45}
 .sw{width:34px;height:34px;border-radius:50%;border:3px solid transparent;cursor:pointer}.sw.on{border-color:#fff}
 #go{width:100%;margin-top:18px;font-size:18px;padding:14px}
 .lg{width:100%;margin-top:10px;font-size:17px;padding:13px}
@@ -122,6 +123,7 @@ table.pl{width:100%;font-size:12px;border-collapse:collapse}table.pl td{padding:
 
 <div id="panel"><div class="card" id="login">
 <h1>KOMŞUKENT</h1>
+<div id="ctry"></div>
 <p style="text-align:center">Şehre taşın, meslek seç, para kazan, evini al!</p>
 <label>Kullanıcı adın <span style="opacity:.7">(sadece misafir girişi için)</span></label>
 <input id="name" maxlength="24" placeholder="ör. komsukent" autocomplete="off" autocapitalize="off">
@@ -146,7 +148,15 @@ const CFG = {
   messagingSenderId: "734007209872",
   appId: "1:734007209872:web:1b379478026d6f73de4d15"
 };
-const APP_V = '2026111910';
+// ---- ÜLKELER: 2. ve 3. ülkenin firebaseConfig'i gelince cfg: null yerine yapıştırılır
+const COUNTRIES = {
+  1: { n: 'Komşukent', f: '🏙', cfg: CFG },
+  2: { n: 'Ülke 2', f: '🌄', cfg: null },
+  3: { n: 'Ülke 3', f: '🏝', cfg: null },
+};
+const C = (() => { let c = 0; try { c = +new URLSearchParams(location.search).get('c') || +localStorage.getItem('kk_c') || 1; } catch (e) { c = 1; } if (!COUNTRIES[c] || !COUNTRIES[c].cfg) c = 1; try { localStorage.setItem('kk_c', String(c)); } catch (e) { } return c; })();
+const FB = {};
+const APP_V = '2026112001';
 let CAP = 0;   // bump on every upload (yyyymmddNN)
 const ADMIN = location.hash === '#yonetim';
 let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off, orderByChild, equalTo;
@@ -157,7 +167,8 @@ const fbReady = (async () => {
   const D = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js");
   AU = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js");
   ({ goOffline, goOnline, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off, orderByChild, equalTo } = D);
-  const app = A.initializeApp(CFG);
+  FB.A = A; FB.D = D;
+  const app = A.initializeApp(COUNTRIES[C].cfg);
   db = D.getDatabase(app);
   try { auth = AU.initializeAuth(app, { persistence: [AU.indexedDBLocalPersistence, AU.browserLocalPersistence, AU.inMemoryPersistence], popupRedirectResolver: AU.browserPopupRedirectResolver }); }
   catch (e) { auth = AU.getAuth(app); }
@@ -330,17 +341,36 @@ async function enter2(mode) {
       if (old && old !== myId) { const o = (await get(ref(db, 'players/' + old))).val(); if (o) prev = { money: Math.min(2000, o.money || 0), energy: o.energy, acc: o.acc, wear: o.wear, m: o.m, lvl: o.lvl, inv: o.inv, q: o.q, play: o.play, job: o.job, pd: o.pd, joined: o.joined, pleft: o.pleft }; }
       if (takeFrom) setTimeout(() => toast('👋 Tekrar hoş geldin! Başka cihazdan girdiğin için ilerlemenin bir kısmı taşındı. Kaybetmemek için 👤 → Google\'a bağla', 7000), 3000);
     }
+    if (prev && prev.moved && prev.moved.code) { lbDisable(false); errEl.textContent = ''; movedScreen(prev.moved); return; }
+    let claimed = null, tcode = null; try { tcode = localStorage.getItem('kk_tcode'); } catch (e) { }
+    if (tcode && !(prev && prev.tcode)) {
+      try {
+        const tr = (await get(ref(db, 'transfers/' + tcode))).val();
+        if (tr && tr.to === C && !tr.by) {
+          const r = await runTransaction(ref(db, 'transfers/' + tcode + '/by'), cur => cur ? undefined : myId);
+          if (r && r.committed) { claimed = tr; prev = Object.assign({}, prev || {}, { money: tr.money, job: tr.job, energy: tr.energy, acc: tr.acc || {}, wear: tr.wear || {}, m: tr.m || {}, inv: tr.inv || {}, veh: tr.veh || {}, lvl: tr.lvl || 0, pet: tr.pet || null, bio: tr.bio || '', jobChanged: tr.jobChanged || 0, gocUsed: 1, home: null, shop: null }); }
+        }
+      } catch (e) { }
+      try { localStorage.removeItem('kk_tcode'); } catch (e) { }
+    }
     prev = prev || {};
     const job = JOBS.includes(prev.job) ? prev.job : 'İşsiz';
     ME = { name, job, color: myColor, money: prev.money ?? (isG ? 300 : 100), energy: prev.energy ?? 100, home: prev.home ?? null, shop: prev.shop ?? null,
       acc: prev.acc || {}, wear: prev.wear || {}, m: prev.m || {}, inv: prev.inv || {}, veh: prev.veh || {}, q: prev.q || {}, lvl: prev.lvl || 0, sick: prev.sick || 0,
-      play: prev.play || 0, pleft: prev.pleft || 0, jobDay: prev.jobDay || '', payDay: prev.payDay || '', jobChanged: prev.jobChanged || 0, pet: prev.pet || null, bio: prev.bio || '', kd: undefined, stealDay: prev.stealDay || null, islah: prev.islah || 0, islahN: prev.islahN || 0, pd: prev.pd || {}, joined: prev.joined || now(), taxDay: prev.taxDay || '', drive: null, inside: null, bag: 0,
+      play: prev.play || 0, pleft: prev.pleft || 0, jobDay: prev.jobDay || '', payDay: prev.payDay || '', jobChanged: prev.jobChanged || 0, pet: prev.pet || null, bio: prev.bio || '', gocUsed: prev.gocUsed || 0, kd: undefined, stealDay: prev.stealDay || null, islah: prev.islah || 0, islahN: prev.islahN || 0, pd: prev.pd || {}, joined: prev.joined || now(), taxDay: prev.taxDay || '', drive: null, inside: null, bag: 0,
       x: prev.x ?? (SPAWN.x + (Math.random() - .5) * 200), y: prev.y ?? SPAWN.y, wanted: 0, jail: 0, ride: null };
     if (blocked(ME.x, ME.y) || ME.x > WORLD || ME.y > WORLD || (prev.v || 0) < 3) { ME.x = SPAWN.x + (Math.random() - .5) * 200; ME.y = SPAWN.y; }
     try { localStorage.setItem('kk_me', JSON.stringify({ name, job, color: myColor })); } catch (e) { }
     devAdd(myId); update(ref(db, 'players/' + myId), { dev: devId() }).catch(() => { });
     if (isG && prev.money == null) setTimeout(() => toast('🎁 Google ile girdiğin için +200 💰 hoş geldin bonusu!', 5000), 3500);
-    await update(ref(db, 'players/' + myId), { name, job, color: myColor, money: ME.money, energy: ME.energy, seen: serverTimestamp() });
+    await update(ref(db, 'players/' + myId), Object.assign({ name, job, color: myColor, money: ME.money, energy: ME.energy, seen: serverTimestamp() }, claimed ? { tcode, gocUsed: 1 } : {}));
+    if (claimed) {
+      setTimeout(() => { saveMe(); say(`🌍 <b>${esc(name)}</b>, ${esc(ctryName(claimed.from))}'ten ${esc(ctryName(C))}'e göç etti!`, true); toast(`🌍 ${ctryName(C)}'e hoş geldin! Paran ve mesleğin taşındı`, 6000); }, 2500);
+      if (claimed.role === 'cb') setTimeout(async () => {
+        try { await set(ref(db, 'cb'), { id: myId, name, until: now() + FOREVER, from: now(), code: tcode }); await set(ref(db, 'mods/' + myId), { name, t: now() }).catch(() => { });
+          say(`🏛 <b>${esc(name)}</b>, ${esc(ctryName(C))}'in ilk Cumhurbaşkanı olarak geldi!`, true, 'ann'); toast('🏛 Artık bu ülkenin Cumhurbaşkanısın! 👤 menüsünden yönet', 7000); } catch (e) { }
+      }, 3500);
+    }
     const oref = ref(db, 'online/' + myId);
     onDisconnect(oref).remove();
     await set(oref, profile());
@@ -371,6 +401,8 @@ setInterval(() => { document.getElementById('clock').textContent = (isNight() ? 
 // ================= REALTIME =================
 function listenCommon() {
   if (listenCommon.done) return; listenCommon.done = 1;
+  onValue(ref(db, 'cb'), s => { CB = s.val(); });
+  setTimeout(watchMoved, 1500);
   const oref = ref(db, 'online');
   const upd = s => {
     if (s.key === myId) return; const v = s.val(); if (!v) return;
@@ -478,7 +510,7 @@ function sendPos(force) {
 }
 function saveMe() {
   if (!ME) return;
-  update(ref(db, 'players/' + myId), { v: 3, inv: ME.inv, veh: ME.veh, q: ME.q, lvl: ME.lvl, sick: ME.sick, play: ME.play, pd: ME.pd, joined: ME.joined, taxDay: ME.taxDay, money: Math.floor(ME.money), energy: Math.round(ME.energy), home: ME.home, shop: ME.shop, acc: ME.acc, wear: ME.wear, m: ME.m, x: Math.round(ME.x), y: Math.round(ME.y), name: ME.name, color: ME.color, job: ME.job });
+  update(ref(db, 'players/' + myId), { v: 3, inv: ME.inv, veh: ME.veh, q: ME.q, lvl: ME.lvl, sick: ME.sick, play: ME.play, pd: ME.pd, joined: ME.joined, taxDay: ME.taxDay, money: Math.floor(ME.money), energy: Math.round(ME.energy), home: ME.home, shop: ME.shop, acc: ME.acc, wear: ME.wear, m: ME.m, x: Math.round(ME.x), y: Math.round(ME.y), name: ME.name, color: ME.color, job: ME.job, gocUsed: ME.gocUsed || 0 });
 }
 setInterval(() => {
   if (!ME || ME.sleep) return;
@@ -594,7 +626,7 @@ document.querySelectorAll('#emo button').forEach(b => b.onclick = () => sendMsg(
 msgIn.addEventListener('keydown', e => { if (e.key === 'Enter') sendMsg(); });
 
 // ================= PROFILES & MODERATION =================
-const iAmMod = () => IS_ADMIN || !!mods[myId];
+const iAmMod = () => IS_ADMIN || !!mods[myId] || isCB();
 labelsEl0().addEventListener('click', e => { const el = e.target.closest('[data-pid]'); if (!el) return; const id = el.dataset.pid; if (id === '@me') accountMenu(); else profileMenu(id); });
 function labelsEl0() { return document.getElementById('labels'); }
 function modLog(act, id, name) { push(ref(db, 'modlog'), { by: IS_ADMIN ? 'Yönetici' : ME.name, act, target: name, t: now() }).catch(() => { }); }
@@ -620,6 +652,7 @@ function profileMenu(id, nameHint) {
   }
   if (IS_ADMIN) {
     items.push(targetMod ? { label: '🛡 Moderatörlüğü al', fn: () => remove(ref(db, 'mods/' + id)) } : { label: '🛡 Moderatör yap', fn: () => set(ref(db, 'mods/' + id), { name: o.name, t: now() }).then(() => say(`🛡 <b>${esc(o.name)}</b> artık moderatör!`, true, 'ann')) });
+    items.push({ label: '🏛 Cumhurbaşkanı yap', fn: () => cbAdminMenu(id, o.name) });
     items.push({ label: '⛔ Kalıcı yasakla', fn: () => modal(`⛔ ${esc(o.name)} yasaklansın mı?`, [{ label: 'Evet, yasakla', fn: () => { set(ref(db, 'bans/' + id), { name: o.name, t: now() }); update(ref(db, 'online/' + id), { kick: now() }); modLog('yasakladı', id, o.name); } }]) });
   }
   modal(esc(o.name), items, info);
@@ -637,6 +670,8 @@ function accountMenu() {
     catch (x) { toast(x.code === 'auth/credential-already-in-use' ? 'Bu Google hesabı zaten başka bir oyuncuya bağlı' : (AUTH_ERR[x.code] || 'Bağlanamadı'), 4500); }
   } });
   items.unshift({ label: '👤 Profilim', fn: myProfile }, { label: '✏️ Hakkımda yazısı', fn: editBio });
+  if (isCB()) items.unshift({ label: '🏛 Cumhurbaşkanlığı', cls: 'blue', fn: cbMenu });
+  if (Object.keys(COUNTRIES).some(c => +c !== C && ctryOn(+c))) items.push(ME.gocUsed ? { label: '🌍 Göç hakkını kullandın', disabled: true } : { label: '🌍 Ülke değiştir (1 hakkın var)', fn: gocMenu });
   if (mods[myId]) items.unshift({ label: '🚩 Sohbet şikayetleri', fn: modReports });
   items.push({ label: '🚪 Çıkış yap', fn: async () => { await remove(ref(db, 'online/' + myId)); if (myZone) await remove(ref(db, 'pos/' + myZone + '/' + myId)); await AU.signOut(auth); location.reload(); } });
   modal('👤 Hesabım', items, `<p>${u.isAnonymous ? 'Misafir hesap: başka cihazdan girersen ilerlemen görünmez. Kaybetmemek için Google\'a bağla.' : '✅ Google hesabınla giriş yaptın, ilerlemen her cihazda kayıtlı.'}${mods[myId] ? '<br>🛡 Moderatörsün: oyunculara dokunarak sustur/at yapabilirsin.' : ''}</p>`);
@@ -844,7 +879,7 @@ function questMenu() {
 function afterLogin() {
   const day = new Date().toISOString().slice(0, 10);
   if (ME.taxDay && ME.taxDay !== day) {
-    const tax = Math.round(Object.values(ME.veh).reduce((a, v) => a + VEH[v.t].p * 0.02, 0) + (ME.home ? 30 : 0) + myShops() * 60);
+    const tax = Math.round((Object.values(ME.veh).reduce((a, v) => a + VEH[v.t].p * 0.02, 0) + (ME.home ? 30 : 0) + myShops() * 60) * Math.max(0.5, Math.min(2, +CITY.tax || 1)));
     if (tax > 0) { const paid = Math.min(tax, Math.floor(ME.money)); ME.money -= paid; if (paid > 0) runTransaction(ref(db, 'city/kasa'), k => (k || 0) + paid).catch(() => { }); setTimeout(() => toast(`🧾 Günlük vergi kesildi: ${paid} 💰 → belediye kasasına`, 5000), 2500); }
   }
   ME.taxDay = day; saveMe(); setTimeout(payday, 6000);
@@ -1965,17 +2000,17 @@ async function kasaCrisis() {
   say('🏛 <b>Belediye kasası boşaldı!</b> Güvensizlik oylaması kolaylaştı (Belediye → ✋ Güvensizlik) 😬', true, 'ann');
 }
 function budgetTab() {
-  const t = now(), isB = myRole() === 'baskan', logs = Object.values(CITY.log || {}).sort((a, b) => b.t - a.t).slice(0, 8);
+  const t = now(), isB = myRole() === 'baskan' || isCB(), logs = Object.values(CITY.log || {}).sort((a, b) => b.t - a.t).slice(0, 8);
   const act = Object.entries(BUDGET).filter(([k]) => cityOn(k)).map(([k, b]) => `${b.n.split(' ')[0]} ${b.n.split(' ').slice(1).join(' ')} • ${Math.ceil((CITY[k] - t) / 60000)} dk`).join('<br>');
   return { n: '💰 Bütçe', info: `🏛 Belediye kasası: <b>${Math.floor(CITY.kasa || 0).toLocaleString('tr')} 💰</b><br><small>Günlük vergiler kasaya girer, makam sahiplerine 300, memurlara 100 💰 günlük maaş buradan ödenir.</small>${act ? '<br><br><b>Aktif:</b><br>' + act : ''}${logs.length ? '<br><br><b>Son harcamalar:</b><br>' + logs.map(l => `${esc(l.by)}: ${esc(l.w)} ${l.a ? '(' + l.a + ' 💰)' : ''}`).join('<br>') : ''}${isB ? '' : '<br><br><small>Kasayı sadece Belediye Başkanı harcar.</small>'}`,
     items: isB ? Object.entries(BUDGET).map(([k, b]) => ({ e: b.n.split(' ')[0], n: b.n.split(' ').slice(1).join(' '), r: cityOn(k) ? 'aktif ✓' : b.p.toLocaleString('tr') + ' 💰', off: cityOn(k) || (CITY.kasa || 0) < b.p, fn: () => spendCity(k) })) : [] };
 }
 async function spendCity(k) {
-  const b = BUDGET[k]; if (myRole() !== 'baskan' || cityOn(k)) return;
+  const b = BUDGET[k]; if ((myRole() !== 'baskan' && !isCB()) || cityOn(k)) return;
   const r = await runTransaction(ref(db, 'city/kasa'), x => (x || 0) >= b.p ? (x || 0) - b.p : undefined).catch(() => null);
   if (!r || !r.committed) return toast('Kasada yeterli para yok');
   await set(ref(db, 'city/' + k), now() + b.ms).catch(() => { });
-  cityLog(b.n, b.p); say(`🏛 Belediye Başkanı <b>${esc(ME.name)}</b>: ${b.n}! ${b.d}`, true, 'ann');
+  cityLog(b.n, b.p); say(`🏛 ${isCB() ? 'Cumhurbaşkanı' : 'Belediye Başkanı'} <b>${esc(ME.name)}</b>: ${b.n}! ${b.d}`, true, 'ann');
   if ((r.snapshot.val() || 0) < 100) kasaCrisis();
 }
 async function payday() {
@@ -2049,12 +2084,12 @@ function cityActs(L, b, p) {
 // ---------- device account limit ----------
 const MAX_ACCTS = 2;
 function devId() { try { let d = localStorage.getItem('kk_dev'); if (!d) { d = 'd' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36); localStorage.setItem('kk_dev', d); } return d; } catch (e) { return 'x'; } }
-function devAccts() { try { return JSON.parse(localStorage.getItem('kk_accts') || '[]'); } catch (e) { return []; } }
+function devAccts() { try { return JSON.parse(localStorage.getItem(C === 1 ? 'kk_accts' : 'kk_accts' + C) || '[]'); } catch (e) { return []; } }
 function devCheck(uid) { const L = devAccts(); return L.includes(uid) || L.length < MAX_ACCTS; }
-function devAdd(uid) { try { const L = devAccts(); if (!L.includes(uid)) { L.push(uid); localStorage.setItem('kk_accts', JSON.stringify(L)); } } catch (e) { } }
+function devAdd(uid) { try { const L = devAccts(); if (!L.includes(uid)) { L.push(uid); localStorage.setItem(C === 1 ? 'kk_accts' : 'kk_accts' + C, JSON.stringify(L)); } } catch (e) { } }
 
 function listenCity() {
-  ['kasa', 'park', 'road', 'fest', 'lamp', 'unpaid', 'crisis'].forEach(k => onValue(ref(db, 'city/' + k), s => { CITY[k] = s.val(); if (k === 'park') refreshPark(); }));
+  ['kasa', 'park', 'road', 'fest', 'lamp', 'unpaid', 'crisis', 'tax'].forEach(k => onValue(ref(db, 'city/' + k), s => { CITY[k] = s.val(); if (k === 'park') refreshPark(); }));
   CITY.log = {}; onChildAdded(query(ref(db, 'city/log'), limitToLast(8)), s => { CITY.log[s.key] = s.val(); const ks = Object.keys(CITY.log); if (ks.length > 8) delete CITY.log[ks[0]]; });
 }
 
@@ -2541,6 +2576,151 @@ function editBio() {
   };
 }
 
+// ================= ÜLKELER • CUMHURBAŞKANI • GÖÇ =================
+let CB = null;
+const isCB = (id = myId) => !!(CB && CB.id === id && (CB.until || 0) > now());
+const ctryName = c => (COUNTRIES[c] || {}).n || ('Ülke ' + c);
+const ctryOn = c => !!(COUNTRIES[c] && COUNTRIES[c].cfg);
+function goCountry(c) { try { localStorage.setItem('kk_c', String(c)); } catch (e) { } location.href = location.pathname + '?c=' + c + (ADMIN ? '#yonetim' : ''); }
+function renderCountryPicker() {
+  const el = document.getElementById('ctry'); if (!el) return;
+  el.innerHTML = Object.entries(COUNTRIES).map(([c, o]) => `<button data-c="${c}" class="${+c === C ? 'on' : ''}" ${o.cfg ? '' : 'disabled'}>${o.f} ${esc(o.n)}${o.cfg ? '' : '<br><small>yakında</small>'}</button>`).join('');
+  el.querySelectorAll('button[data-c]').forEach(b => b.onclick = () => { const c = +b.dataset.c; if (c !== C) goCountry(c); });
+  const h = document.querySelector('#login h1'); if (h) h.textContent = ctryName(C).toLocaleUpperCase('tr');
+}
+setTimeout(renderCountryPicker, 0);
+
+// ---- Cumhurbaşkanı menüsü
+const TAXES = [0.5, 0.75, 1, 1.5, 2];
+function cbMenu() {
+  if (!isCB()) return;
+  const t = now(), tax = CITY.tax || 1;
+  const vac = [...PROLES, ...Object.keys(PROF)].filter(r => !(roles[r] && roles[r].until > t));
+  const items = [
+    { label: `🧾 Vergi oranı: %${Math.round(tax * 100)}`, fn: () => modal('🧾 Vergi oranı', TAXES.map(v => ({ label: `%${v * 100}${v === tax ? ' ✓' : ''}`, fn: () => set(ref(db, 'city/tax'), v).then(() => say(`🏛 Cumhurbaşkanı <b>${esc(ME.name)}</b> vergi oranını <b>%${v * 100}</b> yaptı`, true, 'ann')).catch(() => toast('Kaydedilemedi')) })), '<p>Günlük ev, dükkan ve araç vergileri bu oranla çarpılır. Vergi kasaya girer, kasa maaşları öder.</p>') },
+    ...Object.entries(BUDGET).map(([k, b]) => ({ label: `${b.n}`, right: cityOn(k) ? 'aktif ✓' : b.p.toLocaleString('tr') + ' 💰', disabled: cityOn(k) || (CITY.kasa || 0) < b.p, fn: () => spendCity(k) })),
+    ...vac.map(r => ({ label: `👑 ${ROLES[r].n} ata (boş)`, fn: () => cbAppoint(r) })),
+    { label: '🤝 Diplomasi: ticaret ve savaş', right: 'yakında', disabled: true },
+  ];
+  modal(`🏛 Cumhurbaşkanlığı • ${esc(ctryName(C))}`, items, `<p>🏛 Ülke kasası: <b>${Math.floor(CITY.kasa || 0).toLocaleString('tr')} 💰</b> • Vergi %${Math.round(tax * 100)}</p><p style="font-size:12px;opacity:.8">Boş makamlara 7 günlüğüne atama yapabilirsin. Seçim ya da güvensizlik oylaması yine işler.</p>`);
+}
+function cbAppoint(r) {
+  const rj = ROLE_JOBS[r];
+  const cand = Object.entries(others).filter(([id, o]) => o.name && !roleOf(id) && !isCB(id) && (!rj || rj.includes(o.job)));
+  if (!cand.length) return toast(rj ? `Şu an şehirde ${rj.join('/')} yok` : 'Şu an şehirde atanabilecek kimse yok');
+  modal(`👑 ${ROLES[r].n} ata`, cand.slice(0, 40).map(([id, o]) => ({ label: `${esc(o.name)} • ${esc(o.job || '')}`, fn: async () => {
+    const t = now();
+    try { await set(ref(db, 'roles/' + r), { id, name: o.name, until: t + 7 * 864e5, from: t, cbset: true }); }
+    catch (e) { return toast('Atama yapılamadı (makam dolu olabilir)'); }
+    say(`🏛 Cumhurbaşkanı <b>${esc(ME.name)}</b>, <b>${esc(o.name)}</b>'i ${ROLES[r].n} olarak atadı!`, true, 'ann');
+    notify(id, `👑 Cumhurbaşkanı seni ${ROLES[r].n} olarak atadı!`);
+  } })));
+}
+
+// ---- Göç (oyuncu tarafı)
+function gocMenu() {
+  if (!ME) return;
+  if (ME.gocUsed) return toast('Göç hakkını kullandın');
+  const list = Object.keys(COUNTRIES).map(Number).filter(c => c !== C && ctryOn(c));
+  if (!list.length) return toast('Şu an göç edilebilecek başka ülke yok');
+  modal('🌍 Ülke değiştir', list.map(c => ({ label: `${COUNTRIES[c].f} ${esc(ctryName(c))}'e göç et`, fn: () => modal(`🌍 ${esc(ctryName(c))}'e göç`, [
+    { label: '✅ Evet, başvur', cls: 'blue', fn: async () => {
+      try { await set(ref(db, 'goc/' + myId), { to: c, n: ME.name, t: serverTimestamp() }); toast(`🌍 Göç başvurun alındı! Onaylanınca sana haber vereceğiz`, 5000); }
+      catch (e) { toast('Başvuru gönderilemedi'); }
+    } }], `<p><b>Tek hakkın bu!</b> Geri dönüş yok.</p><p>💰 Paran, 👔 mesleğin, kıyafetlerin, 🐾 hayvanın ve mesai geçmişin taşınır.</p><p>🏠 Ev ve dükkanların burada satılır, parası hesabına eklenir.</p><p>👑 Makamın varsa burada boşalır.</p>`) })), `<p>Herkesin 1 kez ülke değiştirme hakkı var.</p>`);
+}
+function movedScreen(mv) {
+  try { localStorage.setItem('kk_tcode', mv.code); } catch (e) { }
+  modalEl.style.display = 'flex';
+  mcard.innerHTML = `<h2>🌍 Göçün onaylandı!</h2><p>Hesabın <b>${esc(ctryName(mv.to))}</b> ülkesine taşındı. Paran ve mesleğin seni orada bekliyor.</p><p style="font-size:13px;opacity:.85">Aynı yöntemle giriş yap (aynı isim ya da aynı Google hesabı).</p><button class="mi" style="justify-content:center;background:#2e7d32" id="mvGo">${COUNTRIES[mv.to] ? COUNTRIES[mv.to].f : '🌍'} ${esc(ctryName(mv.to))}'e geç</button>`;
+  mcard.querySelector('#mvGo').onclick = () => goCountry(mv.to);
+}
+let movedSub = null;
+function watchMoved() { if (movedSub || !db || !myId || IS_ADMIN) return; movedSub = onValue(ref(db, 'players/' + myId + '/moved'), s => { const v = s.val(); if (v && v.code) { movedScreen(v); try { remove(ref(db, 'online/' + myId)); } catch (e) { } } }); }
+
+// ---- Yönetici: diğer ülkelere bağlan, göçleri işle, cumhurbaşkanı ata
+const DBS = {};
+async function connectCountry(c) {
+  if (DBS[c]) return DBS[c];
+  if (c === C) return (DBS[c] = { db, uid: myId });
+  const app = FB.A.initializeApp(COUNTRIES[c].cfg, 'c' + c);
+  let au; try { au = AU.initializeAuth(app, { persistence: [AU.indexedDBLocalPersistence, AU.browserLocalPersistence], popupRedirectResolver: AU.browserPopupRedirectResolver }); } catch (e) { au = AU.getAuth(app); }
+  await new Promise(r => { const un = AU.onAuthStateChanged(au, () => { un(); r(); }); setTimeout(r, 3000); });
+  if (!au.currentUser || au.currentUser.isAnonymous) await AU.signInWithPopup(au, new AU.GoogleAuthProvider());
+  const d = FB.D.getDatabase(app), uid = au.currentUser.uid;
+  const ok = (await get(ref(d, 'admins/' + uid))).val() === true;
+  if (!ok) throw { message: `${ctryName(c)} veritabanında yönetici değilsin. O projede admins altına ${uid} = true ekle.` };
+  DBS[c] = { db: d, uid };
+  onChildAdded(ref(d, 'goc'), s => gocQueue(c, s.key, s.val()));
+  return DBS[c];
+}
+const GOCQ = {};
+function gocQueue(src, uid, req) { GOCQ[src + '|' + uid] = { src, uid, req }; gocRun(); if (typeof adminUI === 'function' && IS_ADMIN) adminUI(); }
+async function gocRun() {
+  if (gocRun.busy) return; gocRun.busy = 1;
+  try {
+    for (const [k, j] of Object.entries(GOCQ)) {
+      if (!DBS[j.src] || !DBS[j.req.to]) continue;
+      delete GOCQ[k];
+      await transferPlayer(j.src, j.uid, j.req.to, null).catch(e => toast('Göç işlenemedi: ' + (e.message || e)));
+    }
+  } finally { gocRun.busy = 0; }
+}
+const randCode = () => Array.from(crypto.getRandomValues(new Uint8Array(10)), b => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[b % 32]).join('');
+async function transferPlayer(src, uid, to, role) {
+  const S = DBS[src].db, T = DBS[to].db;
+  const p = (await get(ref(S, 'players/' + uid))).val();
+  if (!p || p.moved) { await remove(ref(S, 'goc/' + uid)).catch(() => { }); return; }
+  const upd = {}; let refund = 0;
+  const pl = (await get(ref(S, 'plots2'))).val() || {};
+  for (const [k, o] of Object.entries(pl)) if (o && o.id === uid) { refund += o.type === 'ev' ? HOUSE_PRICE : SHOP_PRICE; upd['plots2/' + k] = null; }
+  const rl = (await get(ref(S, 'roles'))).val() || {};
+  for (const [r, h] of Object.entries(rl)) if (h && h.id === uid) upd['roles/' + r] = null;
+  const cbS = (await get(ref(S, 'cb'))).val(); if (cbS && cbS.id === uid) upd['cb'] = null;
+  const code = randCode();
+  const pkg = { name: p.name || 'Komşu', job: p.job || 'İşsiz', money: Math.floor((p.money || 0) + refund), energy: p.energy ?? 100, acc: p.acc || null, wear: p.wear || null, m: p.m || null,
+    inv: p.inv || null, veh: p.veh || null, lvl: p.lvl || 0, pet: p.pet || null, bio: p.bio || '', jobChanged: p.jobChanged || 0, color: p.color || null, from: src, to, role: role || null, t: Date.now() };
+  await set(ref(T, 'transfers/' + code), pkg);
+  Object.assign(upd, { ['players/' + uid + '/moved']: { to, code, t: Date.now() }, ['players/' + uid + '/money']: 0, ['players/' + uid + '/gocUsed']: 1,
+    ['players/' + uid + '/home']: null, ['players/' + uid + '/shop']: null, ['goc/' + uid]: null, ['mods/' + uid]: role === 'cb' ? null : undefined });
+  if (upd['mods/' + uid] === undefined) delete upd['mods/' + uid];
+  await update(ref(S), upd);
+  push(ref(S, 'log'), { h: `🌍 <b>${esc(pkg.name)}</b> ${esc(ctryName(to))} ülkesine göç etti`, k: 'sys', t: serverTimestamp() }).catch(() => { });
+  toast(`🌍 ${pkg.name} → ${ctryName(to)} (${pkg.money.toLocaleString('tr')} 💰${role === 'cb' ? ', Cumhurbaşkanı' : ''})`, 5000);
+  return code;
+}
+async function makeCB(id, name, to) {
+  if (to === C) {
+    const t = now();
+    await set(ref(db, 'cb'), { id, name, until: t + FOREVER, from: t });
+    await set(ref(db, 'mods/' + id), { name, t }).catch(() => { });
+    say(`🏛 <b>${esc(name)}</b>, ${esc(ctryName(C))}'in Cumhurbaşkanı oldu!`, true, 'ann'); notify(id, '🏛 Artık bu ülkenin Cumhurbaşkanısın! 👤 menüsünden Cumhurbaşkanlığı ekranını aç');
+    return;
+  }
+  if (!DBS[to]) { toast(`Önce panelden ${ctryName(to)}'e bağlan`); return; }
+  if (!DBS[C]) await connectCountry(C);
+  await transferPlayer(C, id, to, 'cb');
+  notify(id, `🏛 ${ctryName(to)} ülkesinin Cumhurbaşkanı seçildin! Ekrandaki düğmeyle o ülkeye geç`);
+}
+function cbAdminMenu(id, name) {
+  modal(`🏛 ${esc(name)} hangi ülkenin Cumhurbaşkanı olsun?`, Object.keys(COUNTRIES).map(Number).filter(ctryOn).map(c => ({
+    label: `${COUNTRIES[c].f} ${esc(ctryName(c))}${c === C ? ' (burada kalır)' : ' (hesabıyla taşınır)'}`, fn: () => makeCB(id, name, c).catch(e => toast('Olmadı: ' + (e.message || e))) })));
+}
+function adminCountryHTML() {
+  const t = now(), q = Object.keys(GOCQ).length;
+  return `<h3>🌍 Ülkeler • şu an: ${esc(ctryName(C))}</h3>
+  <p style="font-size:13px;margin:4px 0">🏛 Cumhurbaşkanı: ${CB && CB.until > t ? '<b>' + esc(CB.name) + '</b>' : 'yok'}${CB && CB.until > t ? ' <button id="aCbRm" style="background:#c0392b;padding:4px 10px">Görevden al</button>' : ''}</p>
+  <div class="row">${Object.keys(COUNTRIES).map(Number).map(c => `<button data-cc="${c}" ${ctryOn(c) ? '' : 'disabled style="opacity:.5"'}>${COUNTRIES[c].f} ${esc(ctryName(c))}${c === C ? ' ✓' : DBS[c] ? ' 🔗' : ''}</button>`).join('')}</div>
+  <p style="font-size:12px;opacity:.8;margin:4px 0">Dokun: o ülkenin paneline geç. Uzun bas / alttaki düğme: göç ve cumhurbaşkanı taşıma için bağlan.</p>
+  <div class="row">${Object.keys(COUNTRIES).map(Number).filter(c => c !== C && ctryOn(c)).map(c => `<button data-con="${c}" style="background:#2e86de">${DBS[c] ? '🔗 ' + esc(ctryName(c)) + ' bağlı' : '🔌 ' + esc(ctryName(c)) + "'e bağlan"}</button>`).join('')}</div>
+  <p style="font-size:13px;margin:4px 0">🧳 Bekleyen göç: <b>${q}</b>${q ? ' (hedef ülkeye bağlanınca otomatik işlenir)' : ''}</p>`;
+}
+function adminCountryWire(el) {
+  el.querySelectorAll('[data-cc]').forEach(b => b.onclick = () => { const c = +b.dataset.cc; if (c !== C) goCountry(c); });
+  el.querySelectorAll('[data-con]').forEach(b => b.onclick = async () => { b.textContent = 'Bağlanılıyor…'; try { await connectCountry(C); await connectCountry(+b.dataset.con); gocRun(); } catch (e) { alert(e.message || e.code || e); } adminUI(); });
+  const rm = el.querySelector('#aCbRm'); if (rm) rm.onclick = () => { if (!confirm('Cumhurbaşkanı görevden alınsın mı?')) return; const id = CB.id; remove(ref(db, 'cb')); remove(ref(db, 'mods/' + id)); say(`🏛 Cumhurbaşkanı <b>${esc(CB.name)}</b> görevden alındı`, true, 'ann'); };
+}
+
 // ================= EVENTS =================
 const EV_NAMES = { yangin: '🔥 YANGIN', soygun: '🚨 SOYGUN', festival: '🎉 FESTİVAL' };
 function evStart() { if (EV && !EV.done) { const b = evB(); toast(`${EV_NAMES[EV.type]}${b ? ' — ' + b.n : ''}!`, 5000); } }
@@ -2960,9 +3140,10 @@ function syncPerson(id, p, me, t) {
   syncPet(m, p, t);
   const r = me ? myRole() : roleOf(id), wanted = p.wanted > now(), jailed = p.jail > now();
   const cls = jailed ? 'jail' : wanted ? 'bad' : r ? 'role' : me ? 'me' : '';
-  const tag = (admins[me ? myId : id] ? '👑 ' : '') + (jailed ? '⛓ ' : wanted ? '🚨 ' : r ? '👑 ' : me ? '⭐ ' : '') + (p.sick ? '🤒 ' : '') + petTag(p.pet);
+  const cbx = isCB(me ? myId : id);
+  const tag = (admins[me ? myId : id] ? '👑 ' : '') + (cbx ? '🏛 ' : '') + (jailed ? '⛓ ' : wanted ? '🚨 ' : r ? '👑 ' : me ? '⭐ ' : '') + (p.sick ? '🤒 ' : '') + petTag(p.pet);
   const bub = p.msg && performance.now() - (p.msgAt || 0) < 6000 ? `<div class="bb">${esc(p.msg)}</div>` : '';
-  const html = riding ? '' : `${bub}<div style="text-align:center"><span class="nm ${cls}" data-pid="${me ? '@me' : id}">${flagHtml(parties[PARTYOF[me ? myId : id]], 11)}${mods[me ? myId : id] ? '🛡 ' : ''}${tag}${esc(p.name || '')}</span></div><div class="jb">${esc(r ? ROLES[r].n : (headTitle(me ? myId : id, p.job) || jobTitle(p.job, me ? ME.kd : p.kd)))}${wanted ? ' • ARANIYOR' : ''}</div>`;
+  const html = riding ? '' : `${bub}<div style="text-align:center"><span class="nm ${cls}" data-pid="${me ? '@me' : id}">${flagHtml(parties[PARTYOF[me ? myId : id]], 11)}${mods[me ? myId : id] ? '🛡 ' : ''}${tag}${esc(p.name || '')}</span></div><div class="jb">${esc(cbx ? 'Cumhurbaşkanı' : r ? ROLES[r].n : (headTitle(me ? myId : id, p.job) || jobTitle(p.job, me ? ME.kd : p.kd)))}${wanted ? ' • ARANIYOR' : ''}</div>`;
   if (m.label._h !== html) { m.label.innerHTML = html; m.label._h = html; }
   if (html) placeLabel(m.label, x, isTaxi ? 1.9 : 2.2, z); else m.label.style.display = 'none';
   m.seen = true;
@@ -3084,7 +3265,7 @@ function adminLogin() {
       const uid = auth.currentUser.uid; e.textContent = 'Sunucuya bağlanılıyor…';
       const ok = await withTimeout(get(ref(db, 'admins/' + uid)), 15000, '⚠️ Sunucuya bağlanılamadı. Büyük ihtimalle sunucu dolu (ücretsiz planda aynı anda en fazla 100 bağlantı). Biraz sonra tekrar dene.').catch(x => { throw x; });
       if (!ok || ok.val() !== true) { e.innerHTML = `Bu hesap yönetici değil.<br><br>Yönetici olmak için Firebase'de <b>Realtime Database → Data</b> bölümüne <b>admins</b> altına şu kimliği <b>true</b> değeriyle ekle:<br><code style="user-select:all;-webkit-user-select:all;background:#000;padding:4px;display:block;margin-top:6px">${uid}</code>`; return; }
-      IS_ADMIN = true; myId = uid;
+      IS_ADMIN = true; myId = uid; DBS[C] = { db, uid }; onChildAdded(ref(db, 'goc'), s2 => gocQueue(C, s2.key, s2.val()));
     } catch (x) { e.textContent = AUTH_ERR[x.code] || ('Bağlanamadı: ' + (x.code || x.message)); return; }
     adminOk = true; loginT = now(); document.getElementById('panel').style.display = 'none';
     ['hud', 'acts', 'bWard', 'bRank', 'bQuest', 'bBag', 'bVeh'].forEach(i => document.getElementById(i).style.display = 'none'); document.getElementById('bPl').style.display = 'block';
@@ -3130,6 +3311,7 @@ function adminUI() {
   <h3>🗳 Seçimler</h3>
   ${Object.keys(ROLES).map(r => { const e = elections[r], h = roles[r]; return `<div style="font-size:13px;margin:6px 0"><b>${ROLES[r].n}</b>: ${h && h.until > t ? '👑 ' + esc(h.name) : 'boş'}${e ? ` • seçim ${Math.max(0, Math.ceil((e.ends - t) / 60000))} dk (${Object.values(e.cands || {}).map(c => esc(c.name) + ' ' + (c.votes || 0)).join(', ') || 'aday yok'})` : ''}</div>
     <div class="row">${PROLES.includes(r) ? `<button data-el="${r}" data-min="60">Seçim 1 sa</button><button data-el="${r}" data-min="120">2 sa</button>` : `<button disabled style="opacity:.6">🎖 en kıdemli ${PROF[r] || ""}</button>`}${e ? `<button data-end="${r}" style="background:#c0392b">Bitir</button>` : ''}${h ? `<button data-rm="${r}" style="background:#7f8c8d">Görevden al</button>` : ''}</div>`; }).join('')}
+  ${adminCountryHTML()}
   <h3>💼 Yönetici kasası: ${Math.floor(AKASA).toLocaleString('tr')} 💰</h3><p style="font-size:12px;opacity:.75;margin:0 0 6px">Senin binalarının (market, fırın, AVM, petshop, veteriner, kuaför…) satış gelirleri burada birikir.</p><div class="row"><input id="aAk" type="number" inputmode="numeric" placeholder="miktar" style="flex:3"><button id="aAkB" style="flex:2">➡️ Belediyeye aktar</button></div>
   <h3>🏛 Belediye kasası: ${Math.floor(CITY.kasa || 0).toLocaleString('tr')} 💰</h3><div class="row"><input id="aKasa" type="number" inputmode="numeric" placeholder="miktar" style="flex:3"><button id="aKasaB" style="flex:2">➕ Kasaya koy</button></div>
   <h3>🗳 Adaylar (ekle / çıkar)</h3>${Object.entries(elections).filter(([r, e]) => e && e.ends > t && ROLES[r]).map(([r, e]) => `<div style="font-size:13px;margin:6px 0"><b>${ROLES[r].n}</b> (${Object.keys(e.cands || {}).length} aday)</div>${Object.entries(e.cands || {}).map(([cid, c]) => `<div class="row"><button class="pl" style="flex:4">${c.c ? flagHtml(c, 13) : ''}${esc(c.name)} • ${c.votes || 0} oy</button><button style="flex:1;background:#c0392b" data-rmc="${r}|${cid}">✖</button></div>`).join('')}<div class="row"><input id="aC_${r}" placeholder="oyuncu adı" autocapitalize="off" style="flex:3"><button data-addc="${r}" style="flex:1">➕</button></div>`).join('') || '<p>Açık seçim yok. Yukarıdan seçim başlat.</p>'}
@@ -3140,6 +3322,7 @@ function adminUI() {
   <h3>🛡 Moderatörler</h3>${Object.entries(mods).map(([id, m]) => `<div class="row"><button class="pl" style="flex:4">${esc(m.name || id)}</button><button style="flex:1;background:#c0392b" data-unmod="${id}">✖</button></div>`).join('') || '<p style="font-size:13px">Henüz yok. Oyuncu listesinde ⚙️ ile ekle.</p>'}
   <h3>🚩 Cevapsız şikayetler</h3><p style="font-size:12px;opacity:.8">Suç şikayetleri Savcıya, sohbet şikayetleri moderatörlere gider. Burada sadece kimsenin bakmadıkları var (24 saat sonra kendiliğinden düşer).</p>${Object.entries(reports).filter(([, r]) => r && r.st !== 'kapandi' && r.t > t - 864e5).reverse().map(([k, r]) => `<div style="font-size:12px;margin:4px 0">💬 ${esc(r.byName)} → <b>${esc(r.targetName)}</b>: ${esc(r.reason)}</div><div class="row"><button data-f="${r.target}">Git</button><button data-delrep="${k}" style="background:#7f8c8d">Kapat</button></div>`).join('')}${openCrimes().reverse().map(([k, c]) => `<div style="font-size:12px;margin:4px 0">📂 ${esc(c.byName)} → <b>${esc(c.targetName)}</b>: ${esc(c.reason)} • ${ST[c.st] || ''}</div><div class="row"><button data-f="${c.target}">Git</button><button data-delcr="${k}" style="background:#7f8c8d">Kapat</button></div>`).join('') || ''}${!Object.values(reports).some(r => r && r.st !== 'kapandi' && r.t > t - 864e5) && !openCrimes().length ? '<p style="font-size:13px">Cevapsız şikayet yok 👍</p>' : ''}
   <h3>📋 Moderatör işlemleri</h3>${Object.values(modlog).reverse().map(m => `<div style="font-size:12px;margin:3px 0">${new Date(m.t).toLocaleTimeString('tr', { hour: '2-digit', minute: '2-digit' })} ${esc(m.by)}: ${esc(m.act)} → ${esc(m.target)}</div>`).join('') || '<p style="font-size:13px">Kayıt yok</p>'}`;
+  adminCountryWire(adminEl);
   adminEl.querySelector('#aKickAll').onclick = kickAll;
   adminEl.querySelector('#aKickOld').onclick = kickOld;
   adminEl.querySelector('#aAkB').onclick = async () => { const v = Math.round(+adminEl.querySelector('#aAk').value || 0); if (v <= 0) return; try { const r = await runTransaction(ref(db, 'akasa'), k => (k || 0) >= v ? (k || 0) - v : undefined); if (!r.committed) return alert('❌ Yönetici kasasında o kadar para yok'); await runTransaction(ref(db, 'city/kasa'), k => (k || 0) + v); cityLog('Yönetici kasasından aktarım', v); say(`🏛 Belediye kasasına <b>${v.toLocaleString('tr')} 💰</b> aktarıldı!`, true, 'ann'); alert('✅ Aktarıldı'); adminUI(); } catch (e) { alert('❌ ' + e.message); } };
