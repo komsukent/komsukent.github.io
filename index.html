@@ -168,10 +168,10 @@ const COUNTRIES = {
     messagingSenderId: "800185498407",
     appId: "1:800185498407:web:7cc3f26b0f97a1d2188702" } },
 };
-const FULL1 = true;   // Komşukent dolu: yeni gelenler diğer ülkelere yönlendirilir
+let FULL1 = true; try { FULL1 = localStorage.getItem('kk_full1') !== '0'; } catch (e) { }   // Komşukent dolu mu: yönetici panelden açar/kapatır (pub/full1)
 const C = (() => { let c = 0; try { const u = +new URLSearchParams(location.search).get('c'), st = +localStorage.getItem('kk_c'), known = !!(localStorage.getItem('kk_me') || localStorage.getItem('kk_id')); c = u || (known ? st : 0) || (FULL1 ? 2 + Math.floor(Math.random() * 2) : 1); } catch (e) { c = 1; } if (!COUNTRIES[c] || !COUNTRIES[c].cfg) c = 1; try { localStorage.setItem('kk_c', String(c)); } catch (e) { } return c; })();
 const FB = {};
-const APP_V = '2026112106';
+const APP_V = '2026112108';
 let CAP = 0;   // bump on every upload (yyyymmddNN)
 const ADMIN = location.hash === '#yonetim';
 let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off, orderByChild, equalTo;
@@ -307,6 +307,9 @@ if (IN_APP) { document.getElementById('igWarn').style.display = 'block'; LB[0].s
 if (!ADMIN) fbReady.then(() => authReady).then(u => {
   if (u) { LB[0].style.display = LB[1].style.display = 'none'; LB[2].style.display = LB[3].style.display = 'block'; LB[2].textContent = `Şehre gir 🏙️ (${u.isAnonymous ? 'misafir hesabın' : 'Google hesabın'})`; }
 }).catch(() => {});
+// taşınan oyuncu: yeni ülkede kendiliğinden girer (düğmeye basmayı beklemez)
+let AUTO_T = null; try { AUTO_T = localStorage.getItem('kk_tcode'); } catch (e) { }
+if (AUTO_T && !ADMIN) fbReady.then(() => authReady).then(u => { errEl.textContent = '🌍 Yeni ülkene taşınıyorsun…'; setTimeout(() => enter(u ? 'resume' : 'guest'), 700); }).catch(() => { });
 LB[0].onclick = () => enter('google'); LB[1].onclick = () => enter('guest'); LB[2].onclick = () => enter('resume');
 LB[3].onclick = async () => { await fbReady; await AU.signOut(auth); LB[0].style.display = LB[1].style.display = 'block'; LB[2].style.display = LB[3].style.display = 'none'; };
 const AUTH_ERR = { 'auth/popup-blocked': 'Açılır pencere engellendi. Tekrar dene ya da misafir oyna.', 'auth/popup-closed-by-user': 'Giriş penceresi kapatıldı.', 'auth/cancelled-popup-request': 'Giriş iptal edildi.', 'auth/operation-not-supported-in-this-environment': 'Bu tarayıcıda Google girişi çalışmıyor. Safari ya da Chrome\'da aç, veya misafir oyna.', 'auth/web-storage-unsupported': 'Bu tarayıcıda giriş çalışmıyor. Safari ya da Chrome\'da aç.', 'auth/network-request-failed': 'İnternet bağlantısını kontrol et.', 'auth/admin-restricted-operation': 'Misafir girişi kapalı.', 'PERMISSION_DENIED': 'Erişim reddedildi.' };
@@ -953,7 +956,7 @@ async function playersMenu() {
       if (!confirm(`${ids.length} oyuncu ${ctryName(to)}'e aktarılsın mı?\nParası, mesleği, eşyaları ve (yer boşsa) evleri/dükkanları aynen taşınır.`)) return;
       if (!DBS[C]) DBS[C] = { db, uid: myId };
       const cache = {}; let ok = 0;
-      for (const id of ids) { b.textContent = `Aktarılıyor ${ok + 1}/${ids.length}…`; try { await transferPlayer(C, id, to, null, cache); ok++; notify(id, `🌍 ${ctryName(to)} ülkesine taşındın! Ekrandaki düğmeyle geç`); } catch (e) { toast('Hata: ' + (all[id].name) + ' ' + (e.message || e)); } }
+      for (const id of ids) { b.textContent = `Aktarılıyor ${ok + 1}/${ids.length}…`; try { await transferPlayer(C, id, to, null, cache); ok++; notify(id, `🌍 ${ctryName(to)} ülkesine taşındın! Birkaç saniye içinde otomatik geçiyorsun`); } catch (e) { toast('Hata: ' + (all[id].name) + ' ' + (e.message || e)); } }
       alert(`✅ ${ok}/${ids.length} oyuncu ${ctryName(to)}'e aktarıldı`); playersMenu();
     });
   }
@@ -2658,6 +2661,14 @@ function renderCountryPicker() {
   const h = document.querySelector('#login h1'); if (h) h.textContent = ctryName(C).toLocaleUpperCase('tr');
 }
 setTimeout(renderCountryPicker, 0);
+// Komşukent dolu/açık bayrağını herkese açık yoldan oku; yeni gelen hâlâ girişteyse doğru ülkeye yönlendir
+fetch(CFG.databaseURL + '/pub/full1.json').then(r => r.json()).then(v => {
+  const f = v !== false; if (f === FULL1) return; FULL1 = f;
+  try { localStorage.setItem('kk_full1', f ? '1' : '0'); } catch (e) { }
+  renderCountryPicker();
+  let known = false, u = 0; try { known = !!(localStorage.getItem('kk_me') || localStorage.getItem('kk_id')); u = +new URLSearchParams(location.search).get('c'); } catch (e) { }
+  if (!known && !u && !ME && !ADMIN) { const to = f ? 2 + Math.floor(Math.random() * 2) : 1; if (to !== C) goCountry(to); }
+}).catch(() => { });
 
 // ---- Cumhurbaşkanı menüsü
 const TAXES = [0.5, 0.75, 1, 1.5, 2];
@@ -2708,7 +2719,9 @@ function movedScreen(mv) {
   try { localStorage.setItem('kk_tcode', mv.code); } catch (e) { }
   modalEl.style.display = 'flex';
   mcard.innerHTML = `<h2>🌍 Göçün onaylandı!</h2><p>Hesabın <b>${esc(ctryName(mv.to))}</b> ülkesine taşındı. Paran ve mesleğin seni orada bekliyor.</p><p style="font-size:13px;opacity:.85">Aynı yöntemle giriş yap (aynı isim ya da aynı Google hesabı).</p><button class="mi" style="justify-content:center;background:#2e7d32" id="mvGo">${COUNTRIES[mv.to] ? COUNTRIES[mv.to].f : '🌍'} ${esc(ctryName(mv.to))}'e geç</button>`;
-  mcard.querySelector('#mvGo').onclick = () => goCountry(mv.to);
+  const go = mcard.querySelector('#mvGo'); go.onclick = () => goCountry(mv.to);
+  let n = 3; const lbl = go.innerHTML; go.innerHTML = lbl + ` (${n})`;
+  const iv = setInterval(() => { n--; go.innerHTML = lbl + ` (${Math.max(0, n)})`; if (n <= 0) { clearInterval(iv); goCountry(mv.to); } }, 1000);
 }
 let movedSub = null;
 function watchMoved() { if (movedSub || !db || !myId || IS_ADMIN) return; movedSub = onValue(ref(db, 'players/' + myId + '/moved'), s => { const v = s.val(); if (v && v.code) { movedScreen(v); try { remove(ref(db, 'online/' + myId)); } catch (e) { } } }); }
@@ -4276,6 +4289,7 @@ function adminUI() {
   <h3>🗳 Adaylar (ekle / çıkar)</h3>${Object.entries(elections).filter(([r, e]) => e && e.ends > t && ROLES[r]).map(([r, e]) => `<div style="font-size:13px;margin:6px 0"><b>${ROLES[r].n}</b> (${Object.keys(e.cands || {}).length} aday)</div>${Object.entries(e.cands || {}).map(([cid, c]) => `<div class="row"><button class="pl" style="flex:4">${c.c ? flagHtml(c, 13) : ''}${esc(c.name)} • ${c.votes || 0} oy</button><button style="flex:1;background:#c0392b" data-rmc="${r}|${cid}">✖</button></div>`).join('')}<div class="row"><input id="aC_${r}" placeholder="oyuncu adı" autocapitalize="off" style="flex:3"><button data-addc="${r}" style="flex:1">➕</button></div>`).join('') || '<p>Açık seçim yok. Yukarıdan seçim başlat.</p>'}
   <h3>🏛 Partiler</h3>${Object.entries(parties).map(([pid, p]) => `<div class="row"><button class="pl" style="flex:4">${flagHtml(p, 13)}${esc(p.name)} • 👥${Object.keys(p.members || {}).length} 💰${Math.floor(p.kasa || 0)}</button><button style="flex:1;background:#c0392b" data-cp="${pid}">Kapat</button></div>`).join('') || '<p>Henüz parti yok.</p>'}
   <h3>👀 Canlı izleme</h3><button id="aWatch" style="background:#2e86de;margin-bottom:6px">${admAll > now() ? '👀 Tüm şehir açık (' + Math.ceil((admAll - now()) / 60000) + ' dk)' : '👀 Tüm şehri 5 dk canlı izle'}</button><p style="font-size:12px;opacity:.75;margin:0 0 8px">Normalde sadece kameranın baktığı yeri indirir (kota tasarrufu). Paneli kullanmadığında kapat.</p>
+  ${C === 1 ? `<h3>🏙 Komşukent girişte: ${FULL1 ? '🔴 DOLU (yeni gelenler diğer ülkelere)' : '🟢 AÇIK (yeni gelenler buraya)'}</h3><div class="row"><button id="aFull" style="background:${FULL1 ? '#27ae60' : '#c0392b'}">${FULL1 ? '🟢 Komşukent\'i aç' : '🔴 Komşukent\'i dolu yap'}</button></div>` : ''}
   <h3>🚦 Kapasite: ${CAP ? CAP + ' kişi' : 'sınırsız'}</h3><div class="row"><input id="aCap" type="number" inputmode="numeric" placeholder="0 = sınırsız" style="flex:3"><button id="aCapB" style="flex:2">Kaydet</button></div>
   <h3>👢 Toplu işlem</h3><button id="aKickOld" style="background:#8e44ad;margin-bottom:6px">📵 Eski sürümdekileri at</button><button id="aKickAll" style="background:#c0392b">👢 Herkesi at + isimleri sıfırla (v2)</button>
   <h3>🛡 Moderatörler</h3>${Object.entries(mods).map(([id, m]) => `<div class="row"><button class="pl" style="flex:4">${esc(m.name || id)}</button><button style="flex:1;background:#c0392b" data-unmod="${id}">✖</button></div>`).join('') || '<p style="font-size:13px">Henüz yok. Oyuncu listesinde ⚙️ ile ekle.</p>'}
@@ -4286,6 +4300,7 @@ function adminUI() {
   adminEl.querySelector('#aKickOld').onclick = kickOld;
   adminEl.querySelector('#aAkB').onclick = async () => { const v = Math.round(+adminEl.querySelector('#aAk').value || 0); if (v <= 0) return; try { const r = await runTransaction(ref(db, 'akasa'), k => (k || 0) >= v ? (k || 0) - v : undefined); if (!r.committed) return alert('❌ Yönetici kasasında o kadar para yok'); await runTransaction(ref(db, 'city/cbk'), k => (k || 0) + v); cityLog('Yönetici kasasından Cumhurbaşkanlığına', v); say(`🏛 Cumhurbaşkanlığı kasasına <b>${v.toLocaleString('tr')} 💰</b> aktarıldı!`, true, 'ann'); alert('✅ Aktarıldı'); adminUI(); } catch (e) { alert('❌ ' + e.message); } };
   adminEl.querySelector('#aWatch').onclick = () => { admAll = admAll > now() ? 0 : now() + 300000; adminZones(true); adminUI(); };
+  const fb1 = adminEl.querySelector('#aFull'); if (fb1) fb1.onclick = () => { const f = !FULL1; set(ref(db, 'pub/full1'), f).then(() => { FULL1 = f; try { localStorage.setItem('kk_full1', f ? '1' : '0'); } catch (e) { } renderCountryPicker(); adminUI(); alert(f ? '🔴 Komşukent dolu: yeni gelenler Kuzeykent/Doğuşehir\'e gidecek' : '🟢 Komşukent açık: yeni gelenler Komşukent\'e gelecek'); }).catch(e => alert('❌ ' + e.message)); };
   adminEl.querySelector('#aCapB').onclick = () => { const v = Math.max(0, Math.round(+adminEl.querySelector('#aCap').value || 0)); set(ref(db, 'config/cap'), v).then(() => alert(v ? `🚦 Aynı anda en fazla ${v} kişi` : '🚦 Sınır kaldırıldı')).catch(e => alert('❌ ' + e.message)); };
   adminEl.querySelector('#aKasaB').onclick = async () => { const v = Math.round(+adminEl.querySelector('#aKasa').value || 0); if (!v) return; try { await runTransaction(ref(db, 'city/kasa'), k => Math.max(0, (k || 0) + v)); cityLog(v > 0 ? 'Yönetici kasaya para koydu' : 'Yönetici kasadan aldı', Math.abs(v)); if (v > 0) say(`🏛 Belediye kasasına <b>${v.toLocaleString('tr')} 💰</b> eklendi!`, true, 'ann'); alert('✅ Kasa güncellendi'); adminUI(); } catch (e) { alert('❌ ' + e.message); } };
   adminEl.querySelectorAll('[data-rmc]').forEach(b => b.onclick = () => { const [r, cid] = b.dataset.rmc.split('|'); if (confirm('Bu aday çıkarılsın mı?')) remove(ref(db, `elections/${r}/cands/${cid}`)).then(adminUI).catch(e => alert('❌ ' + e.message)); });
