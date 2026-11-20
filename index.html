@@ -171,7 +171,7 @@ const COUNTRIES = {
 const FULL1 = true;   // Komşukent dolu: yeni gelenler diğer ülkelere yönlendirilir
 const C = (() => { let c = 0; try { const u = +new URLSearchParams(location.search).get('c'), st = +localStorage.getItem('kk_c'), known = !!(localStorage.getItem('kk_me') || localStorage.getItem('kk_id')); c = u || (known ? st : 0) || (FULL1 ? 2 + Math.floor(Math.random() * 2) : 1); } catch (e) { c = 1; } if (!COUNTRIES[c] || !COUNTRIES[c].cfg) c = 1; try { localStorage.setItem('kk_c', String(c)); } catch (e) { } return c; })();
 const FB = {};
-const APP_V = '2026112102';
+const APP_V = '2026112104';
 let CAP = 0;   // bump on every upload (yyyymmddNN)
 const ADMIN = location.hash === '#yonetim';
 let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off, orderByChild, equalTo;
@@ -417,8 +417,9 @@ setInterval(() => { document.getElementById('clock').textContent = (isNight() ? 
 // ================= REALTIME =================
 function listenCommon() {
   if (listenCommon.done) return; listenCommon.done = 1;
-  onValue(ref(db, 'cb'), s => { CB = s.val(); });
-  setTimeout(watchMoved, 1500);
+  onValue(ref(db, 'cb'), s => { CB = s.val(); setTimeout(worldInit, 800); });
+  listenWorldLocal();
+  setTimeout(watchMoved, 1500); setTimeout(worldInit, 6000);
   const oref = ref(db, 'online');
   const upd = s => {
     if (s.key === myId) return; const v = s.val(); if (!v) return;
@@ -536,7 +537,7 @@ setInterval(() => {
   if (ME.drive && Math.random() < 0.06) { const v = ME.veh[ME.drive]; if (v) { v.br = Math.random() < 0.5 ? 'motor' : 'lastik'; toast(`💥 ${VEH[v.t].n} bozuldu! (${v.br === 'motor' ? 'motor arızası → Tamirci' : 'lastik patladı → Lastikçi'}) Sanayiye götür`, 5500); ME.drive = null; pub({ drive: null }); } }
   saveMe(); hud();
 }, 30000);
-function stat(k, v = 1) { const m = MK(); ME.m = ME.m || {}; ME.m[m] = ME.m[m] || {}; ME.m[m][k] = (ME.m[m][k] || 0) + v; if (k === 'worked') seniorSave(); }
+function stat(k, v = 1) { const m = MK(); ME.m = ME.m || {}; ME.m[m] = ME.m[m] || {}; ME.m[m][k] = (ME.m[m][k] || 0) + v; if (k === 'worked') seniorSave(); warPoint(k); }
 function earn(a, why) { ME.money += a; stat('earned', a); hud(); saveMe(); if (why) toast(why + ` +${a} 💰`); }
 function payTo(id, amount) { if (amount > 0) runTransaction(ref(db, 'players/' + id + '/money'), m => (m || 0) + amount); }
 function notify(id, m, extra = {}) { push(ref(db, 'notify/' + id), Object.assign({ m }, extra)); }
@@ -687,6 +688,8 @@ function accountMenu() {
   } });
   items.unshift({ label: '👤 Profilim', fn: myProfile }, { label: '✏️ Hakkımda yazısı', fn: editBio });
   if (isCB()) items.unshift({ label: '🏛 Cumhurbaşkanlığı', cls: 'blue', fn: cbMenu });
+  else if (isElci()) items.unshift({ label: '🏛 Zirve (elçi)', cls: 'blue', fn: zirveMenu });
+  items.push({ label: '🌍 Dünya • sıralama, savaş, referandum', fn: worldMenu });
   if (Object.keys(COUNTRIES).some(c => +c !== C && ctryOn(+c))) items.push(ME.gocUsed ? { label: '🌍 Göç hakkını kullandın', disabled: true } : { label: '🌍 Ülke değiştir (1 hakkın var)', fn: gocMenu });
   if (mods[myId]) items.unshift({ label: '🚩 Sohbet şikayetleri', fn: modReports });
   items.push({ label: '🚪 Çıkış yap', fn: async () => { await remove(ref(db, 'online/' + myId)); if (myZone) await remove(ref(db, 'pos/' + myZone + '/' + myId)); await AU.signOut(auth); location.reload(); } });
@@ -907,13 +910,17 @@ async function playersMenu() {
   const all = (await get(ref(db, 'players'))).val() || {}, day = new Date().toISOString().slice(0, 10);
   const rows = Object.entries(all).filter(([id, p]) => p && p.name).map(([id, p]) => ({ id, p, on: (!!others[id] && live(others[id])) || id === myId, today: ((p.pd || {})[day] || 0) / 60000, tot: (p.play || 0) / 3600000 }))
     .sort((a, b) => (b.on - a.on) || (b.today - a.today) || (b.tot - a.tot));
-  const TOTAL = rows.length; rows.splice(400);
+  const TOTAL = rows.length;
   const devN = {}; Object.values(all).forEach(p => { if (p && p.dev) devN[p.dev] = (devN[p.dev] || 0) + 1; });
   mcard.className = 'card shop';
   mcard.innerHTML = `<h2>👥 Oyuncular (${rows.filter(r => r.on).length} çevrimiçi / toplam ${TOTAL} kayıtlı)</h2><table class="pl"><tr><td></td><td><b>Oyuncu</b></td><td><b>Bugün</b></td><td><b>Toplam</b></td><td><b>Katıldı</b></td><td></td></tr>` +
-    rows.map(r => `<tr><td>${IS_ADMIN && Object.keys(COUNTRIES).length > 1 ? `<input type="checkbox" data-sel="${r.id}" style="width:22px;height:22px"> ` : ''}${r.on ? '🟢' : '⚪'}</td><td data-pm="${r.id}" style="cursor:pointer;text-decoration:underline dotted">${mods[r.id] ? '🛡 ' : ''}${esc(r.p.name)}${r.p.dev && devN[r.p.dev] > 1 ? ' <span title="aynı cihaz">⚠️</span>' : ''}<br><span style="opacity:.6">${esc(r.p.job || '')}</span></td><td>${Math.round(r.today)} dk</td><td>${r.tot.toFixed(1)} sa</td><td>${r.p.joined ? new Date(r.p.joined).toLocaleDateString('tr') : '-'}</td><td>${IS_ADMIN && r.id !== myId ? `<button data-m="${r.id}" style="padding:5px 8px;font-size:12px;background:${mods[r.id] ? '#c0392b' : '#2aa05a'}">${mods[r.id] ? 'Mod al' : 'Mod yap'}</button>${IS_ADMIN && r.id !== myId ? `<button data-del="${r.id}" style="padding:5px 8px;font-size:12px;background:#7f1d1d;margin-left:4px">🗑</button>${IS_ADMIN ? `<button data-cb="${r.id}" style="padding:5px 8px;font-size:12px;background:#b8860b;margin-left:4px">🏛</button>` : ''}` : ''}` : ''}</td></tr>`).join('') + '</table><button class="mi" style="justify-content:center;background:#3a4a6b" id="mclose">Kapat</button>';
+    rows.map((r, i) => `<tr data-nm="${esc(fold((r.p.name || '').toLocaleLowerCase('tr')))}"${i >= 300 ? ' style="display:none" data-more="1"' : ''}><td>${IS_ADMIN && Object.keys(COUNTRIES).length > 1 ? `<input type="checkbox" data-sel="${r.id}" style="width:22px;height:22px"> ` : ''}${r.on ? '🟢' : '⚪'}</td><td data-pm="${r.id}" style="cursor:pointer;text-decoration:underline dotted">${mods[r.id] ? '🛡 ' : ''}${esc(r.p.name)}${r.p.dev && devN[r.p.dev] > 1 ? ' <span title="aynı cihaz">⚠️</span>' : ''}<br><span style="opacity:.6">${esc(r.p.job || '')}</span></td><td>${Math.round(r.today)} dk</td><td>${r.tot.toFixed(1)} sa</td><td>${r.p.joined ? new Date(r.p.joined).toLocaleDateString('tr') : '-'}</td><td>${IS_ADMIN && r.id !== myId ? `<button data-m="${r.id}" style="padding:5px 8px;font-size:12px;background:${mods[r.id] ? '#c0392b' : '#2aa05a'}">${mods[r.id] ? 'Mod al' : 'Mod yap'}</button>${IS_ADMIN && r.id !== myId ? `<button data-del="${r.id}" style="padding:5px 8px;font-size:12px;background:#7f1d1d;margin-left:4px">🗑</button>${IS_ADMIN ? `<button data-cb="${r.id}" style="padding:5px 8px;font-size:12px;background:#b8860b;margin-left:4px">🏛</button>` : ''}` : ''}` : ''}</td></tr>`).join('') + '</table><button class="mi" style="justify-content:center;background:#3a4a6b" id="mclose">Kapat</button>';
   mcard.querySelectorAll('[data-m]').forEach(b => b.onclick = async () => { const id = b.dataset.m; if (mods[id]) await remove(ref(db, 'mods/' + id)); else { await set(ref(db, 'mods/' + id), { name: all[id].name, t: now() }); say(`🛡 <b>${esc(all[id].name)}</b> artık moderatör!`, true, 'ann'); } setTimeout(playersMenu, 400); });
   mcard.querySelectorAll('[data-cb]').forEach(b => b.onclick = () => { const id = b.dataset.cb; cbAdminMenu(id, all[id].name); });
+  { const sb = document.createElement('input'); sb.placeholder = '🔍 İsim ara…'; sb.style.cssText = 'width:100%;box-sizing:border-box;padding:10px;border-radius:12px;border:0;font-size:16px;margin:0 0 8px';
+    mcard.querySelector('h2').after(sb);
+    sb.oninput = () => { const q = fold(sb.value.trim().toLocaleLowerCase('tr')); let n = 0;
+      mcard.querySelectorAll('tr[data-nm]').forEach(tr => { const show = q ? tr.dataset.nm.includes(q) && n++ < 150 : !tr.dataset.more; tr.style.display = show ? '' : 'none'; }); }; }
   if (IS_ADMIN) {
     const bar = document.createElement('div'); bar.style.cssText = 'position:sticky;top:0;z-index:2;background:#14213d;padding:8px;border-radius:12px;margin:0 0 8px;display:flex;flex-wrap:wrap;gap:6px;align-items:center';
     const tos = Object.keys(COUNTRIES).map(Number).filter(c => c !== C && ctryOn(c));
@@ -2650,7 +2657,12 @@ function cbMenu() {
     { label: `🧾 Vergi oranı: %${Math.round(tax * 100)}`, fn: () => modal('🧾 Vergi oranı', TAXES.map(v => ({ label: `%${v * 100}${v === tax ? ' ✓' : ''}`, fn: () => set(ref(db, 'city/tax'), v).then(() => say(`🏛 Cumhurbaşkanı <b>${esc(ME.name)}</b> vergi oranını <b>%${v * 100}</b> yaptı`, true, 'ann')).catch(() => toast('Kaydedilemedi')) })), '<p>Günlük ev, dükkan ve araç vergileri bu oranla çarpılır. Vergi kasaya girer, kasa maaşları öder.</p>') },
     ...Object.entries(BUDGET).map(([k, b]) => ({ label: `${b.n}`, right: cityOn(k) ? 'aktif ✓' : b.p.toLocaleString('tr') + ' 💰', disabled: cityOn(k) || (CITY.kasa || 0) < b.p, fn: () => spendCity(k) })),
     ...vac.map(r => ({ label: `👑 ${ROLES[r].n} ata (boş)`, fn: () => cbAppoint(r) })),
-    { label: '🤝 Diplomasi: ticaret ve savaş', right: 'yakında', disabled: true },
+    { label: '🏛 Cumhurbaşkanları Zirvesi', cls: 'blue', fn: zirveMenu },
+    { label: '🤝 Ticaret anlaşmaları', fn: () => W.on ? tradeMenu() : zirveMenu() },
+    { label: '⚔️ Savaş', fn: () => W.on ? warMenu() : zirveMenu() },
+    { label: '🕊 İttifak ve ambargo', fn: () => W.on ? relMenu() : zirveMenu() },
+    { label: `🧳 Elçi ata${ELCI ? ' (' + esc(ELCI.name) + ')' : ''}`, fn: elciMenu },
+    { label: '🗳 Referandum başlat', fn: refMenu },
   ];
   modal(`🏛 Cumhurbaşkanlığı • ${esc(ctryName(C))}`, items, `<p>🏛 Ülke kasası: <b>${Math.floor(CITY.kasa || 0).toLocaleString('tr')} 💰</b> • Vergi %${Math.round(tax * 100)}</p><p style="font-size:12px;opacity:.8">Boş makamlara 7 günlüğüne atama yapabilirsin. Seçim ya da güvensizlik oylaması yine işler.</p>`);
 }
@@ -2671,7 +2683,7 @@ function cbAppoint(r) {
 function gocMenu() {
   if (!ME) return;
   if (ME.gocUsed) return toast('Göç hakkını kullandın');
-  const list = Object.keys(COUNTRIES).map(Number).filter(c => c !== C && ctryOn(c));
+  const list = Object.keys(COUNTRIES).map(Number).filter(c => c !== C && ctryOn(c) && relOf(c) !== 'ambargo');
   if (!list.length) return toast('Şu an göç edilebilecek başka ülke yok');
   modal('🌍 Ülke değiştir', list.map(c => ({ label: `${COUNTRIES[c].f} ${esc(ctryName(c))}'e göç et`, fn: () => modal(`🌍 ${esc(ctryName(c))}'e göç`, [
     { label: '✅ Evet, başvur', cls: 'blue', fn: async () => {
@@ -2763,12 +2775,14 @@ async function makeCB(id, name, to) {
     const t = now();
     await set(ref(db, 'cb'), { id, name, until: t + FOREVER, from: t });
     await set(ref(db, 'mods/' + id), { name, t }).catch(() => { });
+    setWorldKey(C).catch(() => { });
     say(`🏛 <b>${esc(name)}</b>, ${esc(ctryName(C))}'in Cumhurbaşkanı oldu!`, true, 'ann'); notify(id, '🏛 Artık bu ülkenin Cumhurbaşkanısın! 👤 menüsünden Cumhurbaşkanlığı ekranını aç');
     return;
   }
   if (!DBS[to]) { toast(`Önce panelden ${ctryName(to)}'e bağlan`); return; }
   if (!DBS[C]) await connectCountry(C);
   await transferPlayer(C, id, to, 'cb');
+  setWorldKey(to).catch(() => { });
   notify(id, `🏛 ${ctryName(to)} ülkesinin Cumhurbaşkanı seçildin! Ekrandaki düğmeyle o ülkeye geç`);
 }
 function cbAdminMenu(id, name) {
@@ -2782,12 +2796,14 @@ function adminCountryHTML() {
   <div class="row">${Object.keys(COUNTRIES).map(Number).map(c => `<button data-cc="${c}" ${ctryOn(c) ? '' : 'disabled style="opacity:.5"'}>${COUNTRIES[c].f} ${esc(ctryName(c))}${c === C ? ' ✓' : DBS[c] ? ' 🔗' : ''}</button>`).join('')}</div>
   <p style="font-size:12px;opacity:.8;margin:4px 0">Dokun: o ülkenin paneline geç. Uzun bas / alttaki düğme: göç ve cumhurbaşkanı taşıma için bağlan.</p>
   <div class="row">${Object.keys(COUNTRIES).map(Number).filter(c => c !== C && ctryOn(c)).map(c => `<button data-con="${c}" style="background:#2e86de">${DBS[c] ? '🔗 ' + esc(ctryName(c)) + ' bağlı' : '🔌 ' + esc(ctryName(c)) + "'e bağlan"}</button>`).join('')}</div>
+  <button id="aWKey" style="background:#b8860b;margin:4px 0">🔑 Zirve anahtarlarını ver (cumhurbaşkanları için)</button>
   <p style="font-size:13px;margin:4px 0">🧳 Bekleyen göç: <b>${q}</b>${q ? ' (hedef ülkeye bağlanınca otomatik işlenir)' : ''}</p>`;
 }
 function adminCountryWire(el) {
   el.querySelectorAll('[data-cc]').forEach(b => b.onclick = () => { const c = +b.dataset.cc; if (c !== C) goCountry(c); });
   el.querySelectorAll('[data-con]').forEach(b => b.onclick = () => { if (connectCountry.busy) return; connectCountry.busy = 1; b.textContent = 'Bağlanılıyor…';
     connectCountry(+b.dataset.con, true).then(() => gocRun()).catch(e => { if (e && e.code !== 'auth/cancelled-popup-request' && e.code !== 'auth/popup-closed-by-user') alert(e.message || e.code || e); }).finally(() => { connectCountry.busy = 0; adminUI(); }); });
+  const wk = el.querySelector('#aWKey'); if (wk) wk.onclick = worldKeysAll;
   const rm = el.querySelector('#aCbRm'); if (rm) rm.onclick = () => { if (!confirm('Cumhurbaşkanı görevden alınsın mı?')) return; const id = CB.id; remove(ref(db, 'cb')); remove(ref(db, 'mods/' + id)); say(`🏛 Cumhurbaşkanı <b>${esc(CB.name)}</b> görevden alındı`, true, 'ann'); };
 }
 
@@ -2815,6 +2831,267 @@ async function weekRank() {
   mcard.querySelectorAll('[data-rk]').forEach(el => el.onclick = () => { const id = el.dataset.rk, p = all[id];
     modal(esc(p.name), [{ label: '🏛 Cumhurbaşkanı yap', cls: 'blue', fn: () => cbAdminMenu(id, p.name) }, { label: '👤 Profili gör', fn: () => showProfile(id, p.name) }, { label: '⬅️ Sıralamaya dön', fn: weekRank }]); });
 }
+// ================= DÜNYA: ZİRVE • TİCARET • SAVAŞ • İTTİFAK • AMBARGO • REFERANDUM • ELÇİ =================
+// Ortak "dünya" verisi 1. ülkenin veritabanında (world/…). Ona sadece cumhurbaşkanları ve elçiler bağlanır (3-6 kişi).
+// Oyuncular sadece kendi ülkelerinin küçük kopyalarını okur: war, rel, wnews, wstats, ref.
+let ELCI = null, WAR = null, REL = {}, WSTATS = null, REFQ = null, WNEWS = [];
+const isElci = (id = myId) => !!(ELCI && ELCI.id === id);
+const isEnvoy = () => isCB() || isElci();
+const pairKey = (a, b) => Math.min(a, b) + '_' + Math.max(a, b);
+const relOf = c => (REL[pairKey(C, c)] || {}).t || null;
+const W = { db: null, uid: null, on: false, chat: [], deals: {}, wars: {}, rel: {}, stats: {}, busy: 0 };
+const WAR_LOOT = 0.15, WAR_MS = 24 * 3600000;
+
+function listenWorldLocal() {
+  onValue(ref(db, 'elci'), s => { ELCI = s.val(); setTimeout(worldInit, 500); });
+  onValue(ref(db, 'war'), s => { WAR = s.val(); });
+  onValue(ref(db, 'rel'), s => { REL = s.val() || {}; });
+  onValue(ref(db, 'ref'), s => { REFQ = s.val(); });
+  onChildAdded(query(ref(db, 'wnews'), limitToLast(4)), s => {
+    const v = s.val(); if (!v) return; WNEWS.push(v); if (WNEWS.length > 6) WNEWS.shift();
+    if ((v.t || 0) > now() - 15 * 60000) addLog(null, { h: `🌍 <b>Dünya:</b> ${v.h}`, k: 'ann' });
+  });
+}
+// ---- savaş puanı: mesai ve yakalama ülkene puan kazandırır
+function warPoint(k) {
+  if (!WAR || !WAR.id || (WAR.end || 0) < now() || (WAR.a !== C && WAR.b !== C)) return;
+  if (k !== 'worked' && k !== 'arrests') return;
+  runTransaction(ref(db, 'warpts/' + WAR.id), x => (x || 0) + 1).catch(() => { });
+}
+
+// ---- dünya bağlantısı (sadece cumhurbaşkanı / elçi)
+async function worldInit() {
+  if (W.on || W.busy || !ME || IS_ADMIN || !isEnvoy() || !COUNTRIES[1] || !COUNTRIES[1].cfg) return;
+  W.busy = 1;
+  try {
+    const key = (await get(ref(db, 'cbkey'))).val();
+    if (!key) { W.busy = 0; return; }   // yönetici anahtar vermemiş
+    if (C === 1) { W.db = db; W.uid = myId; }
+    else {
+      const app = FB.A.initializeApp(COUNTRIES[1].cfg, 'world');
+      let au; try { au = AU.initializeAuth(app, { persistence: [AU.indexedDBLocalPersistence, AU.browserLocalPersistence] }); } catch (e) { au = AU.getAuth(app); }
+      await new Promise(r => { const un = AU.onAuthStateChanged(au, () => { un(); r(); }); setTimeout(r, 3000); });
+      if (!au.currentUser) await AU.signInAnonymously(au);
+      W.db = FB.D.getDatabase(app); W.uid = au.currentUser.uid;
+    }
+    await set(ref(W.db, `world/seat/${C}/${key}/${W.uid}`), { n: ME.name, r: isCB() ? 'cb' : 'elci', t: now() });
+    W.on = true;
+    onChildAdded(query(ref(W.db, 'world/chat'), limitToLast(30)), s => { const v = s.val(); if (v) { W.chat.push(v); if (W.chat.length > 40) W.chat.shift(); if (zirveOpen && v.c !== C) zirveRender(); if (v.c !== C && v.t > now() - 60000) toast(`🏛 Zirve • ${COUNTRIES[v.c] ? COUNTRIES[v.c].f : ''} ${v.n}: ${v.m}`, 5000); } });
+    onValue(ref(W.db, 'world/deals'), s => { W.deals = s.val() || {}; dealsTick(); });
+    onValue(ref(W.db, 'world/wars'), s => { W.wars = s.val() || {}; warsTick(); });
+    onValue(ref(W.db, 'world/rel'), s => { W.rel = s.val() || {}; update(ref(db), { rel: W.rel }).catch(() => { }); });
+    onValue(ref(W.db, 'world/stats'), s => { W.stats = s.val() || {}; set(ref(db, 'wstats'), W.stats).catch(() => { }); });
+    onChildAdded(query(ref(W.db, 'world/news'), limitToLast(8)), s => { runTransaction(ref(db, 'wnews/' + s.key), cur => cur ? undefined : s.val()).catch(() => { }); });
+    statsTick(); setInterval(statsTick, 30 * 60000); setInterval(warsTick, 60000);
+    toast('🏛 Cumhurbaşkanları Zirvesi\'ne bağlandın', 3500);
+  } catch (e) { console.warn('world', e); }
+  W.busy = 0;
+}
+function wnews(h) { if (W.on) push(ref(W.db, 'world/news'), { h, t: now() }).catch(() => { }); }
+function statsTick() {
+  if (!W.on || !isCB()) return;
+  set(ref(W.db, 'world/stats/' + C), { n: ctryName(C), pop: Object.keys(others).length + 1, kasa: Math.floor(CITY.kasa || 0), wins: ((W.stats[C] || {}).wins) || 0, cb: ME.name, t: now() }).catch(() => { });
+}
+
+// ---- ticaret: teklif → kabul → ödeyen kasadan düşer → alan kasaya eklenir
+async function dealsTick() {
+  if (!W.on || !isCB() || dealsTick.busy) return; dealsTick.busy = 1;
+  try {
+    for (const [id, d] of Object.entries(W.deals)) {
+      if (!d) continue;
+      if (d.st === 'kabul' && d.payer === C && !d.paid) {
+        const r = await runTransaction(ref(W.db, `world/deals/${id}/paid`), x => x ? undefined : 1).catch(() => null); if (!r || !r.committed) continue;
+        const k = await runTransaction(ref(db, 'city/kasa'), x => (x || 0) >= d.amt ? (x || 0) - d.amt : undefined).catch(() => null);
+        if (!k || !k.committed) { await update(ref(W.db, `world/deals/${id}`), { st: 'iptal', why: 'kasada para yok' }); wnews(`💸 ${esc(ctryName(C))} anlaşmayı ödeyemedi, kasası boş!`); continue; }
+        say(`🤝 Anlaşma gereği ${esc(ctryName(d.payee))}'e <b>${d.amt.toLocaleString('tr')} 💰</b> ödendi`, true, 'ann');
+      }
+      if (d.st === 'kabul' && d.payee === C && d.paid && !d.recv) {
+        const r = await runTransaction(ref(W.db, `world/deals/${id}/recv`), x => x ? undefined : 1).catch(() => null); if (!r || !r.committed) continue;
+        await runTransaction(ref(db, 'city/kasa'), x => (x || 0) + d.amt).catch(() => { });
+        await update(ref(W.db, `world/deals/${id}`), { st: 'tamam' }).catch(() => { });
+        say(`🤝 ${esc(ctryName(d.payer))}'ten kasamıza <b>${d.amt.toLocaleString('tr')} 💰</b> geldi!`, true, 'ann');
+      }
+    }
+  } finally { dealsTick.busy = 0; }
+}
+function tradeMenu() {
+  const others3 = Object.keys(COUNTRIES).map(Number).filter(c => c !== C && ctryOn(c));
+  const inc = Object.entries(W.deals).filter(([, d]) => d && d.st === 'teklif' && d.to === C);
+  const items = inc.map(([id, d]) => ({ label: `📩 ${COUNTRIES[d.from].f} ${esc(ctryName(d.from))}: ${d.payer === C ? 'sen öde' : 'sana ödesin'} <b>${d.amt.toLocaleString('tr')} 💰</b>${d.note ? '<br><small>“' + esc(d.note) + '”</small>' : ''}`, fn: () => modal('📩 Teklif', [
+    { label: '✅ Kabul et', cls: 'blue', fn: async () => { await update(ref(W.db, `world/deals/${id}`), { st: 'kabul' }); wnews(`🤝 ${esc(ctryName(d.from))} ile ${esc(ctryName(C))} ticaret anlaşması imzaladı (${d.amt.toLocaleString('tr')} 💰)`); toast('✅ Anlaşma imzalandı'); dealsTick(); } },
+    { label: '❌ Reddet', fn: () => update(ref(W.db, `world/deals/${id}`), { st: 'red' }).then(() => wnews(`❌ ${esc(ctryName(C))}, ${esc(ctryName(d.from))}'in ticaret teklifini reddetti`)) }]) }));
+  others3.forEach(c => {
+    items.push({ label: `💰 ${COUNTRIES[c].f} ${esc(ctryName(c))}'e para ödemeyi teklif et`, fn: () => dealForm(c, C, c) });
+    items.push({ label: `🙏 ${COUNTRIES[c].f} ${esc(ctryName(c))}'ten para iste`, fn: () => dealForm(c, c, C) });
+  });
+  modal('🤝 Ticaret', items, `<p>İki cumhurbaşkanı da onaylarsa para ülke kasaları arasında geçer.</p>`);
+}
+function dealForm(to, payer, payee) {
+  modal(`🤝 ${esc(ctryName(to))} • teklif`, [{ label: '📨 Teklifi gönder', cls: 'blue', fn: async () => {
+    const amt = Math.round(+document.getElementById('dAmt').value || 0), note = cleanText((document.getElementById('dNote').value || '').slice(0, 60));
+    if (!(amt >= 100 && amt <= 100000)) return toast('Tutar 100 ile 100.000 arası olmalı');
+    if (payer === C && (CITY.kasa || 0) < amt) return toast('Kasanda bu kadar para yok');
+    await push(ref(W.db, 'world/deals'), { from: C, to, payer, payee, amt, note, n: ME.name, st: 'teklif', t: now() });
+    toast('📨 Teklif gönderildi'); wnews(`📨 ${esc(ctryName(C))}, ${esc(ctryName(to))}'e ticaret teklifi gönderdi`);
+  } }], `<p>${payer === C ? `Senin kasandan ${esc(ctryName(to))}'e` : `${esc(ctryName(to))}'in kasasından sana`} ödenecek tutar:</p><input id="dAmt" type="number" inputmode="numeric" placeholder="örn. 5000"><input id="dNote" maxlength="60" placeholder="not (karşılığında ne?)" style="margin-top:6px">`);
+}
+
+// ---- savaş: 24 saat puan savaşı, kaybeden kasasının %15'ini kazanana öder
+function myWar() { return Object.entries(W.wars).find(([, w]) => w && (w.a === C || w.b === C) && (w.st === 'aktif' || w.st === 'bitti' || w.st === 'lpaid')); }
+async function warsTick() {
+  if (!W.on || !isEnvoy() || warsTick.busy) return; warsTick.busy = 1;
+  try {
+    const t = now();
+    for (const [id, w] of Object.entries(W.wars)) {
+      if (!w || (w.a !== C && w.b !== C)) continue;
+      const enemy = w.a === C ? w.b : w.a;
+      if (w.st === 'aktif') {
+        const pts = (await get(ref(db, 'warpts/' + id))).val() || 0;
+        await set(ref(W.db, `world/wars/${id}/sc/${C}`), pts).catch(() => { });
+        await set(ref(db, 'war'), { id, a: w.a, b: w.b, end: w.end, sc: Object.assign({}, w.sc || {}, { [C]: pts }) }).catch(() => { });
+        if (t > w.end) await runTransaction(ref(W.db, `world/wars/${id}/st`), x => x === 'aktif' ? 'bitti' : undefined).catch(() => { });
+      }
+      if (!isCB()) continue;
+      const sc = w.sc || {}, mine = sc[C] || 0, theirs = sc[enemy] || 0;
+      if (w.st === 'bitti') {
+        if (mine === theirs) { await update(ref(W.db, `world/wars/${id}`), { st: 'berabere' }); wnews(`⚖️ ${esc(ctryName(w.a))} - ${esc(ctryName(w.b))} savaşı berabere bitti (${mine}-${theirs})`); continue; }
+        if (mine < theirs) {   // kaybettik: ganimeti öde
+          const r = await runTransaction(ref(W.db, `world/wars/${id}/loot`), x => x != null ? undefined : -1).catch(() => null); if (!r || !r.committed) continue;
+          let loot = 0; await runTransaction(ref(db, 'city/kasa'), x => { loot = Math.floor((x || 0) * WAR_LOOT); return (x || 0) - loot; }).catch(() => { });
+          await update(ref(W.db, `world/wars/${id}`), { loot, st: 'lpaid', win: enemy });
+          say(`🏳️ Savaşı kaybettik (${mine}-${theirs})! ${esc(ctryName(enemy))} kasamızdan <b>${loot.toLocaleString('tr')} 💰</b> ganimet aldı 😢`, true, 'ann');
+          wnews(`⚔️ <b>${esc(ctryName(enemy))}</b> savaşı kazandı! (${theirs}-${mine}) Ganimet: ${loot.toLocaleString('tr')} 💰`);
+        }
+      }
+      if (w.st === 'lpaid' && w.win === C && !w.got) {
+        const r = await runTransaction(ref(W.db, `world/wars/${id}/got`), x => x ? undefined : 1).catch(() => null); if (!r || !r.committed) continue;
+        await runTransaction(ref(db, 'city/kasa'), x => (x || 0) + (w.loot || 0)).catch(() => { });
+        await update(ref(W.db, `world/wars/${id}`), { st: 'tamam' });
+        await runTransaction(ref(W.db, `world/stats/${C}/wins`), x => (x || 0) + 1).catch(() => { });
+        say(`🏆 <b>SAVAŞI KAZANDIK!</b> ${esc(ctryName(enemy))}'ten <b>${(w.loot || 0).toLocaleString('tr')} 💰</b> ganimet kasaya girdi! 🎉`, true, 'ann');
+      }
+      if ((w.st === 'tamam' || w.st === 'berabere' || w.st === 'barış') && WAR && WAR.id === id) await set(ref(db, 'war'), null).catch(() => { });
+    }
+  } finally { warsTick.busy = 0; }
+}
+function warMenu() {
+  const mw = myWar(), items = [];
+  if (mw) {
+    const [id, w] = mw, enemy = w.a === C ? w.b : w.a, sc = w.sc || {};
+    items.push({ label: `⚔️ ${esc(ctryName(enemy))} ile savaştasın • ${sc[C] || 0} - ${sc[enemy] || 0}`, disabled: true });
+    items.push({ label: (w.peace || {})[C] ? '🕊 Barış teklifin bekliyor' : '🕊 Barış teklif et', disabled: !!(w.peace || {})[C], fn: async () => {
+      await set(ref(W.db, `world/wars/${id}/peace/${C}`), true);
+      const p = (await get(ref(W.db, `world/wars/${id}/peace`))).val() || {};
+      if (p[w.a] && p[w.b]) { await update(ref(W.db, `world/wars/${id}`), { st: 'barış' }); wnews(`🕊 ${esc(ctryName(w.a))} ile ${esc(ctryName(w.b))} barış imzaladı!`); }
+      else wnews(`🕊 ${esc(ctryName(C))}, ${esc(ctryName(enemy))}'e barış teklif etti`);
+    } });
+  } else Object.keys(COUNTRIES).map(Number).filter(c => c !== C && ctryOn(c)).forEach(c => {
+    const busy = Object.values(W.wars).some(w => w && (w.st === 'aktif' || w.st === 'bitti') && (w.a === c || w.b === c)), ally = relOfW(c) === 'ittifak';
+    items.push({ label: `⚔️ ${COUNTRIES[c].f} ${esc(ctryName(c))}'e savaş ilan et`, right: ally ? 'müttefik' : busy ? 'savaşta' : '', disabled: ally || busy, fn: () => modal(`⚔️ ${esc(ctryName(c))}'e savaş?`, [{ label: '⚔️ Evet, savaş ilan et!', cls: 'blue', fn: async () => {
+      const t = now(); await push(ref(W.db, 'world/wars'), { a: C, b: c, start: t, end: t + WAR_MS, st: 'aktif', sc: { [C]: 0, [c]: 0 } });
+      wnews(`⚔️ <b>${esc(ctryName(C))}, ${esc(ctryName(c))}'e SAVAŞ İLAN ETTİ!</b> 24 saat boyunca mesai yapan ve suçlu yakalayan herkes ülkesine puan kazandırır!`);
+      say(`⚔️ <b>${esc(ctryName(c))}'e savaş ilan ettik!</b> 24 saat: her mesai ve her yakalama +1 puan. Kaybeden kasasının %15'ini kaybeder! 💪`, true, 'ann');
+    } }], `<p>24 saatlik <b>puan savaşı</b> başlar. İki ülkenin oyuncuları mesai yaparak ve suçlu yakalayarak puan toplar.</p><p>Kaybeden ülke kasasının <b>%15</b>'ini kazanana öder.</p>`) });
+  });
+  modal('⚔️ Savaş', items);
+}
+const relOfW = c => (W.rel[pairKey(C, c)] || {}).t || null;
+function relMenu() {
+  const items = [];
+  Object.keys(COUNTRIES).map(Number).filter(c => c !== C && ctryOn(c)).forEach(c => {
+    const k = pairKey(C, c), r = W.rel[k] || {}, f = COUNTRIES[c].f + ' ' + esc(ctryName(c));
+    if (r.t === 'ittifak') items.push({ label: `🤝 ${f} ile ittifak • bozmak için dokun`, fn: () => set(ref(W.db, 'world/rel/' + k), null).then(() => wnews(`💔 ${esc(ctryName(C))}, ${esc(ctryName(c))} ile ittifakı bozdu`)) });
+    else if (r.t === 'teklif' && r.by !== C) items.push({ label: `📩 ${f} ittifak istiyor • kabul et`, cls: 'blue', fn: () => set(ref(W.db, 'world/rel/' + k), { t: 'ittifak', t0: now() }).then(() => wnews(`🤝 <b>${esc(ctryName(C))} ile ${esc(ctryName(c))} İTTİFAK kurdu!</b>`)) });
+    else if (r.t === 'teklif') items.push({ label: `⏳ ${f}'e ittifak teklifin bekliyor`, disabled: true });
+    else if (r.t === 'ambargo') items.push({ label: `🚫 ${f} ambargoda (${r.by === C ? 'kaldırmak için dokun' : 'onlar koydu'})`, disabled: r.by !== C, fn: () => set(ref(W.db, 'world/rel/' + k), null).then(() => wnews(`✅ ${esc(ctryName(C))}, ${esc(ctryName(c))}'e ambargoyu kaldırdı`)) });
+    else {
+      items.push({ label: `🤝 ${f}'e ittifak teklif et`, fn: () => set(ref(W.db, 'world/rel/' + k), { t: 'teklif', by: C, t0: now() }).then(() => wnews(`📨 ${esc(ctryName(C))}, ${esc(ctryName(c))}'e ittifak teklif etti`)) });
+      items.push({ label: `🚫 ${f}'e ambargo koy (göç yasak)`, fn: () => set(ref(W.db, 'world/rel/' + k), { t: 'ambargo', by: C, t0: now() }).then(() => wnews(`🚫 <b>${esc(ctryName(C))}, ${esc(ctryName(c))}'e AMBARGO koydu!</b> Göçler durdu`)) });
+    }
+  });
+  modal('🕊 İttifak ve ambargo', items, '<p>Müttefikler birbirine savaş açamaz. Ambargo varken iki ülke arasında göç edilemez.</p>');
+}
+
+// ---- zirve sohbeti
+let zirveOpen = false;
+function zirveRender() {
+  const box = document.getElementById('zList'); if (!box) { zirveOpen = false; return; }
+  box.innerHTML = W.chat.map(v => `<div style="margin:4px 0"><b>${COUNTRIES[v.c] ? COUNTRIES[v.c].f : ''} ${esc(v.n)}${v.r === 'elci' ? ' (elçi)' : ''}:</b> ${esc(v.m)}</div>`).join('') || '<p style="opacity:.7">Henüz kimse yazmadı. İlk sözü sen söyle!</p>';
+  box.scrollTop = 1e9;
+}
+function zirveMenu() {
+  if (!W.on) { worldInit(); return toast('🏛 Zirveye bağlanılıyor… Birkaç saniye sonra tekrar dene. Olmazsa yöneticiden zirve anahtarı iste.', 5000); }
+  modalEl.style.display = 'flex'; zirveOpen = true;
+  mcard.innerHTML = `<h2>🏛 Cumhurbaşkanları Zirvesi</h2><div id="zList" style="max-height:45vh;overflow:auto;background:#0f1a30;border-radius:12px;padding:10px;font-size:14px"></div>
+    <div style="display:flex;gap:6px;margin-top:8px"><input id="zIn" maxlength="120" placeholder="Zirveye yaz…" style="flex:1;min-width:0"><button class="mi" id="zSend" style="width:auto;padding:0 16px;background:#2e7d32">Gönder</button></div>
+    <div id="mitems"></div><button class="mi" style="justify-content:center;background:#3a4a6b;margin-top:8px" id="mclose">Kapat</button>`;
+  zirveRender();
+  mcard.querySelector('#mclose').onclick = () => { zirveOpen = false; closeModal(); };
+  const send = () => { const v = cleanText((mcard.querySelector('#zIn').value || '').trim().slice(0, 120)); if (!v) return; if ((zirveMenu.last || 0) > now() - 3000) return; zirveMenu.last = now();
+    push(ref(W.db, 'world/chat'), { c: C, n: ME.name, r: isCB() ? 'cb' : 'elci', m: v, t: now() }).then(() => { mcard.querySelector('#zIn').value = ''; zirveRender(); }).catch(() => toast('Gönderilemedi')); };
+  mcard.querySelector('#zSend').onclick = send; mcard.querySelector('#zIn').onkeydown = e => { if (e.key === 'Enter') send(); };
+}
+
+// ---- elçi ve referandum (kendi ülkesinde)
+function elciMenu() {
+  const cand = Object.entries(others).filter(([id, o]) => o.name && !isCB(id)).slice(0, 40);
+  const items = [];
+  if (ELCI) items.push({ label: `🧳 Şu anki elçi: <b>${esc(ELCI.name)}</b> • görevden al`, fn: () => set(ref(db, 'elci'), null).then(() => say(`🧳 Elçi ${esc(ELCI.name)} görevden alındı`, true)) });
+  cand.forEach(([id, o]) => items.push({ label: `🧳 ${esc(o.name)} • ${esc(o.job || '')}`, fn: () => set(ref(db, 'elci'), { id, name: o.name, t: now() }).then(() => { say(`🧳 Cumhurbaşkanı, <b>${esc(o.name)}</b>'i ${esc(ctryName(C))} elçisi atadı! Zirvede ülkemizi temsil edecek`, true, 'ann'); notify(id, '🧳 Elçi oldun! 👤 menüsünden Zirve\'ye katıl'); }) }));
+  modal('🧳 Elçi ata', items, '<p>Elçi de Cumhurbaşkanları Zirvesi\'ne yazabilir ve savaşı takip eder.</p>');
+}
+function refMenu() {
+  if (REFQ && REFQ.end > now()) return toast('Zaten süren bir referandum var');
+  modal('🗳 Referandum', [{ label: '📢 Halka sor (1 saat)', cls: 'blue', fn: async () => {
+    const q = cleanText((document.getElementById('rq').value || '').trim().slice(0, 80)); if (q.length < 5) return toast('Soruyu yaz');
+    await set(ref(db, 'ref'), { q, by: ME.name, end: now() + 3600000, id: 'r' + Date.now() }); await remove(ref(db, 'refv')).catch(() => { });
+    say(`🗳 <b>REFERANDUM!</b> Cumhurbaşkanı soruyor: “${esc(q)}” • 1 saat içinde 👤 → 🌍 Dünya menüsünden oy ver!`, true, 'ann');
+  } }], '<p>Örn: “Doğuşehir\'e savaş açalım mı?” Herkes Evet/Hayır oy verir, sonuç 1 saat sonra açıklanır.</p><input id="rq" maxlength="80" placeholder="Soru">');
+}
+setInterval(async () => {   // referandum sonucu (cumhurbaşkanının oyunu açıklar)
+  if (!ME || !isCB() || !REFQ || REFQ.done || REFQ.end > now()) return;
+  const r = await runTransaction(ref(db, 'ref/done'), x => x ? undefined : 1).catch(() => null); if (!r || !r.committed) return;
+  const v = (await get(ref(db, 'refv'))).val() || {}; let e = 0, h = 0; Object.values(v).forEach(x => x ? e++ : h++);
+  say(`🗳 <b>Referandum sonucu:</b> “${esc(REFQ.q)}” → ✅ Evet ${e} • ❌ Hayır ${h} • <b>${e > h ? 'HALK EVET DEDİ!' : e < h ? 'HALK HAYIR DEDİ!' : 'BERABERE!'}</b>`, true, 'ann');
+  wnews(`🗳 ${esc(ctryName(C))} halkı “${esc(REFQ.q)}” sorusuna ${e > h ? 'EVET' : e < h ? 'HAYIR' : 'berabere'} dedi (${e}-${h})`);
+}, 60000);
+
+// ---- herkes için: 🌍 Dünya menüsü
+async function worldMenu() {
+  let st = {}; try { st = (await get(ref(db, 'wstats'))).val() || {}; } catch (e) { }
+  const rows = Object.keys(COUNTRIES).map(Number).filter(ctryOn).map(c => ({ c, s: st[c] || {} })).sort((a, b) => ((b.s.wins || 0) - (a.s.wins || 0)) || ((b.s.kasa || 0) - (a.s.kasa || 0)));
+  const t = now(), items = [];
+  if (REFQ && REFQ.end > t) {
+    let mine = null; try { mine = (await get(ref(db, 'refv/' + myId))).val(); } catch (e) { }
+    if (mine == null) items.push({ label: `🗳 “${esc(REFQ.q)}” → ✅ Evet`, cls: 'blue', fn: () => set(ref(db, 'refv/' + myId), true).then(() => toast('🗳 Oyun kaydedildi')) }, { label: `🗳 “${esc(REFQ.q)}” → ❌ Hayır`, fn: () => set(ref(db, 'refv/' + myId), false).then(() => toast('🗳 Oyun kaydedildi')) });
+    else items.push({ label: `🗳 Referandumda oy verdin (${mine ? 'Evet' : 'Hayır'})`, disabled: true });
+  }
+  if (isEnvoy()) items.unshift({ label: '🏛 Zirveye git', cls: 'blue', fn: zirveMenu });
+  const war = WAR && WAR.end > t ? WAR : null, en = war ? (war.a === C ? war.b : war.a) : 0;
+  const rel = Object.entries(REL).filter(([k, v]) => v && k.split('_').map(Number).includes(C)).map(([k, v]) => { const o = k.split('_').map(Number).find(x => x !== C); return `${v.t === 'ittifak' ? '🤝 İttifak' : v.t === 'ambargo' ? '🚫 Ambargo' : '📨 İttifak teklifi'}: ${esc(ctryName(o))}`; });
+  modal('🌍 Dünya', items, `<p><b>🏆 Ülke sıralaması</b></p>${rows.map((r, i) => `<div style="margin:3px 0">${['🥇', '🥈', '🥉'][i] || ''} ${COUNTRIES[r.c].f} <b>${esc(ctryName(r.c))}</b>${r.c === C ? ' (sen)' : ''} • 🏆 ${r.s.wins || 0} zafer • 🏛 ${(r.s.kasa || 0).toLocaleString('tr')} 💰 • 👥 ${r.s.pop || '?'}<br><small style="opacity:.75">Cumhurbaşkanı: ${esc(r.s.cb || 'yok')}</small></div>`).join('')}
+    ${war ? `<p style="background:#5a1a1a;padding:8px;border-radius:10px">⚔️ <b>${esc(ctryName(en))} ile SAVAŞTAYIZ!</b><br>Skor: ${esc(ctryName(C))} ${(war.sc || {})[C] || 0} - ${(war.sc || {})[en] || 0} ${esc(ctryName(en))}<br>⏳ ${Math.ceil((war.end - t) / 3600000)} saat kaldı • Her mesai ve yakalama +1 puan!</p>` : ''}
+    ${rel.length ? `<p>${rel.join('<br>')}</p>` : ''}
+    ${WNEWS.length ? `<p><b>📰 Dünya haberleri</b><br>${WNEWS.slice().reverse().map(n => '• ' + n.h).join('<br>')}</p>` : ''}
+    <p style="font-size:12px;opacity:.7">⚽ Dünya Kupası stadyum açılınca gelecek!</p>`);
+}
+
+// ---- yönetici: zirve anahtarları
+const rk = () => Array.from(crypto.getRandomValues(new Uint8Array(12)), b => 'abcdefghijkmnpqrstuvwxyz23456789'[b % 32]).join('');
+async function setWorldKey(c) {
+  if (!DBS[1] || !DBS[c]) throw { message: `Önce ${ctryName(1)} ve ${ctryName(c)}'e bağlan` };
+  const k = rk();
+  await set(ref(DBS[1].db, 'world/keys/' + c), k);
+  await set(ref(DBS[c].db, 'cbkey'), k);
+  await set(ref(DBS[1].db, 'world/seat/' + c), null).catch(() => { });
+  return k;
+}
+async function worldKeysAll() {
+  const done = [];
+  for (const c of Object.keys(COUNTRIES).map(Number).filter(ctryOn)) { try { await setWorldKey(c); done.push(ctryName(c)); } catch (e) { } }
+  alert(done.length ? `🔑 Zirve anahtarları verildi: ${done.join(', ')}\nCumhurbaşkanları oyuna girince zirveye otomatik bağlanır.` : 'Önce panelden diğer ülkelere 🔌 bağlan (1. ülkenin panelinde ol).');
+}
+
 // ================= EVENTS =================
 const EV_NAMES = { yangin: '🔥 YANGIN', soygun: '🚨 SOYGUN', festival: '🎉 FESTİVAL' };
 function evStart() { if (EV && !EV.done) { const b = evB(); toast(`${EV_NAMES[EV.type]}${b ? ' — ' + b.n : ''}!`, 5000); } }
