@@ -171,7 +171,7 @@ const COUNTRIES = {
 let FULL1 = true; try { FULL1 = localStorage.getItem('kk_full1') !== '0'; } catch (e) { }   // Komşukent dolu mu: yönetici panelden açar/kapatır (pub/full1)
 const C = (() => { let c = 0; try { const u = +new URLSearchParams(location.search).get('c'), st = +localStorage.getItem('kk_c'), known = !!(localStorage.getItem('kk_me') || localStorage.getItem('kk_id')); c = u || (known ? st : 0) || (FULL1 ? 2 + Math.floor(Math.random() * 2) : 1); } catch (e) { c = 1; } if (!COUNTRIES[c] || !COUNTRIES[c].cfg) c = 1; try { localStorage.setItem('kk_c', String(c)); } catch (e) { } return c; })();
 const FB = {};
-const APP_V = '2026112108';
+const APP_V = '2026112109';
 let CAP = 0;   // bump on every upload (yyyymmddNN)
 const ADMIN = location.hash === '#yonetim';
 let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off, orderByChild, equalTo;
@@ -216,10 +216,10 @@ const BUILD = [
   // sahil şeridi (doğu)
   { id: 'tarla', n: 'Tarlalar', jobs: ['Çiftçi'], c: '#6d4c2f', r: '#5d8a2c', x: 98.8, y: 2.6, w: 13.4, h: 21, H: 0.3, open: true, noShift: true },
   { id: 'maden', n: 'Maden Ocağı', jobs: ['Madenci'], c: '#6d5d4b', r: '#3e3328', x: 101, y: 27.5, w: 8, h: 6, H: 3.4 },
-  { id: 'cumhur', n: 'Cumhurbaşkanlığı', jobs: ['Koruma', 'Güvenlik Görevlisi'], c: '#f8f5ec', r: '#c9a227', x: 102.5, y: 39, w: 7, h: 4.5, H: 5.6 },
+  { id: 'cumhur', n: 'Cumhurbaşkanlığı', jobs: ['Koruma', 'Güvenlik Görevlisi'], c: '#f8f5ec', r: '#c9a227', x: 102.5, y: 87, w: 7, h: 4.5, H: 5.6 },
   { id: 'fabrika', n: 'Fabrika', jobs: ['Fabrika İşçisi'], c: '#aeb6bf', r: '#2c3e50', x: 100, y: 51, w: 10, h: 7, H: 4.8 },
   { id: 'liman', n: 'Liman', jobs: ['Liman İşçisi'], c: '#2f6f8f', r: '#f39c12', x: 100.5, y: 63, w: 7, h: 6, H: 3.6 },
-  { id: 'cankurtaran', n: 'Cankurtaran', jobs: ['Cankurtaran'], c: '#e74c3c', r: '#ffffff', x: 116, y: 40, w: 2.6, h: 2.6, H: 3.6 },
+  { id: 'cankurtaran', n: 'Cankurtaran', jobs: ['Cankurtaran'], c: '#e74c3c', r: '#ffffff', x: 116, y: 88, w: 2.6, h: 2.6, H: 3.6 },
 ].map(b => Object.assign({ w: 6, h: 6, H: 3.4 }, b));
 const BMAP = Object.fromEntries(BUILD.map(b => [b.id, b]));
 const ROLES = {
@@ -379,10 +379,10 @@ async function enter2(mode) {
       try { localStorage.removeItem('kk_tcode'); } catch (e) { }
     }
     prev = prev || {};
-    const job = JOBS.includes(prev.job) ? prev.job : 'İşsiz';
+    const job = JOBS.includes(prev.job) || prev.job === 'Cumhurbaşkanı' ? prev.job : 'İşsiz';
     ME = { name, job, color: myColor, money: prev.money ?? (isG ? 300 : 100), energy: prev.energy ?? 100, home: prev.home ?? null, shop: prev.shop ?? null,
       acc: prev.acc || {}, wear: prev.wear || {}, m: prev.m || {}, inv: prev.inv || {}, veh: prev.veh || {}, q: prev.q || {}, lvl: prev.lvl || 0, sick: prev.sick || 0,
-      play: prev.play || 0, pleft: prev.pleft || 0, jobDay: prev.jobDay || '', payDay: prev.payDay || '', jobChanged: prev.jobChanged || 0, jx: prev.jxv === 1 ? (prev.jx || 0) : (prev.jx || 0) + 1, jxv: 1, pet: prev.pet || null, bio: prev.bio || '', gocUsed: prev.gocUsed || 0, cbPd: prev.cbPd || '', kd: undefined, stealDay: prev.stealDay || null, islah: prev.islah || 0, islahN: prev.islahN || 0, pd: prev.pd || {}, joined: prev.joined || now(), taxDay: prev.taxDay || '', drive: null, inside: null, bag: 0,
+      play: prev.play || 0, pleft: prev.pleft || 0, jobDay: prev.jobDay || '', payDay: prev.payDay || '', jobChanged: prev.jobChanged || 0, jx: prev.jxv === 1 ? (prev.jx || 0) : (prev.jx || 0) + 1, jxv: 1, pet: prev.pet || null, bio: prev.bio || '', gocUsed: prev.gocUsed || 0, cbPd: prev.cbPd || '', preJob: prev.preJob || '', kd: undefined, stealDay: prev.stealDay || null, islah: prev.islah || 0, islahN: prev.islahN || 0, pd: prev.pd || {}, joined: prev.joined || now(), taxDay: prev.taxDay || '', drive: null, inside: null, bag: 0,
       x: prev.x ?? (SPAWN.x + (Math.random() - .5) * 200), y: prev.y ?? SPAWN.y, wanted: 0, jail: 0, ride: null };
     if (blocked(ME.x, ME.y) || ME.x > XMAX || ME.y > WORLD || (prev.v || 0) < 3) { ME.x = SPAWN.x + (Math.random() - .5) * 200; ME.y = SPAWN.y; }
     try { localStorage.setItem('kk_me', JSON.stringify({ name, job, color: myColor })); } catch (e) { }
@@ -417,7 +417,7 @@ function hud() {
   if (!ME) return;
   const r = myRole();
   document.getElementById('me').onclick = accountMenu;
-  document.getElementById('me').textContent = '@' + ME.name + ' • ' + (r ? '👑 ' + ROLES[r].n : ME.job);
+  document.getElementById('me').textContent = '@' + ME.name + ' • ' + (r ? '👑 ' + ROLES[r].n : ME.job === 'Cumhurbaşkanı' ? '🏛 Cumhurbaşkanı' : ME.job);
   document.getElementById('money').textContent = '💰 ' + Math.floor(ME.money);
   document.getElementById('energy').textContent = (ME.sick ? '🤒 ' : '⚡ ') + Math.floor(ME.energy);
   document.getElementById('online').textContent = '🟢 ' + (Object.values(others).filter(o => o.name && live(o)).length + 1);
@@ -427,7 +427,7 @@ setInterval(() => { document.getElementById('clock').textContent = (isNight() ? 
 // ================= REALTIME =================
 function listenCommon() {
   if (listenCommon.done) return; listenCommon.done = 1;
-  onValue(ref(db, 'cb'), s => { CB = s.val(); setTimeout(worldInit, 800); });
+  onValue(ref(db, 'cb'), s => { CB = s.val(); setTimeout(worldInit, 800); setTimeout(cbJobSync, 1200); });
   listenWorldLocal();
   setTimeout(watchMoved, 1500); setTimeout(worldInit, 6000);
   const oref = ref(db, 'online');
@@ -920,12 +920,13 @@ function afterLogin() {
 // players list (admin + mods)
 async function playersMenu() {
   const all = (await get(ref(db, 'players'))).val() || {}, day = new Date().toISOString().slice(0, 10);
-  const rows = Object.entries(all).filter(([id, p]) => p && p.name).map(([id, p]) => ({ id, p, on: (!!others[id] && live(others[id])) || id === myId, today: ((p.pd || {})[day] || 0) / 60000, tot: (p.play || 0) / 3600000 }))
+  const movedN = Object.values(all).filter(p => p && p.name && p.moved).length;
+  const rows = Object.entries(all).filter(([id, p]) => p && p.name && !p.moved).map(([id, p]) => ({ id, p, on: (!!others[id] && live(others[id])) || id === myId, today: ((p.pd || {})[day] || 0) / 60000, tot: (p.play || 0) / 3600000 }))
     .sort((a, b) => (b.on - a.on) || (b.today - a.today) || (b.tot - a.tot));
   const TOTAL = rows.length;
   const devN = {}; Object.values(all).forEach(p => { if (p && p.dev) devN[p.dev] = (devN[p.dev] || 0) + 1; });
   mcard.className = 'card shop';
-  mcard.innerHTML = `<h2>👥 Oyuncular (${rows.filter(r => r.on).length} çevrimiçi / toplam ${TOTAL} kayıtlı)</h2><table class="pl"><tr><td></td><td><b>Oyuncu</b></td><td><b>Bugün</b></td><td><b>Toplam</b></td><td><b>Katıldı</b></td><td></td></tr>` +
+  mcard.innerHTML = `<h2>👥 Oyuncular (${rows.filter(r => r.on).length} çevrimiçi / ${TOTAL} kayıtlı${movedN ? ` • 🌍 ${movedN} taşındı` : ''})</h2><table class="pl"><tr><td></td><td><b>Oyuncu</b></td><td><b>Bugün</b></td><td><b>Toplam</b></td><td><b>Katıldı</b></td><td></td></tr>` +
     rows.map((r, i) => `<tr data-nm="${esc(fold((r.p.name || '').toLocaleLowerCase('tr')))}"${i >= 300 ? ' style="display:none" data-more="1"' : ''}><td>${IS_ADMIN && Object.keys(COUNTRIES).length > 1 ? `<input type="checkbox" data-sel="${r.id}" style="width:22px;height:22px"> ` : ''}${r.on ? '🟢' : '⚪'}</td><td data-pm="${r.id}" style="cursor:pointer;text-decoration:underline dotted">${mods[r.id] ? '🛡 ' : ''}${esc(r.p.name)}${r.p.dev && devN[r.p.dev] > 1 ? ' <span title="aynı cihaz">⚠️</span>' : ''}<br><span style="opacity:.6">${esc(r.p.job || '')}</span></td><td>${Math.round(r.today)} dk</td><td>${r.tot.toFixed(1)} sa</td><td>${r.p.joined ? new Date(r.p.joined).toLocaleDateString('tr') : '-'}</td><td>${IS_ADMIN && r.id !== myId ? `<button data-m="${r.id}" style="padding:5px 8px;font-size:12px;background:${mods[r.id] ? '#c0392b' : '#2aa05a'}">${mods[r.id] ? 'Mod al' : 'Mod yap'}</button>${IS_ADMIN && r.id !== myId ? `<button data-del="${r.id}" style="padding:5px 8px;font-size:12px;background:#7f1d1d;margin-left:4px">🗑</button>${IS_ADMIN ? `<button data-cb="${r.id}" style="padding:5px 8px;font-size:12px;background:#b8860b;margin-left:4px">🏛</button>` : ''}` : ''}` : ''}</td></tr>`).join('') + '</table><button class="mi" style="justify-content:center;background:#3a4a6b" id="mclose">Kapat</button>';
   mcard.querySelectorAll('[data-m]').forEach(b => b.onclick = async () => { const id = b.dataset.m; if (mods[id]) await remove(ref(db, 'mods/' + id)); else { await set(ref(db, 'mods/' + id), { name: all[id].name, t: now() }); say(`🛡 <b>${esc(all[id].name)}</b> artık moderatör!`, true, 'ann'); } setTimeout(playersMenu, 400); });
   mcard.querySelectorAll('[data-cb]').forEach(b => b.onclick = () => { const id = b.dataset.cb; cbAdminMenu(id, all[id].name); });
@@ -1746,7 +1747,8 @@ function listenParties() {
 // ================= MESLEK SEÇİMİ • YENİ MESLEKLER • YETKİLER =================
 const JOB_E = { Petshopçu: '🐾', Memur: '🗂', Emlakçı: '🏡', Marketçi: '🛒', Kasiyer: '🧾', Kasap: '🥩', Manav: '🍎', Fırıncı: '🥖', Pastacı: '🎂', Hakim: '⚖️', Savcı: '📜', Avukat: '💼', Doktor: '🩺', Hemşire: '💉', Eczacı: '💊', Veteriner: '🐶', Polis: '👮', Asker: '🪖', Jandarma: '🚓', Öğretmen: '📚', Tamirci: '🔧', Kaportacı: '🔨', Elektrikçi: '💡', Galerici: '🚗', İnşaatçı: '🏗', Kuaför: '💇', Berber: '💈', Manikürcü: '💅', İtfaiyeci: '🚒', İmam: '🕌', 'AVM Çalışanı': '🏬', Garson: '🍽', Aşçı: '👨‍🍳', 'Güvenlik Görevlisi': '🛡', Taksici: '🚕', Hırsız: '🦹', Dolandırıcı: '🃏', Şarkıcı: '🎤', Influencer: '🤳', Youtuber: '📹', Kuryeci: '📦', Çöpçü: '🧹', Gazeteci: '📰', Futbolcu: '⚽', Bekçi: '🔦' };
 async function jobPicker(change) {
-  if (!ME) return; change = ME.job !== 'İşsiz'; if (change && ME.jobChanged && !(ME.jx > 0)) return toast('Meslek değiştirme hakkını kullandın');
+  if (!ME) return; if (isCB() || ME.job === 'Cumhurbaşkanı') return toast('🏛 Cumhurbaşkanının mesleği yok, tek işi ülkeyi yönetmek');
+  change = ME.job !== 'İşsiz'; if (change && ME.jobChanged && !(ME.jx > 0)) return toast('Meslek değiştirme hakkını kullandın');
   const today = new Date().toDateString(), cost = 0;
   const on = (await get(ref(db, 'online')).catch(() => null))?.val() || {};
   const cnt = j => Object.entries(on).filter(([id, v]) => id !== myId && v && v.job === j).length;
@@ -2117,7 +2119,7 @@ const UNI = {
   Hakim: { sh: '#111111', coat: '#111111' }, Savcı: { sh: '#111111', coat: '#7b1e1e' }, Avukat: { sh: '#1c1c1c' }, İtfaiyeci: { sh: '#c0392b', h: 'itfaiye' },
   Aşçı: { sh: '#f4f4f4', h: 'asci' }, Pastacı: { sh: '#f4f4f4', h: 'asci' }, Fırıncı: { sh: '#f4f4f4', h: 'asci' }, Garson: { sh: '#fdfdfd' }, İnşaatçı: { sh: '#f39c12', h: 'baret' },
   Çöpçü: { sh: '#e67e22' }, Petshopçu: { sh: '#e67e22' }, Kuryeci: { sh: '#f1c40f', h: 'kep2' }, Futbolcu: { sh: '#27ae60' }, İmam: { sh: '#ecf0f1', h: 'takke' }, Tamirci: { sh: '#2471a3' },
-  Çiftçi: { sh: '#6b8e23', h: 'kep2' }, Madenci: { sh: '#5d4037', h: 'baret' }, 'Fabrika İşçisi': { sh: '#2471a3', h: 'baret' }, 'Liman İşçisi': { sh: '#e67e22', h: 'baret' }, Koruma: { sh: '#111111', coat: '#111111' }, Cankurtaran: { sh: '#e74c3c', h: 'kep2' },
+  Cumhurbaşkanı: { sh: '#ffffff', coat: '#1b2a49' }, Çiftçi: { sh: '#6b8e23', h: 'kep2' }, Madenci: { sh: '#5d4037', h: 'baret' }, 'Fabrika İşçisi': { sh: '#2471a3', h: 'baret' }, 'Liman İşçisi': { sh: '#e67e22', h: 'baret' }, Koruma: { sh: '#111111', coat: '#111111' }, Cankurtaran: { sh: '#e74c3c', h: 'kep2' },
 };
 function uniformAcc(m, job, wear) {
   const U = UNI[job]; if (!U || (wear && wear.ck)) return; const a = m.acc, free = !(wear && wear.h);
@@ -2783,13 +2785,13 @@ async function transferPlayer(src, uid, to, role, cache) {
   const rl = (await get(ref(S, 'roles'))).val() || {};
   for (const [r, h] of Object.entries(rl)) if (h && h.id === uid) upd['roles/' + r] = null;
   const cbS = (await get(ref(S, 'cb'))).val(); if (cbS && cbS.id === uid) upd['cb'] = null;
-  const pkg = { name: p.name || 'Komşu', job: p.job || 'İşsiz', money: Math.floor((p.money || 0) + refund), energy: p.energy ?? 100, acc: p.acc || null, wear: p.wear || null, m: p.m || null,
+  const pkg = { name: p.name || 'Komşu', job: p.job === 'Cumhurbaşkanı' ? (p.preJob || 'İşsiz') : (p.job || 'İşsiz'), money: Math.floor((p.money || 0) + refund), energy: p.energy ?? 100, acc: p.acc || null, wear: p.wear || null, m: p.m || null,
     inv: p.inv || null, veh: p.veh || null, lvl: p.lvl || 0, pet: p.pet || null, bio: p.bio || '', jobChanged: p.jobChanged || 0, jx: p.jx || 0, color: p.color || null, from: src, to, role: role || null, t: Date.now(),
     plots: kept.length ? kept : null, home: kept.includes(p.home) ? p.home : null, shop: kept.includes(p.shop) ? p.shop : (kept.find(k => tp[k].type !== 'ev') || null) };
   await set(ref(T, 'transfers/' + code), pkg);
   if (kept.length) await update(ref(T), tupd).catch(() => { });
   Object.assign(upd, { ['players/' + uid + '/moved']: { to, code, t: Date.now() }, ['players/' + uid + '/money']: 0, ['players/' + uid + '/gocUsed']: 1,
-    ['players/' + uid + '/home']: null, ['players/' + uid + '/shop']: null, ['goc/' + uid]: null, ['mods/' + uid]: role === 'cb' ? null : undefined });
+    ['players/' + uid + '/home']: null, ['players/' + uid + '/shop']: null, ['goc/' + uid]: null, ['online/' + uid]: null, ['mods/' + uid]: role === 'cb' ? null : undefined });
   if (upd['mods/' + uid] === undefined) delete upd['mods/' + uid];
   await update(ref(S), upd);
   push(ref(S, 'log'), { h: `🌍 <b>${esc(pkg.name)}</b> ${esc(ctryName(to))} ülkesine göç etti`, k: 'sys', t: serverTimestamp() }).catch(() => { });
@@ -3218,9 +3220,9 @@ const SEA_X = 121, BEACH_X = 114.6, XMAX = 150 * T - 10;
 const PIER = { x: 114.6, y: 74.6, w: 20, h: 2 };
 const SHIP = { x: 123.6, y: 77.2, w: 11, h: 3.6 };
 const XBLK = [
-  { x: 99.6, y: 39.4, w: 2.9, h: 3.9 }, { x: 109.5, y: 39.4, w: 2.8, h: 3.9 },     // saray kanatları
-  { x: 99.4, y: 44.4, w: 3.2, h: 2.6 }, { x: 105.3, y: 45, w: 1.4, h: 1.4 },       // havuz, fıskiye
-  { x: 103.4, y: 47.1, w: 0.9, h: 0.9 }, { x: 107.7, y: 47.1, w: 0.9, h: 0.9 },     // güvenlik kulübeleri
+  { x: 99.6, y: 87.4, w: 2.9, h: 3.9 }, { x: 109.5, y: 87.4, w: 2.8, h: 3.9 },     // saray kanatları
+  { x: 99.4, y: 92.4, w: 3.2, h: 2.6 }, { x: 105.3, y: 93, w: 1.4, h: 1.4 },       // havuz, fıskiye
+  { x: 103.4, y: 95.1, w: 0.9, h: 0.9 }, { x: 107.7, y: 95.1, w: 0.9, h: 0.9 },     // güvenlik kulübeleri
   { x: 108.6, y: 64, w: 3.4, h: 5 }, SHIP,                                          // konteynerler, gemi
 ];
 const onPier = (x, y) => inside(PIER, x, y);
@@ -3430,7 +3432,6 @@ function ecoActs(L, b, t) {
   if (b && b.id === 'fabrika' && ME.inside !== 'fabrika') L.push({ label: '🏭 Fabrika mağazası (yerli ürünler)', cls: 'blue', fn: fabShopMenu });
   if (b && b.id === 'liman' && ME.inside !== 'liman') L.push({ label: '📈 Borsa', cls: 'blue', fn: borsaMenu });
   if (b && b.id === 'cumhur' && ME.inside !== 'cumhur') L.push({ label: isCB() ? '🏛 Makamına geç' : '🏛 Cumhurbaşkanlığı', cls: 'blue', fn: isCB() ? cbMenu : cumhurInfo });
-  if (b && isCB() && b.jobs.includes(ME.job)) L.push({ label: '🏛 Cumhurbaşkanı mesai yapmaz (günde 300 💰 maaş)', cls: 'gray' });
   if (ME.sw) L.push({ label: '🏖 Kıyıya çık', cls: 'blue', fn: () => { ME.x = (SEA_X - 1.2) * T; sendPos(true); } });
   else if (nearShore() && ECOCFG.swim !== false) L.push({ label: '🏊 Denize gir • yüz', cls: 'blue', fn: () => { ME.swimOk = 1; if (ME.drive) { ME.drive = null; pub({ drive: null }); } ME.x = (SEA_X + 1.5) * T; sendPos(true); toast('🏊 Yüzüyorsun! Çok açılma, dikkat et 🌊', 3000); } });
   if (onBeach() && !ME.sw) L.push({ label: '🏖 Güneşlen (+15⚡)', disabled: ME.energy >= 100, fn: () => startTask('rest', 20000, () => onBeach(), () => { ME.energy = Math.min(100, ME.energy + 15); hud(); saveMe(); toast('😎 Bronzlaştın! +15⚡'); }, '🏖 Güneşleniyor') });
@@ -3448,9 +3449,20 @@ function ecoFrame() {
   if (w && !ME.sw) { ME.sw = 1; ME.swimOk = 1; if (ME.drive) { ME.drive = null; pub({ drive: null }); } pub({ sw: 1 }); }
   else if (!w && ME.sw) { ME.sw = 0; ME.swimOk = 0; pub({ sw: null }); }
 }
+function cbJobSync() {
+  if (!ME || !db || !myId) return;
+  if (isCB() && ME.job !== 'Cumhurbaşkanı') { ME.preJob = ME.job; ME.job = 'Cumhurbaşkanı'; }
+  else if (!isCB() && CB !== undefined && ME.job === 'Cumhurbaşkanı') ME.job = ME.preJob || 'İşsiz';
+  else return;
+  if (task && task.kind === 'work') task = null; if (ME.inside) goInside(null);
+  pub({ job: ME.job }); update(ref(db, 'players/' + myId), { job: ME.job, preJob: ME.preJob || '' }).catch(() => { });
+  try { localStorage.setItem('kk_me', JSON.stringify({ name: ME.name, job: ME.job, color: ME.color })); } catch (e) { }
+  hud(); toast(ME.job === 'Cumhurbaşkanı' ? '🏛 Artık mesleğin yok: tek işin ülkeyi yönetmek. Maaşın günde 300 💰' : '👔 Eski mesleğine döndün: ' + ME.job, 5000);
+}
 function ecoTick() {
   if (!ME || !db || !myId) return;
   const t = now();
+  if ((ecoTick.n = (ecoTick.n || 0) + 1) % 10 === 1) cbJobSync();
   if (!ecoTick.sub) {
     ecoTick.sub = 1;
     onValue(ref(db, 'online/' + myId + '/saved'), s => {
@@ -3526,7 +3538,10 @@ function ecoDeco(b, bg, bx, after) {
     ecoSign(bg, '⛏ MADEN OCAĞI', '#3e3328', '#ffd23f', cx, 2.95, b.y + b.h + 0.22, 3.2);
     addOcc(bg, b.x, b.x + b.w, b.y, b.y + b.h + 2, H + 1); return true;
   }
-  if (!after && b.id === 'cumhur') {
+  if (!after && b.id === 'cumhur') {   // saray eski koordinatlarla çizilir, grup 48 karo öne kaydırılır
+    const DZ = 48, outer = bg; bg = new THREE.Group(); bg.position.z = DZ; outer.add(bg);
+    bx = (w, h, d, c, x, y, z, p, cast, m) => box(w, h, d, c, x, y, z, bg, cast, m);
+    b = Object.assign({}, b, { y: b.y - DZ }); const cz = b.y + b.h / 2;
     const X0 = 98.6, X1 = 112.2, Z0 = 38.4, Z1 = 48;
     bx(X1 - X0, 0.05, Z1 - Z0, '#5cbf60', (X0 + X1) / 2, 0.03, (Z0 + Z1) / 2, null, false);
     bx(1.8, 0.07, Z1 - 43.5, '#efe7d6', 106, 0.05, (43.5 + Z1) / 2, null, false); bx(5.6, 0.07, 1.4, '#efe7d6', 106, 0.05, 44.2, null, false);
@@ -3568,7 +3583,7 @@ function ecoDeco(b, bg, bx, after) {
     [[99.3, 39], [112, 39], [99.3, 47.4], [112, 47.4], [104.4, 44.4], [107.6, 44.4], [104.4, 47], [107.6, 47]].forEach(([lx, lz]) => { bx(0.1, 2.4, 0.1, '#1b2a49', lx, 1.2, lz); bx(0.32, 0.32, 0.32, '', lx, 2.5, lz, null, false, lampMat); });
     [[103, 44.1], [109, 44.1]].forEach(([lx, lz]) => bx(0.35, 0.2, 0.35, '', lx, 0.12, lz, null, false, lampMat));
     for (let i = 0; i < 5; i++) { const tr = new THREE.Mesh(new THREE.SphereGeometry(0.55, 8, 6), mat('#2e7d32')); tr.position.set(110.3 + (i % 2) * 1.1, 0.75, 44.6 + i * 0.55); tr.castShadow = true; bg.add(tr); }
-    addOcc(bg, 99.4, 112.3, 38.6, 44.4, H + 4); return true;
+    addOcc(outer, 99.4, 112.3, 38.6 + DZ, 44.4 + DZ, H + 4); return true;
   }
   if (!after && b.id === 'cankurtaran') {
     for (const [dx, dz] of [[0.3, 0.3], [2.3, 0.3], [0.3, 2.3], [2.3, 2.3]]) bx(0.14, 2, 0.14, '#ffffff', b.x + dx, 1, b.y + dz);
@@ -3617,7 +3632,7 @@ function ecoWorld3D(o) {
   // palmiyeler, şemsiyeler, şezlonglar
   const tr = mat('#8d6e3f'), lf = mat('#2e9e4f'), cols = ['#e74c3c', '#f1c40f', '#3498db', '#ff6fb5', '#2ecc71'];
   for (let i = 0; i < 26; i++) {
-    const z = 4 + i * 3.6 + (i % 3) * 0.7; if (z > 72 && z < 82) continue; if (z > 38.5 && z < 44) continue;
+    const z = 4 + i * 3.6 + (i % 3) * 0.7; if (z > 72 && z < 82) continue; if (z > 86.5 && z < 92.5) continue;
     if (i % 2 === 0) {
       const x = 115.3 + (i % 4 === 0 ? 0 : 0.6), t = cyl(0.12, 0.17, 3.2, '', x, 1.6, z, null, 6, tr); t.rotation.z = 0.12;
       for (let k = 0; k < 5; k++) { const l = box(1.6, 0.06, 0.45, '', x + 0.2 + Math.cos(k * 1.26) * 0.7, 3.15, z + Math.sin(k * 1.26) * 0.7, null, true, lf); l.rotation.y = -k * 1.26; l.rotation.z = -0.35; }
