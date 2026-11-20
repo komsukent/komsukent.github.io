@@ -171,7 +171,7 @@ const COUNTRIES = {
 const FULL1 = true;   // Komşukent dolu: yeni gelenler diğer ülkelere yönlendirilir
 const C = (() => { let c = 0; try { const u = +new URLSearchParams(location.search).get('c'), st = +localStorage.getItem('kk_c'), known = !!(localStorage.getItem('kk_me') || localStorage.getItem('kk_id')); c = u || (known ? st : 0) || (FULL1 ? 2 + Math.floor(Math.random() * 2) : 1); } catch (e) { c = 1; } if (!COUNTRIES[c] || !COUNTRIES[c].cfg) c = 1; try { localStorage.setItem('kk_c', String(c)); } catch (e) { } return c; })();
 const FB = {};
-const APP_V = '2026112104';
+const APP_V = '2026112105';
 let CAP = 0;   // bump on every upload (yyyymmddNN)
 const ADMIN = location.hash === '#yonetim';
 let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off, orderByChild, equalTo;
@@ -213,6 +213,13 @@ const BUILD = [
   { id: 'petshop', n: 'Petshop', jobs: ['Petshopçu'], c: '#fff3e0', r: '#e67e22', ...BP(2, 7), H: 3 },
   { id: 'veteriner', n: 'Veteriner Kliniği', jobs: ['Veteriner'], c: '#e8fff4', r: '#16a085', ...BP(4, 7), H: 3.2 },
   { id: 'avm', n: 'KOMŞU AVM', jobs: ['AVM Çalışanı', 'Garson', 'Aşçı', 'Güvenlik Görevlisi'], c: '#dfe6ee', r: '#6c3483', x: 51, y: 3, w: 8, h: 8, H: 8.2 },
+  // sahil şeridi (doğu)
+  { id: 'tarla', n: 'Tarlalar', jobs: ['Çiftçi'], c: '#6d4c2f', r: '#5d8a2c', x: 98.8, y: 2.6, w: 13.4, h: 21, H: 0.3, open: true, noShift: true },
+  { id: 'maden', n: 'Maden Ocağı', jobs: ['Madenci'], c: '#6d5d4b', r: '#3e3328', x: 101, y: 27.5, w: 8, h: 6, H: 3.4 },
+  { id: 'cumhur', n: 'Cumhurbaşkanlığı', jobs: ['Koruma', 'Güvenlik Görevlisi'], c: '#f8f5ec', r: '#c9a227', x: 102.5, y: 39, w: 7, h: 4.5, H: 5.6 },
+  { id: 'fabrika', n: 'Fabrika', jobs: ['Fabrika İşçisi'], c: '#aeb6bf', r: '#2c3e50', x: 100, y: 51, w: 10, h: 7, H: 4.8 },
+  { id: 'liman', n: 'Liman', jobs: ['Liman İşçisi'], c: '#2f6f8f', r: '#f39c12', x: 100.5, y: 63, w: 7, h: 6, H: 3.6 },
+  { id: 'cankurtaran', n: 'Cankurtaran', jobs: ['Cankurtaran'], c: '#e74c3c', r: '#ffffff', x: 116, y: 40, w: 2.6, h: 2.6, H: 3.6 },
 ].map(b => Object.assign({ w: 6, h: 6, H: 3.4 }, b));
 const BMAP = Object.fromEntries(BUILD.map(b => [b.id, b]));
 const ROLES = {
@@ -239,7 +246,7 @@ for (let by = 0; by < NBK; by++) for (let bx = 0; bx < NBK; bx++) {
 }
 const PMAP = Object.fromEntries(PLOTS.map(p => [p.k, p]));
 const HOUSE_PRICE = 1500, SHOP_PRICE = 2500, SHIFT_MS = 45000, SHIFT_PAY = 40, SHIFT_E = 20, REST_MS = 20000;
-const JOBPAY = { Hakim: 70, Savcı: 70, Doktor: 70, Avukat: 55, Öğretmen: 55, Eczacı: 55, Veteriner: 55, Polis: 55, Jandarma: 55, Asker: 55, İtfaiyeci: 55, Elektrikçi: 50, Hemşire: 45, Memur: 45, Emlakçı: 45, Tamirci: 45, Kaportacı: 45, Galerici: 45, İnşaatçı: 45, İmam: 45, 'Güvenlik Görevlisi': 45 };
+const JOBPAY = { Hakim: 70, Savcı: 70, Doktor: 70, Avukat: 55, Öğretmen: 55, Eczacı: 55, Veteriner: 55, Polis: 55, Jandarma: 55, Asker: 55, İtfaiyeci: 55, Elektrikçi: 50, Hemşire: 45, Memur: 45, Emlakçı: 45, Tamirci: 45, Kaportacı: 45, Galerici: 45, İnşaatçı: 45, İmam: 45, 'Güvenlik Görevlisi': 45, Çiftçi: 40, Madenci: 50, 'Fabrika İşçisi': 50, 'Liman İşçisi': 45, Koruma: 60, Cankurtaran: 45 };
 const JAIL_MS = 90000, WANTED_MS = 90000, DAY_MS = 60 * 60000;
 const COURT_DOOR = { x: (BMAP.adalet.x + 3) * T, y: (BMAP.adalet.y + 6) * T + 30 }, JAIL_SPOT = { x: (BMAP.polis.x + 3) * T, y: (BMAP.polis.y + 6) * T + 30 };
 const SPAWN = { x: (3 * BLK + 7) * T, y: (4 * BLK + 1) * T };
@@ -372,9 +379,9 @@ async function enter2(mode) {
     const job = JOBS.includes(prev.job) ? prev.job : 'İşsiz';
     ME = { name, job, color: myColor, money: prev.money ?? (isG ? 300 : 100), energy: prev.energy ?? 100, home: prev.home ?? null, shop: prev.shop ?? null,
       acc: prev.acc || {}, wear: prev.wear || {}, m: prev.m || {}, inv: prev.inv || {}, veh: prev.veh || {}, q: prev.q || {}, lvl: prev.lvl || 0, sick: prev.sick || 0,
-      play: prev.play || 0, pleft: prev.pleft || 0, jobDay: prev.jobDay || '', payDay: prev.payDay || '', jobChanged: prev.jobChanged || 0, jx: prev.jxv === 1 ? (prev.jx || 0) : (prev.jx || 0) + 1, jxv: 1, pet: prev.pet || null, bio: prev.bio || '', gocUsed: prev.gocUsed || 0, kd: undefined, stealDay: prev.stealDay || null, islah: prev.islah || 0, islahN: prev.islahN || 0, pd: prev.pd || {}, joined: prev.joined || now(), taxDay: prev.taxDay || '', drive: null, inside: null, bag: 0,
+      play: prev.play || 0, pleft: prev.pleft || 0, jobDay: prev.jobDay || '', payDay: prev.payDay || '', jobChanged: prev.jobChanged || 0, jx: prev.jxv === 1 ? (prev.jx || 0) : (prev.jx || 0) + 1, jxv: 1, pet: prev.pet || null, bio: prev.bio || '', gocUsed: prev.gocUsed || 0, cbPd: prev.cbPd || '', kd: undefined, stealDay: prev.stealDay || null, islah: prev.islah || 0, islahN: prev.islahN || 0, pd: prev.pd || {}, joined: prev.joined || now(), taxDay: prev.taxDay || '', drive: null, inside: null, bag: 0,
       x: prev.x ?? (SPAWN.x + (Math.random() - .5) * 200), y: prev.y ?? SPAWN.y, wanted: 0, jail: 0, ride: null };
-    if (blocked(ME.x, ME.y) || ME.x > WORLD || ME.y > WORLD || (prev.v || 0) < 3) { ME.x = SPAWN.x + (Math.random() - .5) * 200; ME.y = SPAWN.y; }
+    if (blocked(ME.x, ME.y) || ME.x > XMAX || ME.y > WORLD || (prev.v || 0) < 3) { ME.x = SPAWN.x + (Math.random() - .5) * 200; ME.y = SPAWN.y; }
     try { localStorage.setItem('kk_me', JSON.stringify({ name, job, color: myColor })); } catch (e) { }
     devAdd(myId); update(ref(db, 'players/' + myId), { dev: devId() }).catch(() => { });
     if (isG && prev.money == null) setTimeout(() => toast('🎁 Google ile girdiğin için +200 💰 hoş geldin bonusu!', 5000), 3500);
@@ -425,7 +432,7 @@ function listenCommon() {
     if (s.key === myId) return; const v = s.val(); if (!v) return;
     const o = others[s.key] || (others[s.key] = {}); o._seen = Date.now();
     if (v.msg && v.msgT !== o.msgT) o.msgAt = performance.now();
-    Object.assign(o, v); hud();
+    Object.assign(o, v); o.sw = v.sw; o.dr = v.dr; hud();
   };
   onChildAdded(oref, upd); onChildChanged(oref, upd);
   onChildRemoved(oref, s => { delete others[s.key]; hud(); });
@@ -715,11 +722,13 @@ const FOOD = {
   su: { n: 'Su', e: '💧', p: 5, en: 8 }, ekmek: { n: 'Ekmek', e: '🍞', p: 8, en: 12 }, sut: { n: 'Süt', e: '🥛', p: 12, en: 15 }, meyve: { n: 'Meyve', e: '🍎', p: 15, en: 18 },
   simit: { n: 'Simit', e: '🥯', p: 10, en: 12 }, pogaca: { n: 'Poğaça', e: '🥐', p: 12, en: 14 }, pasta: { n: 'Pasta', e: '🎂', p: 60, en: 50 },
   burger: { n: 'Burger', e: '🍔', p: 40, en: 35 }, pizza: { n: 'Pizza', e: '🍕', p: 50, en: 45 }, doner: { n: 'Döner', e: '🌯', p: 45, en: 40 }, dondurma: { n: 'Dondurma', e: '🍦', p: 20, en: 15 },
+  konserve: { n: 'Konserve', e: '🥫', p: 30, en: 40 },
 };
 const CLOTH = {
   kirmizi: { n: 'Kırmızı tişört', e: '👕', p: 120, sh: '#e74c3c' }, beyaz: { n: 'Beyaz gömlek', e: '👔', p: 200, sh: '#f4f4f4' },
   siyah: { n: 'Siyah ceket', e: '🧥', p: 450, sh: '#1c1c1c' }, forma: { n: 'Spor forma', e: '🎽', p: 350, sh: '#f1c40f' },
   mor: { n: 'Mor kapüşonlu', e: '🧥', p: 300, sh: '#8e44ad' }, elbise: { n: 'Pembe elbise', e: '👗', p: 600, sh: '#ff6fb5', dress: 1 },
+  yerli: { n: 'Yerli marka tişört', e: '👕', p: 180, sh: '#16a085' },
 };
 const TECH = {
   telefon: { n: 'Telefon', e: '📱', p: 450, d: 'Kimlerin çevrimiçi olduğunu görürsün' }, kulaklik: { n: 'Kulaklık', e: '🎧', p: 300, d: 'Başında görünür' },
@@ -899,9 +908,9 @@ function afterLogin() {
   const day = new Date().toISOString().slice(0, 10);
   if (ME.taxDay && ME.taxDay !== day) {
     const tax = Math.round((Object.values(ME.veh).reduce((a, v) => a + VEH[v.t].p * 0.02, 0) + (ME.home ? 30 : 0) + myShops() * 60) * Math.max(0.5, Math.min(2, +CITY.tax || 1)));
-    if (tax > 0) { const paid = Math.min(tax, Math.floor(ME.money)); ME.money -= paid; if (paid > 0) runTransaction(ref(db, 'city/kasa'), k => (k || 0) + paid).catch(() => { }); setTimeout(() => toast(`🧾 Günlük vergi kesildi: ${paid} 💰 → belediye kasasına`, 5000), 2500); }
+    if (tax > 0) { const paid = Math.min(tax, Math.floor(ME.money)); ME.money -= paid; if (paid > 0) { const cbP = Math.round(paid * 0.75); runTransaction(ref(db, 'city/cbk'), k => (k || 0) + cbP).catch(() => { }); if (paid - cbP > 0) runTransaction(ref(db, 'city/kasa'), k => (k || 0) + paid - cbP).catch(() => { }); } setTimeout(() => toast(`🧾 Günlük vergi kesildi: ${paid} 💰 (%75 Cumhurbaşkanlığı, %25 belediye)`, 5000), 2500); }
   }
-  ME.taxDay = day; saveMe(); setTimeout(payday, 6000);
+  ME.taxDay = day; saveMe(); setTimeout(payday, 6000); setTimeout(cbPayday, 9000);
   if (auth && auth.currentUser && auth.currentUser.isAnonymous) setTimeout(() => ME && toast('👤 Misafir girdin. Başka cihazda ilerlemen kaybolmasın diye sol üstte adına dokun → <b>Google\'a bağla</b>', 7000), 120000);
   if (!Object.keys(ME.q).length) setTimeout(() => toast('📋 Ne yapacağını bilmiyor musun? Sağdaki 📋 Görevler\'e bak!', 6000), 4000);
 }
@@ -982,7 +991,7 @@ setInterval(() => { const b = document.getElementById('bPl'); if (myId && (IS_AD
 
 // ================= GEOMETRY HELPERS =================
 function inside(r, x, y, pad = 0) { return x > r.x * T - pad && x < (r.x + r.w) * T + pad && y > r.y * T - pad && y < (r.y + r.h) * T + pad; }
-function blocked(x, y) { return BUILD.some(b => !b.open && inside(b, x, y)) || inside(STAGE, x, y) || PLOTS.some(p => plots[p.k] && inside(p, x, y, -12)); }
+function blocked(x, y) { return ecoBlocked(x, y) || BUILD.some(b => !b.open && inside(b, x, y)) || inside(STAGE, x, y) || PLOTS.some(p => plots[p.k] && inside(p, x, y, -12)); }
 const nearB = (b, pad = 30) => ME && inside(b, ME.x, ME.y, pad);
 const nearPlot = (p, pad = 14) => ME && inside(p, ME.x, ME.y, pad);
 function nearOthers(r) { return Object.entries(others).filter(([id, o]) => o.hasPos && o.name && live(o) && dist(o, ME) < r); }
@@ -1030,10 +1039,10 @@ function computeActs() {
   const b = BUILD.find(b => nearB(b));
   if (b) {
     const roleHere = role && ROLES[role].b === b.id;
-    if (b.jobs.includes(ME.job) || roleHere) {
+    if ((b.jobs.includes(ME.job) || roleHere) && !b.noShift && !isCB()) {
       const pay = Math.round((JOBPAY[ME.job] || SHIFT_PAY) * kidemBonus() * headBonus() * (roleHere ? 1.5 : 1) * (1 + 0.1 * (ME.lvl || 0)) * (ME.sick ? 0.5 : 1) * (isNight() && ['Polis', 'Jandarma', 'İtfaiyeci', 'Doktor', 'Hemşire'].includes(ME.job) ? 1.2 : 1));
       if (ME.inside === b.id) {
-        L.push({ label: `🔨 Mesaiye başla (+${pay} 💰, -${SHIFT_E}⚡)`, disabled: ME.energy < SHIFT_E, fn: () => startTask('work', SHIFT_MS * (ME.inv.laptop ? 0.75 : 1), () => ME.inside === b.id, () => { ME.energy -= SHIFT_E; stat('worked'); earn(pay, '💼 Mesai bitti!'); }, '💼 İçeride mesai') });
+        L.push({ label: `🔨 Mesaiye başla (+${pay} 💰, -${SHIFT_E}⚡)`, disabled: ME.energy < SHIFT_E, fn: () => startTask('work', SHIFT_MS * (ME.inv.laptop ? 0.75 : 1), () => ME.inside === b.id, () => { ME.energy -= SHIFT_E; stat('worked'); earn(pay, '💼 Mesai bitti!'); ecoShift(b.id); }, '💼 İçeride mesai') });
         L.push({ label: '🚪 Dışarı çık', cls: 'gray', fn: () => goInside(null) });
       } else L.push({ label: `🚪 ${b.n}'a gir (iş yerin)`, cls: 'blue', fn: () => goInside(b.id) });
     }
@@ -1070,6 +1079,7 @@ function computeActs() {
   }
   if (ME.job === 'Taksici' && !b) L.push({ label: '🚕 Müşterilerin sana binebilir', cls: 'gray' });
   newJobActs(L, b, p, near, t);
+  ecoActs(L, b, t);
   // thief / con man
   if ((ME.job === 'Hırsız' && isNight()) || ME.job === 'Dolandırıcı') {
     const blk = stealBlock();
@@ -1840,7 +1850,7 @@ function orderMenu(a) {
 // ================= ADALET • ŞİKAYET • TELSİZ • 155 =================
 let crimes = {}, sabika = {}, CHASE = null;
 const radioData = [];
-const RADIO_JOBS = ['Polis', 'Jandarma', 'Asker', 'Bekçi', 'Güvenlik Görevlisi'];
+const RADIO_JOBS = ['Polis', 'Jandarma', 'Asker', 'Bekçi', 'Güvenlik Görevlisi', 'Koruma'];
 const SAB_JOBS = ['Polis', 'Jandarma', 'Asker', 'Hakim', 'Savcı', 'Bekçi', 'Güvenlik Görevlisi'];
 const DAY = 864e5;
 const canRadio = () => ME && (RADIO_JOBS.includes(ME.job) || myRole() === 'emniyet');
@@ -1929,7 +1939,7 @@ function chaseActs(L, t) {
 }
 function chaseVec() {
   const o = CHASE && others[CHASE];
-  if (!o || !o.hasPos || !(o.wanted > now()) || o.jail > now()) { if (CHASE) { CHASE = null; toast('🚨 Takip bitti'); } return null; }
+  if (!o || !o.hasPos || !(o.wanted > now() || o.dr > now()) || o.jail > now()) { if (CHASE) { CHASE = null; toast('🚨 Takip bitti'); } return null; }
   const dx = o.x - ME.x, dy = o.y - ME.y, d = Math.hypot(dx, dy);
   if (d < 45) return [0, 0, 0];
   if (chaseVec.stuck > 25) { chaseVec.side = (chaseVec.side || 1) * -1; chaseVec.stuck = 0; chaseVec.turn = 30; }
@@ -2059,12 +2069,12 @@ async function kasaCrisis() {
 function budgetTab() {
   const t = now(), isB = myRole() === 'baskan' || isCB(), logs = Object.values(CITY.log || {}).sort((a, b) => b.t - a.t).slice(0, 8);
   const act = Object.entries(BUDGET).filter(([k]) => cityOn(k)).map(([k, b]) => `${b.n.split(' ')[0]} ${b.n.split(' ').slice(1).join(' ')} • ${Math.ceil((CITY[k] - t) / 60000)} dk`).join('<br>');
-  return { n: '💰 Bütçe', info: `🏛 Belediye kasası: <b>${Math.floor(CITY.kasa || 0).toLocaleString('tr')} 💰</b><br><small>Günlük vergiler kasaya girer, makam sahiplerine 300, memurlara 100 💰 günlük maaş buradan ödenir.</small>${act ? '<br><br><b>Aktif:</b><br>' + act : ''}${logs.length ? '<br><br><b>Son harcamalar:</b><br>' + logs.map(l => `${esc(l.by)}: ${esc(l.w)} ${l.a ? '(' + l.a + ' 💰)' : ''}`).join('<br>') : ''}${isB ? '' : '<br><br><small>Kasayı sadece Belediye Başkanı harcar.</small>'}`,
+  return { n: '💰 Bütçe', info: `🏛 Belediye kasası: <b>${Math.floor(CITY.kasa || 0).toLocaleString('tr')} 💰</b><br><small>Günlük vergilerin %25'i belediyeye (%75'i Cumhurbaşkanlığına) girer, makam sahiplerine 300, memurlara 100 💰 günlük maaş buradan ödenir.</small>${act ? '<br><br><b>Aktif:</b><br>' + act : ''}${logs.length ? '<br><br><b>Son harcamalar:</b><br>' + logs.map(l => `${esc(l.by)}: ${esc(l.w)} ${l.a ? '(' + l.a + ' 💰)' : ''}`).join('<br>') : ''}${isB ? '' : '<br><br><small>Kasayı sadece Belediye Başkanı harcar.</small>'}`,
     items: isB ? Object.entries(BUDGET).map(([k, b]) => ({ e: b.n.split(' ')[0], n: b.n.split(' ').slice(1).join(' '), r: cityOn(k) ? 'aktif ✓' : b.p.toLocaleString('tr') + ' 💰', off: cityOn(k) || (CITY.kasa || 0) < b.p, fn: () => spendCity(k) })) : [] };
 }
 async function spendCity(k) {
   const b = BUDGET[k]; if ((myRole() !== 'baskan' && !isCB()) || cityOn(k)) return;
-  const r = await runTransaction(ref(db, 'city/kasa'), x => (x || 0) >= b.p ? (x || 0) - b.p : undefined).catch(() => null);
+  const r = await runTransaction(ref(db, isCB() ? 'city/cbk' : 'city/kasa'), x => (x || 0) >= b.p ? (x || 0) - b.p : undefined).catch(() => null);
   if (!r || !r.committed) return toast('Kasada yeterli para yok');
   await set(ref(db, 'city/' + k), now() + b.ms).catch(() => { });
   cityLog(b.n, b.p); say(`🏛 ${isCB() ? 'Cumhurbaşkanı' : 'Belediye Başkanı'} <b>${esc(ME.name)}</b>: ${b.n}! ${b.d}`, true, 'ann');
@@ -2104,6 +2114,7 @@ const UNI = {
   Hakim: { sh: '#111111', coat: '#111111' }, Savcı: { sh: '#111111', coat: '#7b1e1e' }, Avukat: { sh: '#1c1c1c' }, İtfaiyeci: { sh: '#c0392b', h: 'itfaiye' },
   Aşçı: { sh: '#f4f4f4', h: 'asci' }, Pastacı: { sh: '#f4f4f4', h: 'asci' }, Fırıncı: { sh: '#f4f4f4', h: 'asci' }, Garson: { sh: '#fdfdfd' }, İnşaatçı: { sh: '#f39c12', h: 'baret' },
   Çöpçü: { sh: '#e67e22' }, Petshopçu: { sh: '#e67e22' }, Kuryeci: { sh: '#f1c40f', h: 'kep2' }, Futbolcu: { sh: '#27ae60' }, İmam: { sh: '#ecf0f1', h: 'takke' }, Tamirci: { sh: '#2471a3' },
+  Çiftçi: { sh: '#6b8e23', h: 'kep2' }, Madenci: { sh: '#5d4037', h: 'baret' }, 'Fabrika İşçisi': { sh: '#2471a3', h: 'baret' }, 'Liman İşçisi': { sh: '#e67e22', h: 'baret' }, Koruma: { sh: '#111111', coat: '#111111' }, Cankurtaran: { sh: '#e74c3c', h: 'kep2' },
 };
 function uniformAcc(m, job, wear) {
   const U = UNI[job]; if (!U || (wear && wear.ck)) return; const a = m.acc, free = !(wear && wear.h);
@@ -2146,6 +2157,7 @@ function devCheck(uid) { const L = devAccts(); return L.includes(uid) || L.lengt
 function devAdd(uid) { try { const L = devAccts(); if (!L.includes(uid)) { L.push(uid); localStorage.setItem(C === 1 ? 'kk_accts' : 'kk_accts' + C, JSON.stringify(L)); } } catch (e) { } }
 
 function listenCity() {
+  ecoListen();
   ['kasa', 'park', 'road', 'fest', 'lamp', 'unpaid', 'crisis', 'tax'].forEach(k => onValue(ref(db, 'city/' + k), s => { CITY[k] = s.val(); if (k === 'park') refreshPark(); }));
   CITY.log = {}; onChildAdded(query(ref(db, 'city/log'), limitToLast(8)), s => { CITY.log[s.key] = s.val(); const ks = Object.keys(CITY.log); if (ks.length > 8) delete CITY.log[ks[0]]; });
 }
@@ -2654,8 +2666,9 @@ function cbMenu() {
   const t = now(), tax = CITY.tax || 1;
   const vac = [...PROLES, ...Object.keys(PROF)].filter(r => !(roles[r] && roles[r].until > t));
   const items = [
+    { label: '🏭 Ekonomi • tarla • maden • fabrika • liman', cls: 'blue', fn: ecoCbMenu },
     { label: `🧾 Vergi oranı: %${Math.round(tax * 100)}`, fn: () => modal('🧾 Vergi oranı', TAXES.map(v => ({ label: `%${v * 100}${v === tax ? ' ✓' : ''}`, fn: () => set(ref(db, 'city/tax'), v).then(() => say(`🏛 Cumhurbaşkanı <b>${esc(ME.name)}</b> vergi oranını <b>%${v * 100}</b> yaptı`, true, 'ann')).catch(() => toast('Kaydedilemedi')) })), '<p>Günlük ev, dükkan ve araç vergileri bu oranla çarpılır. Vergi kasaya girer, kasa maaşları öder.</p>') },
-    ...Object.entries(BUDGET).map(([k, b]) => ({ label: `${b.n}`, right: cityOn(k) ? 'aktif ✓' : b.p.toLocaleString('tr') + ' 💰', disabled: cityOn(k) || (CITY.kasa || 0) < b.p, fn: () => spendCity(k) })),
+    ...Object.entries(BUDGET).map(([k, b]) => ({ label: `${b.n}`, right: cityOn(k) ? 'aktif ✓' : b.p.toLocaleString('tr') + ' 💰', disabled: cityOn(k) || cbk() < b.p, fn: () => spendCity(k) })),
     ...vac.map(r => ({ label: `👑 ${ROLES[r].n} ata (boş)`, fn: () => cbAppoint(r) })),
     { label: '🏛 Cumhurbaşkanları Zirvesi', cls: 'blue', fn: zirveMenu },
     { label: '🤝 Ticaret anlaşmaları', fn: () => W.on ? tradeMenu() : zirveMenu() },
@@ -2664,7 +2677,7 @@ function cbMenu() {
     { label: `🧳 Elçi ata${ELCI ? ' (' + esc(ELCI.name) + ')' : ''}`, fn: elciMenu },
     { label: '🗳 Referandum başlat', fn: refMenu },
   ];
-  modal(`🏛 Cumhurbaşkanlığı • ${esc(ctryName(C))}`, items, `<p>🏛 Ülke kasası: <b>${Math.floor(CITY.kasa || 0).toLocaleString('tr')} 💰</b> • Vergi %${Math.round(tax * 100)}</p><p style="font-size:12px;opacity:.8">Boş makamlara 7 günlüğüne atama yapabilirsin. Seçim ya da güvensizlik oylaması yine işler.</p>`);
+  modal(`🏛 Cumhurbaşkanlığı • ${esc(ctryName(C))}`, items, `<p>🏛 Cumhurbaşkanlığı kasası: <b>${cbk().toLocaleString('tr')} 💰</b> • Vergi %${Math.round(tax * 100)}<br><small>Belediye kasası: ${Math.floor(CITY.kasa || 0).toLocaleString('tr')} 💰</small></p><p style="font-size:12px;opacity:.8">Boş makamlara 7 günlüğüne atama yapabilirsin. Seçim ya da güvensizlik oylaması yine işler.</p>`);
 }
 function cbAppoint(r) {
   const rj = ROLE_JOBS[r];
@@ -2890,47 +2903,102 @@ async function worldInit() {
 function wnews(h) { if (W.on) push(ref(W.db, 'world/news'), { h, t: now() }).catch(() => { }); }
 function statsTick() {
   if (!W.on || !isCB()) return;
-  set(ref(W.db, 'world/stats/' + C), { n: ctryName(C), pop: Object.keys(others).length + 1, kasa: Math.floor(CITY.kasa || 0), wins: ((W.stats[C] || {}).wins) || 0, cb: ME.name, t: now() }).catch(() => { });
+  set(ref(W.db, 'world/stats/' + C), { n: ctryName(C), pop: Object.keys(others).length + 1, kasa: cbk(), gdp: Math.floor(CITY.gdp || 0), wins: ((W.stats[C] || {}).wins) || 0, cb: ME.name, t: now() }).catch(() => { });
 }
 
-// ---- ticaret: teklif → kabul → ödeyen kasadan düşer → alan kasaya eklenir
+// ---- ticaret: para ya da mal takası • teklif → kabul → iki taraf kendi payını yollar
+const atWarWith = c => !!(WAR && WAR.end > now() && [WAR.a, WAR.b].includes(c) && [WAR.a, WAR.b].includes(C));
+const tradeBan = c => atWarWith(c) ? '⚔️ savaştayız' : relOf(c) === 'ambargo' ? '🚫 ambargo var' : '';
+async function takeLeg(l) {
+  if (!l || !l.q) return true;
+  const r = await runTransaction(ref(db, l.it === '$' ? 'city/cbk' : 'city/depo/' + l.it), x => (x || 0) >= l.q ? (x || 0) - l.q : undefined).catch(() => null);
+  return !!(r && r.committed);
+}
+async function giveLeg(l) { if (l && l.q) await runTransaction(ref(db, l.it === '$' ? 'city/cbk' : 'city/depo/' + l.it), x => (x || 0) + l.q).catch(() => { }); }
+const legTxt = l => !l || !l.q ? 'hiçbir şey' : l.it === '$' ? `${l.q.toLocaleString('tr')} 💰` : `${l.q} ${ITEM(l.it).e} ${ITEM(l.it).n}`;
 async function dealsTick() {
-  if (!W.on || !isCB() || dealsTick.busy) return; dealsTick.busy = 1;
+  if (!W.on || !isCB()) return; if (dealsTick.busy) { dealsTick.again = 1; return; } dealsTick.busy = 1;
   try {
     for (const [id, d] of Object.entries(W.deals)) {
       if (!d) continue;
+      const P = `world/deals/${id}`;
+      if (d.legs) {
+        if (d.from !== C && d.to !== C) continue;
+        const oc = d.from === C ? d.to : d.from, my = d.legs['c' + C], their = d.legs['c' + oc];
+        if (d.st === 'kabul' && tradeBan(oc) && !d['g' + C] && !d['g' + oc]) { await update(ref(W.db, P), { st: 'iptal', why: tradeBan(oc) }).catch(() => { }); continue; }
+        if (d.st === 'kabul' && !d['g' + C]) {
+          const r = await runTransaction(ref(W.db, P + '/g' + C), x => x ? undefined : 1).catch(() => null);
+          if (r && r.committed) {
+            if (await takeLeg(my)) { if (my && my.q) say(`📦 Anlaşma gereği ${esc(ctryName(oc))}'e ${legTxt(my)} gönderildi`, true, 'ann'); }
+            else { await update(ref(W.db, P), { st: 'iptal', why: 'stok yetmedi', ['f' + C]: 1 }).catch(() => { }); wnews(`💸 ${esc(ctryName(C))} anlaşmadaki malı gönderemedi, anlaşma bozuldu`); continue; }
+          }
+        }
+        if (d.st === 'kabul' && d['g' + oc] && !d['r' + C]) {
+          const r = await runTransaction(ref(W.db, P + '/r' + C), x => x ? undefined : 1).catch(() => null);
+          if (r && r.committed) { await giveLeg(their); if (their && their.q) say(`📦 ${esc(ctryName(oc))}'ten ${legTxt(their)} geldi! Ülke deposuna eklendi`, true, 'ann'); }
+        }
+        if (d.st === 'kabul' && d['r' + C] && d['r' + oc]) await update(ref(W.db, P), { st: 'tamam' }).catch(() => { });
+        if (d.st === 'iptal' && d['g' + C] && !d['f' + C] && !d['b' + C] && !d['r' + oc]) {
+          const r = await runTransaction(ref(W.db, P + '/b' + C), x => x ? undefined : 1).catch(() => null);
+          if (r && r.committed) { await giveLeg(my); if (my && my.q) say(`↩️ Bozulan anlaşmadaki ${legTxt(my)} geri döndü`, true, 'ann'); }
+        }
+        continue;
+      }
       if (d.st === 'kabul' && d.payer === C && !d.paid) {
         const r = await runTransaction(ref(W.db, `world/deals/${id}/paid`), x => x ? undefined : 1).catch(() => null); if (!r || !r.committed) continue;
-        const k = await runTransaction(ref(db, 'city/kasa'), x => (x || 0) >= d.amt ? (x || 0) - d.amt : undefined).catch(() => null);
+        const k = await runTransaction(ref(db, 'city/cbk'), x => (x || 0) >= d.amt ? (x || 0) - d.amt : undefined).catch(() => null);
         if (!k || !k.committed) { await update(ref(W.db, `world/deals/${id}`), { st: 'iptal', why: 'kasada para yok' }); wnews(`💸 ${esc(ctryName(C))} anlaşmayı ödeyemedi, kasası boş!`); continue; }
         say(`🤝 Anlaşma gereği ${esc(ctryName(d.payee))}'e <b>${d.amt.toLocaleString('tr')} 💰</b> ödendi`, true, 'ann');
       }
       if (d.st === 'kabul' && d.payee === C && d.paid && !d.recv) {
         const r = await runTransaction(ref(W.db, `world/deals/${id}/recv`), x => x ? undefined : 1).catch(() => null); if (!r || !r.committed) continue;
-        await runTransaction(ref(db, 'city/kasa'), x => (x || 0) + d.amt).catch(() => { });
+        await runTransaction(ref(db, 'city/cbk'), x => (x || 0) + d.amt).catch(() => { });
         await update(ref(W.db, `world/deals/${id}`), { st: 'tamam' }).catch(() => { });
         say(`🤝 ${esc(ctryName(d.payer))}'ten kasamıza <b>${d.amt.toLocaleString('tr')} 💰</b> geldi!`, true, 'ann');
       }
     }
-  } finally { dealsTick.busy = 0; }
+  } finally { dealsTick.busy = 0; if (dealsTick.again) { dealsTick.again = 0; setTimeout(dealsTick, 600); } }
 }
 function tradeMenu() {
   const others3 = Object.keys(COUNTRIES).map(Number).filter(c => c !== C && ctryOn(c));
+  const desc = d => d.legs ? `sen ver: <b>${legTxt(d.legs['c' + C])}</b> • sana: <b>${legTxt(d.legs['c' + (d.from === C ? d.to : d.from)])}</b>` : `${d.payer === C ? 'sen öde' : 'sana ödesin'} <b>${d.amt.toLocaleString('tr')} 💰</b>`;
   const inc = Object.entries(W.deals).filter(([, d]) => d && d.st === 'teklif' && d.to === C);
-  const items = inc.map(([id, d]) => ({ label: `📩 ${COUNTRIES[d.from].f} ${esc(ctryName(d.from))}: ${d.payer === C ? 'sen öde' : 'sana ödesin'} <b>${d.amt.toLocaleString('tr')} 💰</b>${d.note ? '<br><small>“' + esc(d.note) + '”</small>' : ''}`, fn: () => modal('📩 Teklif', [
-    { label: '✅ Kabul et', cls: 'blue', fn: async () => { await update(ref(W.db, `world/deals/${id}`), { st: 'kabul' }); wnews(`🤝 ${esc(ctryName(d.from))} ile ${esc(ctryName(C))} ticaret anlaşması imzaladı (${d.amt.toLocaleString('tr')} 💰)`); toast('✅ Anlaşma imzalandı'); dealsTick(); } },
+  const items = inc.map(([id, d]) => ({ label: `📩 ${COUNTRIES[d.from].f} ${esc(ctryName(d.from))}: ${desc(d)}${d.note ? '<br><small>“' + esc(d.note) + '”</small>' : ''}`, fn: () => modal('📩 Teklif', [
+    { label: '✅ Kabul et', cls: 'blue', fn: async () => { const ban = tradeBan(d.from); if (ban) return toast('Ticaret yapılamaz: ' + ban); await update(ref(W.db, `world/deals/${id}`), { st: 'kabul' }); wnews(`🤝 ${esc(ctryName(d.from))} ile ${esc(ctryName(C))} ticaret anlaşması imzaladı`); toast('✅ Anlaşma imzalandı'); dealsTick(); } },
     { label: '❌ Reddet', fn: () => update(ref(W.db, `world/deals/${id}`), { st: 'red' }).then(() => wnews(`❌ ${esc(ctryName(C))}, ${esc(ctryName(d.from))}'in ticaret teklifini reddetti`)) }]) }));
+  Object.entries(W.deals).filter(([, d]) => d && (d.from === C || d.to === C) && (d.st === 'kabul' || (d.st === 'teklif' && d.from === C))).slice(-5)
+    .forEach(([, d]) => items.push({ label: `${d.st === 'kabul' ? '⏳ Yolda' : '📨 Cevap bekliyor'} • ${esc(ctryName(d.from === C ? d.to : d.from))}: ${desc(d)}`, disabled: true }));
   others3.forEach(c => {
-    items.push({ label: `💰 ${COUNTRIES[c].f} ${esc(ctryName(c))}'e para ödemeyi teklif et`, fn: () => dealForm(c, C, c) });
-    items.push({ label: `🙏 ${COUNTRIES[c].f} ${esc(ctryName(c))}'ten para iste`, fn: () => dealForm(c, c, C) });
+    const ban = tradeBan(c), f = COUNTRIES[c].f, nm = esc(ctryName(c));
+    if (ban) { items.push({ label: `${f} ${nm} ile ticaret yok (${ban})`, disabled: true }); return; }
+    items.push({ label: `📦 ${f} ${nm} ile mal takası teklif et`, cls: 'blue', fn: () => swapForm(c) });
+    items.push({ label: `💰 ${f} ${nm}'e para ödemeyi teklif et`, fn: () => dealForm(c, C, c) });
+    items.push({ label: `🙏 ${f} ${nm}'ten para iste`, fn: () => dealForm(c, c, C) });
   });
-  modal('🤝 Ticaret', items, `<p>İki cumhurbaşkanı da onaylarsa para ülke kasaları arasında geçer.</p>`);
+  modal('🤝 Ticaret', items, `<p>İki cumhurbaşkanı da onaylarsa mallar ve para ülkeler arasında geçer. Savaşta ya da ambargoda ticaret olmaz.</p><p style="font-size:12px;opacity:.85">📦 Depomuz: ${depoTxt()}<br>🏛 Kasa: ${cbk().toLocaleString('tr')} 💰</p>`);
+}
+function swapForm(c) {
+  const d = depo(), all = [...Object.keys(PROD), ...Object.keys(RAW)];
+  const giveOpt = `<option value="$">💰 Para (kasa ${cbk().toLocaleString('tr')})</option>` + all.filter(k => (d[k] || 0) > 0).map(k => `<option value="${k}">${ITEM(k).e} ${ITEM(k).n} (${d[k]})</option>`).join('');
+  const wantOpt = all.filter(k => !RAW[k] || RAW[k].c !== C).map(k => `<option value="${k}">${ITEM(k).e} ${ITEM(k).n}${RAW[k] && RAW[k].c === c ? ' ⭐' : ''}</option>`).join('') + '<option value="$">💰 Para</option>';
+  const g = id => document.getElementById(id);
+  modal(`📦 ${esc(ctryName(c))} • mal takası`, [{ label: '📨 Teklifi gönder', cls: 'blue', fn: async () => {
+    const give = { it: g('sGi').value, q: Math.round(+g('sGq').value || 0) }, want = { it: g('sWi').value, q: Math.round(+g('sWq').value || 0) };
+    const note = cleanText((g('sNote').value || '').slice(0, 60));
+    if (give.q < 0 || want.q < 0 || (!give.q && !want.q) || give.q > 100000 || want.q > 100000) return toast('Miktarları doğru gir (0 – 100.000)');
+    if (give.q && (give.it === '$' ? cbk() : (d[give.it] || 0)) < give.q) return toast('Elimizde bu kadar yok');
+    if (tradeBan(c)) return toast('Ticaret yapılamaz: ' + tradeBan(c));
+    await push(ref(W.db, 'world/deals'), { from: C, to: c, legs: { ['c' + C]: give, ['c' + c]: want }, note, n: ME.name, st: 'teklif', t: now() });
+    toast('📨 Takas teklifi gönderildi'); wnews(`📦 ${esc(ctryName(C))}, ${esc(ctryName(c))}'e mal takası teklif etti`);
+  } }], `<p><b>Biz vereceğiz:</b></p><select id="sGi" style="width:100%;padding:8px">${giveOpt}</select><input id="sGq" type="number" inputmode="numeric" placeholder="miktar (örn. 10)" style="margin-top:6px">
+    <p><b>Karşılığında istiyoruz:</b> <small>(⭐ = onların malı)</small></p><select id="sWi" style="width:100%;padding:8px">${wantOpt}</select><input id="sWq" type="number" inputmode="numeric" placeholder="miktar (örn. 10)" style="margin-top:6px">
+    <input id="sNote" maxlength="60" placeholder="not (isteğe bağlı)" style="margin-top:6px">`);
 }
 function dealForm(to, payer, payee) {
   modal(`🤝 ${esc(ctryName(to))} • teklif`, [{ label: '📨 Teklifi gönder', cls: 'blue', fn: async () => {
     const amt = Math.round(+document.getElementById('dAmt').value || 0), note = cleanText((document.getElementById('dNote').value || '').slice(0, 60));
     if (!(amt >= 100 && amt <= 100000)) return toast('Tutar 100 ile 100.000 arası olmalı');
-    if (payer === C && (CITY.kasa || 0) < amt) return toast('Kasanda bu kadar para yok');
+    if (payer === C && cbk() < amt) return toast('Kasanda bu kadar para yok');
     await push(ref(W.db, 'world/deals'), { from: C, to, payer, payee, amt, note, n: ME.name, st: 'teklif', t: now() });
     toast('📨 Teklif gönderildi'); wnews(`📨 ${esc(ctryName(C))}, ${esc(ctryName(to))}'e ticaret teklifi gönderdi`);
   } }], `<p>${payer === C ? `Senin kasandan ${esc(ctryName(to))}'e` : `${esc(ctryName(to))}'in kasasından sana`} ödenecek tutar:</p><input id="dAmt" type="number" inputmode="numeric" placeholder="örn. 5000"><input id="dNote" maxlength="60" placeholder="not (karşılığında ne?)" style="margin-top:6px">`);
@@ -2957,7 +3025,7 @@ async function warsTick() {
         if (mine === theirs) { await update(ref(W.db, `world/wars/${id}`), { st: 'berabere' }); wnews(`⚖️ ${esc(ctryName(w.a))} - ${esc(ctryName(w.b))} savaşı berabere bitti (${mine}-${theirs})`); continue; }
         if (mine < theirs) {   // kaybettik: ganimeti öde
           const r = await runTransaction(ref(W.db, `world/wars/${id}/loot`), x => x != null ? undefined : -1).catch(() => null); if (!r || !r.committed) continue;
-          let loot = 0; await runTransaction(ref(db, 'city/kasa'), x => { loot = Math.floor((x || 0) * WAR_LOOT); return (x || 0) - loot; }).catch(() => { });
+          let loot = 0; await runTransaction(ref(db, 'city/cbk'), x => { loot = Math.floor((x || 0) * WAR_LOOT); return (x || 0) - loot; }).catch(() => { });
           await update(ref(W.db, `world/wars/${id}`), { loot, st: 'lpaid', win: enemy });
           say(`🏳️ Savaşı kaybettik (${mine}-${theirs})! ${esc(ctryName(enemy))} kasamızdan <b>${loot.toLocaleString('tr')} 💰</b> ganimet aldı 😢`, true, 'ann');
           wnews(`⚔️ <b>${esc(ctryName(enemy))}</b> savaşı kazandı! (${theirs}-${mine}) Ganimet: ${loot.toLocaleString('tr')} 💰`);
@@ -2965,7 +3033,7 @@ async function warsTick() {
       }
       if (w.st === 'lpaid' && w.win === C && !w.got) {
         const r = await runTransaction(ref(W.db, `world/wars/${id}/got`), x => x ? undefined : 1).catch(() => null); if (!r || !r.committed) continue;
-        await runTransaction(ref(db, 'city/kasa'), x => (x || 0) + (w.loot || 0)).catch(() => { });
+        await runTransaction(ref(db, 'city/cbk'), x => (x || 0) + (w.loot || 0)).catch(() => { });
         await update(ref(W.db, `world/wars/${id}`), { st: 'tamam' });
         await runTransaction(ref(W.db, `world/stats/${C}/wins`), x => (x || 0) + 1).catch(() => { });
         say(`🏆 <b>SAVAŞI KAZANDIK!</b> ${esc(ctryName(enemy))}'ten <b>${(w.loot || 0).toLocaleString('tr')} 💰</b> ganimet kasaya girdi! 🎉`, true, 'ann');
@@ -3069,7 +3137,7 @@ async function worldMenu() {
   if (isEnvoy()) items.unshift({ label: '🏛 Zirveye git', cls: 'blue', fn: zirveMenu });
   const war = WAR && WAR.end > t ? WAR : null, en = war ? (war.a === C ? war.b : war.a) : 0;
   const rel = Object.entries(REL).filter(([k, v]) => v && k.split('_').map(Number).includes(C)).map(([k, v]) => { const o = k.split('_').map(Number).find(x => x !== C); return `${v.t === 'ittifak' ? '🤝 İttifak' : v.t === 'ambargo' ? '🚫 Ambargo' : '📨 İttifak teklifi'}: ${esc(ctryName(o))}`; });
-  modal('🌍 Dünya', items, `<p><b>🏆 Ülke sıralaması</b></p>${rows.map((r, i) => `<div style="margin:3px 0">${['🥇', '🥈', '🥉'][i] || ''} ${COUNTRIES[r.c].f} <b>${esc(ctryName(r.c))}</b>${r.c === C ? ' (sen)' : ''} • 🏆 ${r.s.wins || 0} zafer • 🏛 ${(r.s.kasa || 0).toLocaleString('tr')} 💰 • 👥 ${r.s.pop || '?'}<br><small style="opacity:.75">Cumhurbaşkanı: ${esc(r.s.cb || 'yok')}</small></div>`).join('')}
+  modal('🌍 Dünya', items, `<p><b>🏆 Ülke sıralaması</b></p>${rows.map((r, i) => `<div style="margin:3px 0">${['🥇', '🥈', '🥉'][i] || ''} ${COUNTRIES[r.c].f} <b>${esc(ctryName(r.c))}</b>${r.c === C ? ' (sen)' : ''} • 🏆 ${r.s.wins || 0} zafer • 🏛 ${(r.s.kasa || 0).toLocaleString('tr')} 💰 • 👥 ${r.s.pop || '?'} • 📈 ${(r.s.gdp || 0).toLocaleString('tr')}<br><small style="opacity:.75">Cumhurbaşkanı: ${esc(r.s.cb || 'yok')}</small></div>`).join('')}
     ${war ? `<p style="background:#5a1a1a;padding:8px;border-radius:10px">⚔️ <b>${esc(ctryName(en))} ile SAVAŞTAYIZ!</b><br>Skor: ${esc(ctryName(C))} ${(war.sc || {})[C] || 0} - ${(war.sc || {})[en] || 0} ${esc(ctryName(en))}<br>⏳ ${Math.ceil((war.end - t) / 3600000)} saat kaldı • Her mesai ve yakalama +1 puan!</p>` : ''}
     ${rel.length ? `<p>${rel.join('<br>')}</p>` : ''}
     ${WNEWS.length ? `<p><b>📰 Dünya haberleri</b><br>${WNEWS.slice().reverse().map(n => '• ' + n.h).join('<br>')}</p>` : ''}
@@ -3090,6 +3158,519 @@ async function worldKeysAll() {
   const done = [];
   for (const c of Object.keys(COUNTRIES).map(Number).filter(ctryOn)) { try { await setWorldKey(c); done.push(ctryName(c)); } catch (e) { } }
   alert(done.length ? `🔑 Zirve anahtarları verildi: ${done.join(', ')}\nCumhurbaşkanları oyuna girince zirveye otomatik bağlanır.` : 'Önce panelden diğer ülkelere 🔌 bağlan (1. ülkenin panelinde ol).');
+}
+
+// ================= EKONOMİ • TARLA • MADEN • FABRİKA • LİMAN • DENİZ • CUMHURBAŞKANLIĞI =================
+const RAW = {
+  domates: { n: 'Domates', e: '🍅', p: 12, c: 1, k: 't', col: '#e74c3c' }, misir: { n: 'Mısır', e: '🌽', p: 10, c: 1, k: 't', col: '#f1c40f' },
+  aycicegi: { n: 'Ayçiçeği', e: '🌻', p: 14, c: 1, k: 't', col: '#ffd60a' }, elma: { n: 'Elma', e: '🍎', p: 12, c: 1, k: 't', col: '#c0392b' },
+  tutun: { n: 'Tütün', e: '🍂', p: 18, c: 1, k: 't', col: '#a1887f' }, sut: { n: 'Süt (mandıra)', e: '🥛', p: 15, c: 1, k: 't', col: '#ffffff' },
+  bugday: { n: 'Buğday', e: '🌾', p: 10, c: 2, k: 't', col: '#e6c35c' }, arpa: { n: 'Arpa', e: '🌾', p: 9, c: 2, k: 't', col: '#cfae4a' },
+  patates: { n: 'Patates', e: '🥔', p: 10, c: 2, k: 't', col: '#b08850' }, seker: { n: 'Şeker pancarı', e: '🟣', p: 14, c: 2, k: 't', col: '#8e44ad' },
+  keten: { n: 'Keten', e: '🌿', p: 16, c: 2, k: 't', col: '#5dade2' },
+  pamuk: { n: 'Pamuk', e: '☁️', p: 16, c: 3, k: 't', col: '#fafafa' }, zeytin: { n: 'Zeytin', e: '🫒', p: 14, c: 3, k: 't', col: '#556b2f' },
+  uzum: { n: 'Üzüm', e: '🍇', p: 12, c: 3, k: 't', col: '#6c3483' }, findik: { n: 'Fındık', e: '🌰', p: 18, c: 3, k: 't', col: '#8b5a2b' },
+  cay: { n: 'Çay', e: '🍵', p: 12, c: 3, k: 't', col: '#1e8449' },
+  altin: { n: 'Altın', e: '🥇', p: 60, c: 1, k: 'm', col: '#f4c430' }, gumus: { n: 'Gümüş', e: '🥈', p: 35, c: 1, k: 'm', col: '#c0c6cc' },
+  kum: { n: 'Kum', e: '⏳', p: 8, c: 1, k: 'm', col: '#e8d4a2' }, kirec: { n: 'Kireç taşı', e: '🪨', p: 10, c: 1, k: 'm', col: '#ddd6c8' },
+  demir: { n: 'Demir', e: '⛓', p: 25, c: 2, k: 'm', col: '#7b7f86' }, komur: { n: 'Kömür', e: '⚫', p: 15, c: 2, k: 'm', col: '#222222' },
+  bor: { n: 'Bor', e: '🧪', p: 45, c: 2, k: 'm', col: '#9be7ff' }, krom: { n: 'Krom', e: '🔩', p: 30, c: 2, k: 'm', col: '#b0bec5' },
+  petrol: { n: 'Petrol', e: '🛢', p: 40, c: 3, k: 'm', col: '#111111' }, dogalgaz: { n: 'Doğalgaz', e: '🔥', p: 30, c: 3, k: 'm', col: '#4fc3f7' },
+  bakir: { n: 'Bakır', e: '🟠', p: 28, c: 3, k: 'm', col: '#d35400' }, mermer: { n: 'Mermer', e: '⬜', p: 20, c: 3, k: 'm', col: '#f5f5f5' },
+};
+const PROD = {
+  oto: { n: 'Otomobil', e: '🚗', p: 900, rec: { demir: 3, petrol: 2, kum: 2 } },
+  tekstil: { n: 'Tekstil', e: '🧵', p: 220, rec: { pamuk: 3, keten: 2 } },
+  gida: { n: 'Konserve gıda', e: '🥫', p: 200, rec: { seker: 2, findik: 2, sut: 2 } },
+  mucevher: { n: 'Mücevher', e: '💍', p: 400, rec: { altin: 1, gumus: 2 } },
+  elektronik: { n: 'Elektronik', e: '📱', p: 500, rec: { bakir: 2, bor: 1, altin: 1 } },
+};
+const ITEM = k => k === '$' ? { n: 'Para', e: '💰', p: 1 } : RAW[k] || PROD[k] || { n: k, e: '📦', p: 1 };
+const CROPS = (c = C) => Object.keys(RAW).filter(k => RAW[k].c === c && RAW[k].k === 't');
+const MINES = (c = C) => Object.keys(RAW).filter(k => RAW[k].c === c && RAW[k].k === 'm');
+const FRESH = ['domates', 'misir', 'elma', 'sut', 'patates', 'uzum', 'zeytin', 'cay'];
+const GROW_MS = 30 * 60000, FRESH_P = 15;
+const recTxt = r => Object.entries(r).map(([k, q]) => `${RAW[k].e}${RAW[k].n} ${q}`).join(' + ');
+const ECO_COST = { tarla: [3000, 6000, 9000], maden: [5000, 10000], liman: 8000, fab: 6000 };
+let ECOCFG = {};
+const cbk = () => Math.floor(CITY.cbk || 0);
+const eco = () => CITY.eco || {};
+const depo = () => CITY.depo || {};
+const tarlaN = () => Math.min(16, 4 + 4 * (eco().tarla || 0));
+const kurak = () => !!(CITY.afet && CITY.afet.t === 'kurak' && CITY.afet.until > now());
+const depoTxt = () => Object.entries(depo()).filter(([, q]) => q > 0).map(([k, q]) => `${ITEM(k).e}${q}`).join(' ') || 'boş';
+function slotRect(i) { const blk = i >= 8 ? 1 : 0, j = i % 8, col = j % 4, row = Math.floor(j / 4); return { x: 99.2 + col * 3.25, y: (blk ? 15 : 3) + row * 4.4, w: 3, h: 3.8 }; }
+// harita: sahil yolu, kum, deniz, iskele
+const SEA_X = 121, BEACH_X = 114.6, XMAX = 150 * T - 10;
+const PIER = { x: 114.6, y: 74.6, w: 20, h: 2 };
+const SHIP = { x: 123.6, y: 77.2, w: 11, h: 3.6 };
+const XBLK = [
+  { x: 99.6, y: 39.4, w: 2.9, h: 3.9 }, { x: 109.5, y: 39.4, w: 2.8, h: 3.9 },     // saray kanatları
+  { x: 99.4, y: 44.4, w: 3.2, h: 2.6 }, { x: 105.3, y: 45, w: 1.4, h: 1.4 },       // havuz, fıskiye
+  { x: 103.4, y: 47.1, w: 0.9, h: 0.9 }, { x: 107.7, y: 47.1, w: 0.9, h: 0.9 },     // güvenlik kulübeleri
+  { x: 108.6, y: 64, w: 3.4, h: 5 }, SHIP,                                          // konteynerler, gemi
+];
+const onPier = (x, y) => inside(PIER, x, y);
+const inWater = (x, y) => x > SEA_X * T && !onPier(x, y);
+function ecoBlocked(x, y) { return XBLK.some(r => inside(r, x, y)) || (inWater(x, y) && !(ME && (ME.swimOk || ME.job === 'Cankurtaran'))); }
+const nearShore = () => ME && !inWater(ME.x, ME.y) && ME.x > (SEA_X - 2) * T && !onPier(ME.x, ME.y);
+const onBeach = () => ME && ME.x > BEACH_X * T && ME.x < SEA_X * T;
+
+function cbkAdd(v) { if (v > 0) runTransaction(ref(db, 'city/cbk'), x => (x || 0) + v).catch(() => { }); }
+function gdpAdd(v) { if (v > 0) runTransaction(ref(db, 'city/gdp'), x => (x || 0) + Math.round(v)).catch(() => { }); }
+const depoTx = fn => runTransaction(ref(db, 'city/depo'), d => fn(d || {}));
+function ecoSpend(p) { const cs = CITYSHOP; CITYSHOP = null; const ok = spend(p); CITYSHOP = cs; return ok; }
+// borsa: günlük dalgalanma × satışla düşen, 24 saatte toparlanan çarpan
+function dayF(k) { const d = Math.floor(Date.now() / 864e5); let h = 7; for (const ch of k + d) h = (h * 31 + ch.charCodeAt(0)) | 0; return 0.8 + ((h >>> 0) % 1000) / 1000 * 0.45; }
+function mktF(k) { const m = (CITY.mkt || {})[k]; if (!m) return 1; return Math.min(1, (m.f || 1) + (now() - (m.t || 0)) / 864e5 * 0.6); }
+const priceOf = k => Math.max(1, Math.round(ITEM(k).p * dayF(k) * mktF(k)));
+
+function ecoListen() {
+  ['cbk', 'eco', 'depo', 'tarla', 'afet', 'mkt', 'gdp'].forEach(k => onValue(ref(db, 'city/' + k), s => { CITY[k] = s.val(); if (k === 'tarla' || k === 'eco') refreshTarla3D(); }));
+  onValue(ref(db, 'config/eco'), s => { ECOCFG = s.val() || {}; });
+}
+
+// ---------- mesai sonrası üretim
+async function ecoShift(bid) {
+  const e = eco();
+  if (bid === 'maden') {
+    const ms = MINES(); if (!ms.length) return;
+    const k = ms[Math.floor(Math.random() * ms.length)], q = 1 + (e.maden || 0);
+    await depoTx(d => { d[k] = (d[k] || 0) + q; return d; }).catch(() => { });
+    gdpAdd(q * priceOf(k)); toast(`⛏ ${q} ${RAW[k].e} ${RAW[k].n} çıkardın → ülke deposu`, 3500);
+  }
+  if (bid === 'fabrika') {
+    const lines = Object.keys(PROD).filter(k => (e.fab || {})[k]);
+    if (!lines.length) return toast('🏭 Açık üretim hattı yok. Cumhurbaşkanı hat açmalı', 4000);
+    let made = null;
+    await depoTx(d => {
+      made = null;
+      for (const k of lines.slice().sort(() => Math.random() - 0.5)) {
+        const rec = PROD[k].rec;
+        if (Object.entries(rec).every(([x, q]) => (d[x] || 0) >= q)) { for (const [x, q] of Object.entries(rec)) d[x] -= q; d[k] = (d[k] || 0) + 1; made = k; break; }
+      }
+      return made ? d : undefined;
+    }).catch(() => { });
+    if (made) { gdpAdd(PROD[made].p); toast(`🏭 1 ${PROD[made].e} ${PROD[made].n} üretildi → ülke deposu`, 3500); }
+    else toast('🏭 Hammadde yetmedi, üretim olmadı. Diğer ülkelerden ticaretle getirin!', 4500);
+  }
+  if (bid === 'liman' && e.liman) { cbkAdd(20); toast('⚓ Liman geliri: +20 💰 Cumhurbaşkanlığı kasasına', 3000); }
+}
+
+// ---------- tarla
+function tarlaActs(L, t) {
+  const b = BMAP.tarla; if (!nearB(b, 24)) return;
+  L.push({ label: '🧺 Taze ürün pazarı', cls: 'blue', fn: freshMenu });
+  let i = -1; for (let k = 0; k < 16; k++) if (inside(slotRect(k), ME.x, ME.y, 16)) { i = k; break; }
+  if (i < 0) { if (ME.job === 'Çiftçi') L.push({ label: '🌾 Bir tarla parselinin üstüne yürü', cls: 'gray' }); return; }
+  if (i >= tarlaN()) { L.push({ label: `🔒 Parsel ${i + 1} kapalı (Cumhurbaşkanı tarlaları genişletmeli)`, cls: 'gray' }); return; }
+  const s = (CITY.tarla || {})[i];
+  if (!s) {
+    if (ME.job === 'Çiftçi') L.push({ label: `🌱 Parsel ${i + 1}: ekim yap (+15 💰, -10⚡)`, disabled: ME.energy < 10, fn: () => plantMenu(i) });
+    else L.push({ label: `🟫 Parsel ${i + 1} boş (Çiftçiler ekiyor)`, cls: 'gray' });
+    return;
+  }
+  const it = RAW[s.c] || ITEM(s.c), left = s.rd - t;
+  if (left > 0) L.push({ label: `${it.e} ${it.n} büyüyor • ${Math.ceil(left / 60000)} dk${s.n ? ' • ' + esc(s.n) : ''}${kurak() ? ' • 🌵 kuraklık' : ''}`, cls: 'gray', dyn: 1 });
+  else if (ME.job === 'Çiftçi') {
+    const ok = s.by === myId || t > s.rd + 10 * 60000;
+    L.push({ label: ok ? `🧺 ${it.e} ${it.n} hasat et (+60 💰, -8⚡)` : `⏳ ${esc(s.n || '')}'in ürünü (10 dk sonra herkes toplayabilir)`, cls: ok ? 'blue' : 'gray', disabled: !ok || ME.energy < 8, fn: () => harvest(i) });
+  } else L.push({ label: `${it.e} ${it.n} hasada hazır! (Çiftçi bekliyor)`, cls: 'gray' });
+}
+function plantMenu(i) {
+  modal(`🌱 Parsel ${i + 1} • ne ekelim?`, CROPS().map(k => ({ label: `${RAW[k].e} ${RAW[k].n}`, right: priceOf(k) + ' 💰/adet', fn: () => startTask('work', 6000, () => inside(slotRect(i), ME.x, ME.y, 40), async () => {
+    const r = await runTransaction(ref(db, 'city/tarla/' + i), x => x ? undefined : { c: k, by: myId, n: ME.name, rd: now() + GROW_MS }).catch(() => null);
+    if (!r || !r.committed) return toast('Bu parsele başkası ekti');
+    ME.energy -= 10; stat('worked'); earn(15, `🌱 ${RAW[k].n} ekildi! 30 dk sonra hasat`);
+  }, '🌱 Ekiliyor') })), `<p>${esc(ctryName(C))} toprağında bunlar yetişir. 30 dakikada büyür, hasat ülke deposuna gider.</p>`);
+}
+function harvest(i) {
+  startTask('work', 6000, () => inside(slotRect(i), ME.x, ME.y, 40), async () => {
+    let got = null;
+    const r = await runTransaction(ref(db, 'city/tarla/' + i), x => { got = null; if (!x || x.rd > now()) return; got = x; return null; }).catch(() => null);
+    if (!r || !r.committed || !got) return toast('Bu ürün toplanmış');
+    const q = kurak() ? 5 : 10;
+    await depoTx(d => { d[got.c] = (d[got.c] || 0) + q; return d; }).catch(() => { });
+    gdpAdd(q * priceOf(got.c)); ME.energy -= 8; stat('worked');
+    earn(60, `🧺 ${q} ${ITEM(got.c).e} ${ITEM(got.c).n} depoya girdi!${kurak() ? ' (🌵 kuraklık: yarı ürün)' : ''}`);
+  }, '🧺 Hasat');
+}
+function freshMenu() {
+  const d = depo(), list = FRESH.filter(k => (d[k] || 0) > 0);
+  modal('🧺 Taze ürün pazarı', list.map(k => ({ label: `${RAW[k].e} ${RAW[k].n} (stok ${d[k]})`, right: `${FRESH_P} 💰 • +16⚡`, disabled: ME.energy >= 100, keep: true, fn: () => buyFresh(k) })),
+    `<p>Tarlalardan gelen taze ürünler. Paran Cumhurbaşkanlığı kasasına gider.</p>${list.length ? '' : '<p style="opacity:.75">Şu an stok yok, çiftçiler hasat etsin 🌾</p>'}`);
+}
+async function buyFresh(k) {
+  if (ME.money < FRESH_P) return toast('Para yetmiyor');
+  const r = await runTransaction(ref(db, 'city/depo/' + k), x => (x || 0) >= 1 ? x - 1 : undefined).catch(() => null);
+  if (!r || !r.committed) return toast('Stok bitti');
+  if (!ecoSpend(FRESH_P)) return; ME.energy = Math.min(100, ME.energy + 16); cbkAdd(FRESH_P); stat('bought'); hud(); saveMe(); toast(`${RAW[k].e} Afiyet olsun! +16⚡`);
+  freshMenu();
+}
+
+// ---------- fabrika mağazası (yerli ürünler)
+const PSHOP = [
+  { k: 'oto', e: '🚗', n: 'Yerli otomobil', p: 7000, give: () => { ME.veh['v' + now().toString(36)] = { t: 'araba', c: ME.color }; stat('vehicle'); }, ann: 1 },
+  { k: 'elektronik', e: '💻', n: 'Yerli laptop (mesai %25 kısa)', p: 1800, ok: () => !ME.inv.laptop, give: () => { ME.inv.laptop = 1; } },
+  { k: 'elektronik', e: '📱', n: 'Yerli telefon', p: 300, ok: () => !ME.inv.telefon, give: () => { ME.inv.telefon = 1; } },
+  { k: 'tekstil', e: '👕', n: 'Yerli marka tişört', p: 180, ok: () => !ME.acc.c_yerli, give: () => { ME.acc.c_yerli = 1; } },
+  { k: 'gida', e: '🥫', n: 'Konserve (+40⚡)', p: 30, give: () => { ME.inv.konserve = (ME.inv.konserve || 0) + 1; carry(); } },
+  { k: 'mucevher', e: '👑', n: 'Altın taç', p: 3500, ok: () => !ME.acc.tac, give: () => { ME.acc.tac = 1; }, ann: 1 },
+];
+function fabShopMenu() {
+  const d = depo();
+  modal('🏭 Fabrika satış mağazası', PSHOP.map((it, i) => {
+    const st = d[it.k] || 0, own = it.ok && !it.ok();
+    return { label: `${it.e} ${it.n} <small>(stok ${st})</small>`, right: own ? 'sende ✓' : it.p.toLocaleString('tr') + ' 💰', disabled: !st || own || ME.money < it.p, fn: () => buyProd(i) };
+  }), `<p>Ülkenin fabrikalarında üretilen yerli ürünler. Paran <b>Cumhurbaşkanlığı kasasına</b> gider.</p><p style="font-size:12px;opacity:.8">Hammadde: ${Object.entries(PROD).map(([k, p]) => `${p.e} ${p.n} = ${recTxt(p.rec)}`).join('<br>')}</p>`);
+}
+async function buyProd(i) {
+  const it = PSHOP[i]; if (!it || (it.ok && !it.ok())) return; if (ME.money < it.p) return toast('Para yetmiyor');
+  const r = await runTransaction(ref(db, 'city/depo/' + it.k), x => (x || 0) >= 1 ? x - 1 : undefined).catch(() => null);
+  if (!r || !r.committed) return toast('Stok bitti');
+  if (!ecoSpend(it.p)) { runTransaction(ref(db, 'city/depo/' + it.k), x => (x || 0) + 1).catch(() => { }); return; }
+  it.give(); cbkAdd(it.p); stat('bought'); saveMe(); toast(`${it.e} ${it.n} senin! 🎉`, 3500);
+  if (it.ann) say(`${it.e} <b>${esc(ME.name)}</b> yerli üretim <b>${it.n}</b> aldı! 🏭`, true, 'ann');
+}
+
+// ---------- liman: borsa + ihracat
+function borsaMenu() {
+  const d = depo(), keys = [...Object.keys(PROD), ...Object.keys(RAW)];
+  const row = k => { const f = dayF(k) * mktF(k), ar = f > 1.05 ? '🟢▲' : f < 0.9 ? '🔴▼' : '⚪'; return `<div style="display:flex;justify-content:space-between;font-size:13px;margin:2px 0"><span>${ITEM(k).e} ${ITEM(k).n}${RAW[k] && RAW[k].c === C ? ' 🏠' : ''}</span><span>${ar} <b>${priceOf(k)}</b> 💰 • depo ${d[k] || 0}</span></div>`; };
+  const items = [];
+  if (isCB()) items.push(eco().liman ? { label: '🚢 Dünya pazarına ihracat yap', cls: 'blue', fn: exportMenu } : { label: `⚓ Liman kapalı • aç (${ECO_COST.liman.toLocaleString('tr')} 💰)`, fn: () => invest('liman') });
+  modal('📈 Borsa • dünya fiyatları', items, `<p style="font-size:12px;opacity:.8">Fiyatlar her gün değişir. Çok satılan malın fiyatı düşer, 1 günde toparlanır. 🏠 = bizim ülkenin malı</p>${keys.map(row).join('')}`);
+}
+function exportMenu() {
+  if (!isCB()) return; if (!eco().liman) return toast('⚓ Önce limanı aç');
+  const d = depo(), list = Object.entries(d).filter(([, q]) => q > 0);
+  modal('🚢 İhracat', list.map(([k, q]) => ({ label: `${ITEM(k).e} ${ITEM(k).n} x${q}`, right: priceOf(k) + ' 💰/adet', fn: () => modal(`🚢 ${ITEM(k).n} sat`, [1, 10, q].filter((v, j, a) => v <= q && a.indexOf(v) === j).map(n => ({ label: `${n} adet sat → ~${(n * priceOf(k)).toLocaleString('tr')} 💰`, fn: () => doExport(k, n) }))) })),
+    `<p>Depodaki malları dünya pazarına sat, para <b>Cumhurbaşkanlığı kasasına</b> girer.</p>${list.length ? '' : '<p style="opacity:.75">Depo boş</p>'}`);
+}
+async function doExport(k, q) {
+  const r = await runTransaction(ref(db, 'city/depo/' + k), x => (x || 0) >= q ? x - q : undefined).catch(() => null);
+  if (!r || !r.committed) return toast('Depoda o kadar yok');
+  let sum = 0; for (let i = 0; i < q; i++) sum += Math.max(1, Math.round(ITEM(k).p * dayF(k) * Math.max(0.35, mktF(k) - 0.012 * i)));
+  cbkAdd(sum); const f = Math.max(0.35, mktF(k) - 0.012 * q);
+  set(ref(db, 'city/mkt/' + k), { f, t: now() }).catch(() => { });
+  cityLog(`🚢 İhracat: ${q} ${ITEM(k).n}`, sum);
+  say(`🚢 ${esc(ctryName(C))} limanından <b>${q} ${ITEM(k).e} ${ITEM(k).n}</b> ihraç edildi: +${sum.toLocaleString('tr')} 💰 kasaya!`, true, 'ann');
+  if (typeof wnews === 'function') wnews(`🚢 ${esc(ctryName(C))} dünya pazarına ${q} ${ITEM(k).n} sattı`);
+}
+
+// ---------- Cumhurbaşkanı: ekonomi ve yatırım
+function ecoCbMenu() {
+  if (!isCB()) return;
+  const e = eco(), tl = e.tarla || 0, ml = e.maden || 0;
+  const items = [
+    tl < 3 ? { label: `🌾 Tarlaları genişlet (${tarlaN()} → ${tarlaN() + 4} parsel)`, right: ECO_COST.tarla[tl].toLocaleString('tr') + ' 💰', disabled: cbk() < ECO_COST.tarla[tl], fn: () => invest('tarla') } : { label: '🌾 Tarlalar en büyük seviyede ✓', disabled: true },
+    ml < 2 ? { label: `⛏ Madeni derinleştir (mesai başına ${1 + ml} → ${2 + ml} maden)`, right: ECO_COST.maden[ml].toLocaleString('tr') + ' 💰', disabled: cbk() < ECO_COST.maden[ml], fn: () => invest('maden') } : { label: '⛏ Maden en derin seviyede ✓', disabled: true },
+    e.liman ? { label: '⚓ Liman açık ✓ • 🚢 İhracat', fn: exportMenu } : { label: '⚓ Limanı aç (ihracat + liman geliri)', right: ECO_COST.liman.toLocaleString('tr') + ' 💰', disabled: cbk() < ECO_COST.liman, fn: () => invest('liman') },
+    ...Object.entries(PROD).map(([k, p]) => (e.fab || {})[k] ? { label: `🏭 ${p.e} ${p.n} hattı açık ✓`, disabled: true } : { label: `🏭 ${p.e} ${p.n} hattı aç<br><small>${recTxt(p.rec)}</small>`, right: ECO_COST.fab.toLocaleString('tr') + ' 💰', disabled: cbk() < ECO_COST.fab, fn: () => invest('fab', k) }),
+    { label: '📈 Borsa', fn: borsaMenu },
+  ];
+  modal('🏭 Ekonomi • yatırım', items, `<p>🏛 Cumhurbaşkanlığı kasası: <b>${cbk().toLocaleString('tr')} 💰</b><br>📈 GSYİH: <b>${Math.floor(CITY.gdp || 0).toLocaleString('tr')}</b>${kurak() ? '<br>🌵 Kuraklık var: hasat yarıya düştü' : ''}</p><p style="font-size:13px">📦 Depo: ${depoTxt()}</p><p style="font-size:12px;opacity:.8">Bu kasa sadece ülkeye yatırım için. Senin maaşın günde 300 💰 buradan otomatik yatar.</p>`);
+}
+async function invest(kind, sub) {
+  if (!isCB()) return; const e = eco();
+  const cost = kind === 'tarla' ? ECO_COST.tarla[e.tarla || 0] : kind === 'maden' ? ECO_COST.maden[e.maden || 0] : kind === 'liman' ? (e.liman ? 0 : ECO_COST.liman) : (e.fab || {})[sub] ? 0 : ECO_COST.fab;
+  if (!cost) return;
+  const r = await runTransaction(ref(db, 'city/cbk'), x => (x || 0) >= cost ? (x || 0) - cost : undefined).catch(() => null);
+  if (!r || !r.committed) return toast('Kasada yeterli para yok');
+  const path = kind === 'fab' ? 'city/eco/fab/' + sub : 'city/eco/' + kind, val = kind === 'tarla' || kind === 'maden' ? (e[kind] || 0) + 1 : 1;
+  try { await set(ref(db, path), val); } catch (x) { runTransaction(ref(db, 'city/cbk'), y => (y || 0) + cost).catch(() => { }); return toast('Yatırım yapılamadı'); }
+  const what = kind === 'tarla' ? `tarlaları genişletti (${tarlaN() + 4} parsel)` : kind === 'maden' ? 'madeni derinleştirdi' : kind === 'liman' ? 'limanı açtı! 🚢 Artık ihracat var' : `${PROD[sub].e} ${PROD[sub].n} üretim hattını açtı! Fabrika işçileri iş başına`;
+  cityLog('Yatırım: ' + kind + (sub ? ' ' + sub : ''), cost);
+  say(`🏛 Cumhurbaşkanı <b>${esc(ME.name)}</b> ${what} (${cost.toLocaleString('tr')} 💰)`, true, 'ann');
+  setTimeout(ecoCbMenu, 400);
+}
+async function cbPayday() {
+  if (!ME || !db || !isCB() || cbPayday.busy) return; const d = today(); if (ME.cbPd === d) return; cbPayday.busy = 1;
+  try {
+    const r = await runTransaction(ref(db, 'city/cbk'), x => (x || 0) >= 300 ? (x || 0) - 300 : undefined).catch(() => null);
+    if (r && r.committed) {
+      ME.cbPd = d; await update(ref(db, 'players/' + myId), { cbPd: d }).catch(() => { });
+      for (let left = 300; left > 0; left -= 150) { ME.money += 150; await update(ref(db, 'players/' + myId), { money: Math.floor(ME.money) }).catch(() => { }); }
+      hud(); toast('🏛 Cumhurbaşkanı maaşı: 300 💰 yattı', 5000);
+    }
+  } finally { cbPayday.busy = 0; }
+}
+function cumhurInfo() {
+  const g = Object.values(others).filter(o => o.name && live(o) && ['Koruma', 'Güvenlik Görevlisi'].includes(o.job)).length;
+  modal(`🏛 Cumhurbaşkanlığı • ${esc(ctryName(C))}`, isCB() ? [{ label: '🏛 Makam odası', cls: 'blue', fn: cbMenu }, { label: '🏭 Ekonomi • yatırım', fn: ecoCbMenu }] : [],
+    `<p>👑 Cumhurbaşkanı: <b>${CB && CB.until > now() ? esc(CB.name || '?') : 'yok'}</b><br>🏛 Kasa: <b>${cbk().toLocaleString('tr')} 💰</b> • 📈 GSYİH ${Math.floor(CITY.gdp || 0).toLocaleString('tr')}<br>🕴 Görevdeki koruma/güvenlik: ${g}</p><p style="font-size:12px;opacity:.8">Vergilerin %75'i bu kasaya, %25'i belediyeye gider. Kasa tarla, maden, fabrika ve liman yatırımlarına harcanır.</p>`);
+}
+
+// ---------- deniz: yüzme, boğulma, cankurtaran
+let rescAlert = {};
+function ecoActs(L, b, t) {
+  if (!ME) return;
+  if (ME.job === 'Cankurtaran') {
+    Object.entries(others).filter(([, o]) => o.hasPos && o.dr > t).slice(0, 2).forEach(([id, o]) => {
+      const d = Math.hypot(o.x - ME.x, o.y - ME.y);
+      if (d < 80) L.unshift({ label: `🛟 ${esc(o.name || '')}'i KURTAR!`, cls: 'red', fn: () => rescue(id) });
+      else L.unshift({ label: `🆘 ${esc(o.name || '')} boğuluyor • KOŞ (${Math.round(d / T)} m)`, cls: 'red', dyn: 1, fn: () => runTo(id) });
+    });
+  }
+  if (ME.dr > t) { L.unshift({ label: `🆘 Boğuluyorsun! Cankurtaran bekle • ${Math.ceil((ME.dr - t) / 1000)} sn`, cls: 'red', dyn: 1 }); return; }
+  if (b && b.id === 'tarla') tarlaActs(L, t);
+  if (b && b.id === 'fabrika' && ME.inside !== 'fabrika') L.push({ label: '🏭 Fabrika mağazası (yerli ürünler)', cls: 'blue', fn: fabShopMenu });
+  if (b && b.id === 'liman' && ME.inside !== 'liman') L.push({ label: '📈 Borsa', cls: 'blue', fn: borsaMenu });
+  if (b && b.id === 'cumhur' && ME.inside !== 'cumhur') L.push({ label: isCB() ? '🏛 Makamına geç' : '🏛 Cumhurbaşkanlığı', cls: 'blue', fn: isCB() ? cbMenu : cumhurInfo });
+  if (b && isCB() && b.jobs.includes(ME.job)) L.push({ label: '🏛 Cumhurbaşkanı mesai yapmaz (günde 300 💰 maaş)', cls: 'gray' });
+  if (ME.sw) L.push({ label: '🏖 Kıyıya çık', cls: 'blue', fn: () => { ME.x = (SEA_X - 1.2) * T; sendPos(true); } });
+  else if (nearShore() && ECOCFG.swim !== false) L.push({ label: '🏊 Denize gir • yüz', cls: 'blue', fn: () => { ME.swimOk = 1; if (ME.drive) { ME.drive = null; pub({ drive: null }); } ME.x = (SEA_X + 1.5) * T; sendPos(true); toast('🏊 Yüzüyorsun! Çok açılma, dikkat et 🌊', 3000); } });
+  if (onBeach() && !ME.sw) L.push({ label: '🏖 Güneşlen (+15⚡)', disabled: ME.energy >= 100, fn: () => startTask('rest', 20000, () => onBeach(), () => { ME.energy = Math.min(100, ME.energy + 15); hud(); saveMe(); toast('😎 Bronzlaştın! +15⚡'); }, '🏖 Güneşleniyor') });
+}
+function runTo(id) { if (ME.inside) goInside(null); task = null; ME.swimOk = 1; CHASE = id; closeModal(); toast('🏃 Koş! Yaklaşınca 🛟 KURTAR çıkacak', 3000); }
+async function rescue(id) {
+  const o = others[id]; if (!o || !(o.dr > now())) return toast('Artık boğulmuyor');
+  try { await set(ref(db, 'online/' + id + '/saved'), { by: myId, n: ME.name, t: now() }); } catch (e) { return toast('Kurtarılamadı'); }
+  CHASE = null; o.dr = 0; stat('worked'); earn(150, `🛟 ${o.name}'i kurtardın! Kahramansın!`);
+  say(`🛟 Cankurtaran <b>${esc(ME.name)}</b>, boğulmak üzere olan <b>${esc(o.name || '')}</b>'i kurtardı! 👏`, true, 'ann');
+}
+function ecoFrame() {
+  if (!ME) return;
+  const w = inWater(ME.x, ME.y);
+  if (w && !ME.sw) { ME.sw = 1; ME.swimOk = 1; if (ME.drive) { ME.drive = null; pub({ drive: null }); } pub({ sw: 1 }); }
+  else if (!w && ME.sw) { ME.sw = 0; ME.swimOk = 0; pub({ sw: null }); }
+}
+function ecoTick() {
+  if (!ME || !db || !myId) return;
+  const t = now();
+  if (!ecoTick.sub) {
+    ecoTick.sub = 1;
+    onValue(ref(db, 'online/' + myId + '/saved'), s => {
+      const v = s.val(); if (!v || !ME) return;
+      if (ME.dr) { ME.dr = 0; ME.x = (SEA_X - 2.5) * T; ME.swimOk = 0; pub({ dr: null, saved: null }); sendPos(true); toast(`🛟 <b>${esc(v.n || '')}</b> seni kurtardı! Teşekkür et 🙏`, 6000); }
+      else update(ref(db, 'online/' + myId), { saved: null }).catch(() => { });
+    });
+  }
+  if (ME.dr && t > ME.dr) {     // kurtarılamadı → hastane
+    ME.dr = 0; ME.sw = 0; ME.swimOk = 0; const lost = Math.min(100, Math.floor(ME.money)); ME.money -= lost; ME.energy = 5; ME.sick = 1;
+    ME.x = (BMAP.hastane.x + 3) * T; ME.y = (BMAP.hastane.y + 6) * T + 30; CHASE = null;
+    pub({ dr: null, sw: null, sick: 1 }); sendPos(true); hud(); saveMe();
+    toast(`🚑 Boğuldun, ambulans hastaneye getirdi. Hastane masrafı ${lost} 💰. Hastaneye gir, muayene ol!`, 7000);
+  }
+  if (ME.job === 'Cankurtaran') for (const [id, o] of Object.entries(others)) {
+    if (!(o.dr > t) || rescAlert[id] === o.dr) continue; rescAlert[id] = o.dr;
+    try { navigator.vibrate && navigator.vibrate([250, 120, 250, 120, 250]); } catch (e) { }
+    modal('🆘 BOĞULAN VAR!', [{ label: `🏃 ${esc(o.name || '')}'e koş`, cls: 'red', fn: () => runTo(id) }], `<p><b>${esc(o.name || '')}</b> denizde boğuluyor! 90 saniyen var. Yanına git, <b>🛟 KURTAR</b>'a bas.</p>`);
+  }
+}
+setInterval(ecoTick, 1000);
+setInterval(() => {   // boğulma şansı (her 20 sn)
+  if (!ME || !ME.sw || ME.dr > now() || ECOCFG.drown === false || ME.job === 'Cankurtaran') return;
+  if (Math.random() < 0.06) { ME.dr = now() + 90000; pub({ dr: ME.dr }); try { navigator.vibrate && navigator.vibrate(400); } catch (e) { } toast('🆘 Boğuluyorsun! Cankurtaran gelene kadar dayan (90 sn)', 6000); }
+}, 20000);
+async function afetTick() {
+  if (!ME || !db || ECOCFG.afet === false) return; const a = CITY.afet || {}; if ((a.next || 0) > now()) return;
+  let started = 0;
+  await runTransaction(ref(db, 'city/afet'), x => {
+    x = x || {}; started = 0; if ((x.next || 0) > now()) return;
+    if (Math.random() < 0.3) { started = 1; return { t: 'kurak', until: now() + 3 * 3600000, next: now() + 8 * 3600000 }; }
+    return { t: x.t || 'yok', until: x.until || 0, next: now() + 2 * 3600000 };
+  }).catch(() => { });
+  if (started) say('🌵 <b>KURAKLIK!</b> 3 saat boyunca tarlalar yarı ürün verecek. Ticaretle gıda getirin!', true, 'ann');
+}
+setInterval(afetTick, 5 * 60000); setInterval(cbPayday, 10 * 60000);
+
+// ---------- 3D
+let TARLA3D = null, ECOANIM = { flags: [], smoke: [], foam: null, fount: null };
+function cyl(rt, rb, h, c, x, y, z, parent, seg = 12, m) { const me = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg), m || mat(c)); me.position.set(x, y, z); me.castShadow = true; me.receiveShadow = true; (parent || scene).add(me); return me; }
+function ctryFlagTex() {
+  const c = document.createElement('canvas'); c.width = 300; c.height = 200; const g = c.getContext('2d');
+  g.fillStyle = { 1: '#E30A17', 2: '#1565c0', 3: '#ef6c00' }[C] || '#E30A17'; g.fillRect(0, 0, 300, 200);
+  g.fillStyle = '#ffffff'; g.fillRect(0, 148, 300, 6); g.font = '92px system-ui'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText((COUNTRIES[C] || {}).f || '★', 150, 78);
+  g.font = '800 26px system-ui'; g.fillText(ctryName(C).toLocaleUpperCase('tr'), 150, 178);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+function ecoFlag(parent, x, z, h = 5, y0 = 0) {
+  cyl(0.06, 0.08, h, '#dddddd', x, y0 + h / 2, z, parent, 8);
+  const f = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 1.2), new THREE.MeshLambertMaterial({ map: ECOANIM.ftex || (ECOANIM.ftex = ctryFlagTex()), side: THREE.DoubleSide }));
+  f.geometry.translate(0.9, 0, 0); f.position.set(x, y0 + h - 0.65, z); parent.add(f); ECOANIM.flags.push(f); return f;
+}
+function ecoSign(parent, text, bg, fg, x, y, z, w = 4.2) { const s = new THREE.Mesh(new THREE.PlaneGeometry(w, w / 4), new THREE.MeshBasicMaterial({ map: signTex(text, bg, fg) })); s.position.set(x, y, z); parent.add(s); return s; }
+function ecoDeco(b, bg, bx, after) {
+  const cx = b.x + b.w / 2, cz = b.y + b.h / 2, H = b.H;
+  if (!after && b.id === 'tarla') {
+    for (let i = 0; i < 16; i++) { const r = slotRect(i); bx(r.w, 0.06, r.h, '#6d4c2f', r.x + r.w / 2, 0.035, r.y + r.h / 2, null, false); for (let j = 0; j < 4; j++) bx(r.w - 0.2, 0.04, 0.12, '#5a3d24', r.x + r.w / 2, 0.07, r.y + 0.5 + j * 0.95, null, false); }
+    [[2.6, 11.8], [14.4, 23.6]].forEach(([y0, y1]) => { for (let x = 98.9; x <= 112.3; x += 1.2) { bx(0.1, 0.6, 0.1, '#8d6e63', x, 0.3, y0); bx(0.1, 0.6, 0.1, '#8d6e63', x, 0.3, y1); } bx(13.4, 0.06, 0.06, '#8d6e63', 105.6, 0.5, y0, null, false); bx(13.4, 0.06, 0.06, '#8d6e63', 105.6, 0.5, y1, null, false); });
+    cyl(0.9, 0.9, 3.6, '#c0392b', 111.6, 1.8, 13.1, bg); const top = new THREE.Mesh(new THREE.SphereGeometry(0.9, 12, 8, 0, 7, 0, Math.PI / 2), mat('#bdc3c7')); top.position.set(111.6, 3.6, 13.1); bg.add(top);
+    ecoSign(bg, '🌾 TARLALAR', '#5d8a2c', '#ffffff', 105.6, 1.4, 12.2, 3.6);
+    const n = 16 * 12; TARLA3D = { st: new THREE.InstancedMesh(boxG, new THREE.MeshLambertMaterial({ color: '#ffffff' }), n), fr: new THREE.InstancedMesh(boxG, new THREE.MeshLambertMaterial({ color: '#ffffff' }), n), lock: [] };
+    TARLA3D.st.castShadow = TARLA3D.fr.castShadow = true; bg.add(TARLA3D.st, TARLA3D.fr);
+    for (let i = 0; i < 16; i++) { const r = slotRect(i), l = new THREE.Mesh(new THREE.PlaneGeometry(r.w, r.h), new THREE.MeshLambertMaterial({ color: '#4c7a3a', transparent: true, opacity: 0.92 })); l.rotation.x = -Math.PI / 2; l.position.set(r.x + r.w / 2, 0.1, r.y + r.h / 2); bg.add(l); TARLA3D.lock.push(l); }
+    refreshTarla3D(); return true;
+  }
+  if (!after && b.id === 'maden') {
+    const hill = new THREE.Mesh(new THREE.DodecahedronGeometry(1, 0), mat('#7d6b57')); hill.scale.set(b.w / 2 + 0.4, H, b.h / 2 + 0.2); hill.position.set(cx, 0.2, cz - 0.3); hill.castShadow = hill.receiveShadow = true; bg.add(hill);
+    const h2 = new THREE.Mesh(new THREE.DodecahedronGeometry(1, 0), mat('#6a5a48')); h2.scale.set(2.2, H * 0.8, 1.8); h2.position.set(cx + 2.4, 0.2, cz - 1); h2.castShadow = true; bg.add(h2);
+    bx(2.2, 2.2, 0.4, '#1a1410', cx, 1.1, b.y + b.h - 0.1, null, false); bx(0.25, 2.5, 0.3, '#8d6e63', cx - 1.2, 1.25, b.y + b.h + 0.05); bx(0.25, 2.5, 0.3, '#8d6e63', cx + 1.2, 1.25, b.y + b.h + 0.05); bx(2.7, 0.3, 0.3, '#8d6e63', cx, 2.5, b.y + b.h + 0.05);
+    for (let i = 0; i < 6; i++) bx(1.4, 0.04, 0.15, '#5d4037', cx, 0.04, b.y + b.h + 0.4 + i * 0.4, null, false);
+    bx(0.06, 0.06, 2.6, '#9e9e9e', cx - 0.45, 0.08, b.y + b.h + 1.3, null, false); bx(0.06, 0.06, 2.6, '#9e9e9e', cx + 0.45, 0.08, b.y + b.h + 1.3, null, false);
+    bx(1, 0.6, 0.8, '#546e7a', cx, 0.5, b.y + b.h + 1.6); MINES().forEach((k, i) => { const p = new THREE.Mesh(new THREE.ConeGeometry(0.55, 0.7, 6), mat(RAW[k].col)); p.position.set(b.x + 0.8 + i * 1.6 + (i > 1 ? 2.4 : 0), 0.35, b.y + b.h + 1.6); p.castShadow = true; bg.add(p); });
+    ecoSign(bg, '⛏ MADEN OCAĞI', '#3e3328', '#ffd23f', cx, 2.95, b.y + b.h + 0.22, 3.2);
+    addOcc(bg, b.x, b.x + b.w, b.y, b.y + b.h + 2, H + 1); return true;
+  }
+  if (!after && b.id === 'cumhur') {
+    const X0 = 98.6, X1 = 112.2, Z0 = 38.4, Z1 = 48;
+    bx(X1 - X0, 0.05, Z1 - Z0, '#5cbf60', (X0 + X1) / 2, 0.03, (Z0 + Z1) / 2, null, false);
+    bx(1.8, 0.07, Z1 - 43.5, '#efe7d6', 106, 0.05, (43.5 + Z1) / 2, null, false); bx(5.6, 0.07, 1.4, '#efe7d6', 106, 0.05, 44.2, null, false);
+    // ana bina
+    bx(b.w - 0.2, H, b.h - 0.2, b.c, cx, H / 2, cz); bx(b.w + 0.4, 0.4, b.h + 0.4, '#c9a227', cx, H + 0.2, cz);
+    cyl(1.7, 1.7, 0.8, '#f8f5ec', cx, H + 0.8, cz, bg, 20);
+    const dome = new THREE.Mesh(new THREE.SphereGeometry(1.6, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshLambertMaterial({ color: '#d4ac0d', emissive: '#6b5200', emissiveIntensity: 0.25 })); dome.position.set(cx, H + 1.2, cz); dome.castShadow = true; bg.add(dome);
+    ecoFlag(bg, cx, cz, 2.4, H + 2.7);
+    for (let i = 0; i < 8; i++) cyl(0.17, 0.2, H - 0.7, '#ffffff', b.x + 0.35 + i * ((b.w - 0.7) / 7), (H - 0.7) / 2 + 0.15, b.y + b.h + 0.35, bg, 10);
+    bx(b.w + 0.3, 0.35, 1.1, '#f8f5ec', cx, H - 0.4, b.y + b.h + 0.35); bx(b.w + 0.2, 0.12, 0.05, '', cx, H - 0.62, b.y + b.h + 0.92, null, false, lampMat);
+    bx(1.5, 2.5, 0.08, '#6b4a2b', cx, 1.25, b.y + b.h + 0.02, null, false); bx(3.4, 0.16, 0.7, '#e0d8c8', cx, 0.08, b.y + b.h + 0.75); bx(2.8, 0.16, 0.5, '#e0d8c8', cx, 0.22, b.y + b.h + 0.6);
+    ecoSign(bg, '🏛 CUMHURBAŞKANLIĞI', '#c9a227', '#ffffff', cx, H - 0.4, b.y + b.h + 0.92, 4.6);
+    // kanatlar
+    [[101.05, 2.9], [110.9, 2.8]].forEach(([wx, ww]) => {
+      bx(ww - 0.1, 3.6, 3.8, '#efe9da', wx, 1.8, 41.35); bx(ww + 0.2, 0.3, 4.1, '#c9a227', wx, 3.75, 41.35);
+      for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) bx(0.7, 0.8, 0.06, '', wx - 0.6 + i * 1.2, 1.2 + j * 1.3, 43.3, null, false, winMat);
+    });
+    // havuz
+    bx(3.2, 0.14, 2.6, '#ecf0f1', 101, 0.07, 45.7);
+    const pw = new THREE.Mesh(boxG, new THREE.MeshLambertMaterial({ color: '#36c6f4', emissive: '#0a6fa8', emissiveIntensity: 0.45 })); pw.scale.set(2.8, 0.06, 2.2); pw.position.set(101, 0.13, 45.7); bg.add(pw);
+    bx(0.6, 0.08, 1.4, '#ff6fb5', 103.1, 0.1, 44.9); bx(0.6, 0.08, 1.4, '#3ad1ff', 103.1, 0.1, 46.6);
+    // fıskiye
+    cyl(0.75, 0.8, 0.4, '#f5f0e6', 106, 0.2, 45.7, bg, 18); const fw = cyl(0.62, 0.62, 0.06, '', 106, 0.42, 45.7, bg, 18, new THREE.MeshLambertMaterial({ color: '#5fd0ff', emissive: '#1a7fc0', emissiveIntensity: 0.4 }));
+    cyl(0.1, 0.14, 1, '#f5f0e6', 106, 0.7, 45.7, bg, 8); cyl(0.35, 0.15, 0.15, '#f5f0e6', 106, 1.2, 45.7, bg, 12);
+    ECOANIM.fount = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.7, 10, 1, true), new THREE.MeshBasicMaterial({ color: '#bfefff', transparent: true, opacity: 0.55 })); ECOANIM.fount.position.set(106, 1.6, 45.7); ECOANIM.fount.rotation.x = Math.PI; bg.add(ECOANIM.fount);
+    // çit, kapı, kulübeler
+    const fenceM = mat('#2c2c2c');
+    [[X0, Z0, X1, Z0], [X0, Z0, X0, Z1], [X1, Z0, X1, Z1], [X0, Z1, 104.9, Z1], [107.1, Z1, X1, Z1]].forEach(([a, c0, d, e]) => {
+      const len = Math.hypot(d - a, e - c0), hx = (a + d) / 2, hz = (c0 + e) / 2, vert = a === d;
+      bx(vert ? 0.08 : len, 0.08, vert ? len : 0.08, '', hx, 1.05, hz, null, false, fenceM); bx(vert ? 0.08 : len, 0.08, vert ? len : 0.08, '', hx, 0.35, hz, null, false, fenceM);
+      for (let s = 0; s <= len; s += 0.6) bx(0.05, 1.1, 0.05, '', vert ? a : a + s, 0.55, vert ? c0 + s : c0, null, false, fenceM);
+    });
+    bx(0.4, 2.6, 0.4, '#c9a227', 104.8, 1.3, Z1); bx(0.4, 2.6, 0.4, '#c9a227', 107.2, 1.3, Z1); bx(2.8, 0.35, 0.35, '#c9a227', 106, 2.75, Z1);
+    ecoSign(bg, '🏛 ' + ctryName(C).toLocaleUpperCase('tr'), '#1b2a49', '#ffd23f', 106, 3.25, Z1 + 0.05, 2.6);
+    [[103.85, 47.55], [108.15, 47.55]].forEach(([gx, gz]) => { bx(0.85, 1.7, 0.85, '#f8f5ec', gx, 0.85, gz); bx(1.05, 0.15, 1.05, '#c0392b', gx, 1.78, gz); bx(0.5, 0.4, 0.05, '', gx, 1.2, gz + 0.44, null, false, winMat); });
+    ecoFlag(bg, 102.9, 47.3, 4.6); ecoFlag(bg, 109.1, 47.3, 4.6);
+    // çitler ve lambalar
+    [[99.2, 42.9, 12.6, 0.4], [99.2, 47.4, 4.4, 0.35], [108.4, 47.4, 3.6, 0.35]].forEach(([hx, hz, w, d]) => bx(w, 0.5, d, '#2e7d32', hx + w / 2, 0.25, hz));
+    [[99.3, 39], [112, 39], [99.3, 47.4], [112, 47.4], [104.4, 44.4], [107.6, 44.4], [104.4, 47], [107.6, 47]].forEach(([lx, lz]) => { bx(0.1, 2.4, 0.1, '#1b2a49', lx, 1.2, lz); bx(0.32, 0.32, 0.32, '', lx, 2.5, lz, null, false, lampMat); });
+    [[103, 44.1], [109, 44.1]].forEach(([lx, lz]) => bx(0.35, 0.2, 0.35, '', lx, 0.12, lz, null, false, lampMat));
+    for (let i = 0; i < 5; i++) { const tr = new THREE.Mesh(new THREE.SphereGeometry(0.55, 8, 6), mat('#2e7d32')); tr.position.set(110.3 + (i % 2) * 1.1, 0.75, 44.6 + i * 0.55); tr.castShadow = true; bg.add(tr); }
+    addOcc(bg, 99.4, 112.3, 38.6, 44.4, H + 4); return true;
+  }
+  if (!after && b.id === 'cankurtaran') {
+    for (const [dx, dz] of [[0.3, 0.3], [2.3, 0.3], [0.3, 2.3], [2.3, 2.3]]) bx(0.14, 2, 0.14, '#ffffff', b.x + dx, 1, b.y + dz);
+    bx(2.8, 0.15, 2.8, '#c0392b', cx, 2.05, cz); bx(2, 1.4, 2, '#e74c3c', cx, 2.8, cz); bx(2.4, 0.18, 2.4, '#ffffff', cx, 3.6, cz);
+    for (let i = 0; i < 6; i++) bx(0.7, 0.06, 0.12, '#ffffff', cx, 0.3 + i * 0.32, b.y + b.h + 0.4 + i * -0.05);
+    bx(1.2, 0.55, 0.06, '', cx, 2.95, b.y + b.h - 0.28, null, false, winMat);
+    cyl(0.04, 0.04, 2.2, '#dddddd', b.x + 2.4, 4.6, b.y + 0.4, bg, 6); const rf = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.6), new THREE.MeshLambertMaterial({ color: '#e74c3c', side: THREE.DoubleSide })); rf.geometry.translate(0.45, 0, 0); rf.position.set(b.x + 2.4, 5.4, b.y + 0.4); bg.add(rf); ECOANIM.flags.push(rf);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.08, 6, 14), mat('#ff7f27')); ring.position.set(cx + 0.7, 1.4, b.y + b.h - 0.1); bg.add(ring);
+    ecoSign(bg, '🛟 CANKURTARAN', '#ffffff', '#c0392b', cx, 4.15, b.y + b.h - 0.15, 2.6);
+    addOcc(bg, b.x, b.x + b.w, b.y, b.y + b.h + 1, 5); return true;
+  }
+  if (after && b.id === 'fabrika') {
+    for (let i = 0; i < 4; i++) bx(2.4, 0.9, b.h - 0.4, i % 2 ? '#8e9aa6' : '#d5dde5', b.x + 1.3 + i * 2.5, H + 0.6, cz);
+    [[b.x + 1.2, b.y + 1], [b.x + 3, b.y + 1]].forEach(([sx, sz], i) => { cyl(0.38, 0.45, 4, '#bdc3c7', sx, H + 2, sz, bg, 10); cyl(0.4, 0.4, 0.5, '#c0392b', sx, H + 3.4, sz, bg, 10); ECOANIM.smoke.push({ x: sx, y: H + 4.2, z: sz, m: [] }); });
+    bx(2.6, 1.8, 0.1, '#f39c12', b.x + b.w - 1.8, 0.9, b.y + b.h + 0.02, null, false);
+  }
+  if (after && b.id === 'liman') {
+    const yel = mat('#f1c40f');
+    bx(0.4, 6, 0.4, '', 111.4, 3, 70.2, null, true, yel); bx(0.4, 6, 0.4, '', 111.4, 3, 72.2, null, true, yel); bx(0.5, 0.5, 9, '', 111.4, 6.2, 74.5, null, true, yel); bx(0.12, 2.5, 0.12, '#333', 111.4, 4.8, 78);
+    const cc = ['#c0392b', '#2980b9', '#27ae60', '#f39c12', '#8e44ad', '#16a085'];
+    for (let i = 0; i < 6; i++) bx(1.6, 1.1, 2.4, cc[i], 109.4 + (i % 2) * 1.7, 0.55 + Math.floor(i / 4) * 1.12, 65.3 + (i % 4 > 1 ? 2.5 : 0));
+    bx(1.6, 1.1, 2.4, cc[1], 109.4, 1.67, 65.3);
+  }
+  return false;
+}
+function ecoWorld3D(o) {
+  const roadM = mat('#4a4f57'), curb = mat('#c9c9c9');
+  for (let k = 0; k <= WN - RW; k += BLK) { const c = k + RW / 2; box(16.6, 0.06, RW + 0.6, '', 106.3, 0.03, c, null, false, curb); box(16.6, 0.08, RW, '', 106.3, 0.04, c, null, false, roadM); }
+  box(RW + 0.6, 0.065, WN + 0.6, '', 113.6, 0.032, WN / 2, null, false, curb); box(RW, 0.085, WN, '', 113.6, 0.042, WN / 2, null, false, roadM);
+  for (let i = 3; i < WN; i += 2) box(0.1, 0.01, 0.9, '#eeeeee', 113.6, 0.09, i + 0.5, null, false);
+  // kum + deniz
+  const sand = new THREE.Mesh(new THREE.PlaneGeometry(SEA_X - BEACH_X + 0.4, 320), mat('#f1d9a0')); sand.rotation.x = -Math.PI / 2; sand.position.set((SEA_X + BEACH_X) / 2 + 0.2, 0.02, 49); sand.receiveShadow = true; scene.add(sand);
+  const wet = new THREE.Mesh(new THREE.PlaneGeometry(1, 320), mat('#d9bf86')); wet.rotation.x = -Math.PI / 2; wet.position.set(SEA_X - 0.3, 0.025, 49); scene.add(wet);
+  const sea = new THREE.Mesh(new THREE.PlaneGeometry(320, 340), new THREE.MeshLambertMaterial({ color: '#1f8ad1', transparent: true, opacity: 0.93 })); sea.rotation.x = -Math.PI / 2; sea.position.set(SEA_X + 160, 0.06, 49); sea.receiveShadow = true; scene.add(sea);
+  ECOANIM.foam = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 320), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.6 })); ECOANIM.foam.rotation.x = -Math.PI / 2; ECOANIM.foam.position.set(SEA_X + 0.3, 0.07, 49); scene.add(ECOANIM.foam);
+  // iskele + gemi
+  box(PIER.w, 0.14, PIER.h, '#9c6b3e', PIER.x + PIER.w / 2, 0.08, PIER.y + PIER.h / 2);
+  for (let x = PIER.x + 6.4; x < PIER.x + PIER.w; x += 2.5) { box(0.18, 1, 0.18, '#6d4c2f', x, -0.3, PIER.y + 0.1); box(0.18, 1, 0.18, '#6d4c2f', x, -0.3, PIER.y + PIER.h - 0.1); box(0.1, 0.7, 0.1, '#6d4c2f', x, 0.45, PIER.y + PIER.h - 0.05); }
+  box(PIER.w - 6.4, 0.07, 0.07, '#6d4c2f', PIER.x + 6.4 + (PIER.w - 6.4) / 2, 0.8, PIER.y + PIER.h - 0.05, null, false);
+  const sx = SHIP.x + SHIP.w / 2, sz = SHIP.y + SHIP.h / 2;
+  box(SHIP.w, 0.9, SHIP.h, '#b03a2e', sx, 0.3, sz); box(SHIP.w, 0.9, SHIP.h, '#2c3e50', sx, 1.2, sz); box(SHIP.w + 0.2, 0.12, SHIP.h + 0.2, '#ffffff', sx, 1.7, sz);
+  box(2.6, 2, 2.6, '#ffffff', SHIP.x + SHIP.w - 1.8, 2.7, sz); box(2.7, 0.5, 0.06, '', SHIP.x + SHIP.w - 1.8, 3.2, sz - 1.32, null, false, winMat); cyl(0.4, 0.45, 1.6, '#c0392b', SHIP.x + SHIP.w - 1.8, 4.4, sz, null, 10);
+  const cc = ['#c0392b', '#2980b9', '#27ae60', '#f39c12', '#8e44ad'];
+  for (let i = 0; i < 8; i++) box(1.6, 0.9, 1.5, cc[i % 5], SHIP.x + 1.2 + (i % 4) * 1.75, 2.2 + Math.floor(i / 4) * 0.92, sz + (i % 2 ? 0.8 : -0.8));
+  ecoSign(scene, '⚓ LİMAN', '#2f6f8f', '#ffffff', PIER.x + 0.8, 1.3, PIER.y - 0.05, 2);
+  // palmiyeler, şemsiyeler, şezlonglar
+  const tr = mat('#8d6e3f'), lf = mat('#2e9e4f'), cols = ['#e74c3c', '#f1c40f', '#3498db', '#ff6fb5', '#2ecc71'];
+  for (let i = 0; i < 26; i++) {
+    const z = 4 + i * 3.6 + (i % 3) * 0.7; if (z > 72 && z < 82) continue; if (z > 38.5 && z < 44) continue;
+    if (i % 2 === 0) {
+      const x = 115.3 + (i % 4 === 0 ? 0 : 0.6), t = cyl(0.12, 0.17, 3.2, '', x, 1.6, z, null, 6, tr); t.rotation.z = 0.12;
+      for (let k = 0; k < 5; k++) { const l = box(1.6, 0.06, 0.45, '', x + 0.2 + Math.cos(k * 1.26) * 0.7, 3.15, z + Math.sin(k * 1.26) * 0.7, null, true, lf); l.rotation.y = -k * 1.26; l.rotation.z = -0.35; }
+    } else {
+      const x = 118.4 + (i % 3) * 0.6; cyl(0.04, 0.04, 2, '#eeeeee', x, 1, z, null, 6); const u = new THREE.Mesh(new THREE.ConeGeometry(1.1, 0.5, 10), mat(cols[i % 5])); u.position.set(x, 2.1, z); u.castShadow = true; scene.add(u);
+      box(0.6, 0.12, 1.5, '#ffffff', x - 0.6, 0.18, z + 0.4); box(0.6, 0.12, 1.5, cols[(i + 2) % 5], x + 0.6, 0.18, z + 0.4);
+    }
+  }
+}
+function refreshTarla3D() {
+  if (!TARLA3D || !THREE) return;
+  const o = new THREE.Object3D(), t = now(), T0 = CITY.tarla || {}, n = tarlaN(), col = new THREE.Color();
+  for (let i = 0; i < 16; i++) {
+    TARLA3D.lock[i].visible = i >= n;
+    const s = i < n && T0[i], r = slotRect(i), g = s ? Math.max(0.05, Math.min(1, 1 - (s.rd - t) / GROW_MS)) : 0, it = s ? (RAW[s.c] || {}) : {};
+    for (let j = 0; j < 12; j++) {
+      const id = i * 12 + j, px = r.x + 0.5 + (j % 3) * 1, pz = r.y + 0.5 + Math.floor(j / 3) * 0.95;
+      if (!s) { o.position.set(px, -5, pz); o.scale.set(0.01, 0.01, 0.01); o.updateMatrix(); TARLA3D.st.setMatrixAt(id, o.matrix); TARLA3D.fr.setMatrixAt(id, o.matrix); continue; }
+      const h = 0.15 + 0.7 * g; o.position.set(px, h / 2 + 0.05, pz); o.scale.set(0.12, h, 0.12); o.updateMatrix(); TARLA3D.st.setMatrixAt(id, o.matrix);
+      TARLA3D.st.setColorAt(id, col.set(g >= 1 ? '#7cb342' : '#4caf50'));
+      const fs = g > 0.55 ? 0.12 + 0.2 * g : 0.01; o.position.set(px, h + 0.08, pz); o.scale.set(fs, fs, fs); o.updateMatrix(); TARLA3D.fr.setMatrixAt(id, o.matrix);
+      TARLA3D.fr.setColorAt(id, col.set(it.col || '#ffffff'));
+    }
+  }
+  TARLA3D.st.instanceMatrix.needsUpdate = TARLA3D.fr.instanceMatrix.needsUpdate = true;
+  if (TARLA3D.st.instanceColor) TARLA3D.st.instanceColor.needsUpdate = true; if (TARLA3D.fr.instanceColor) TARLA3D.fr.instanceColor.needsUpdate = true;
+}
+setInterval(refreshTarla3D, 15000);
+function ecoAnim3D(t) {
+  if (!THREE) return;
+  if (ECOANIM.foam) ECOANIM.foam.material.opacity = 0.35 + Math.sin(t / 700) * 0.25;
+  ECOANIM.flags.forEach((f, i) => f.rotation.y = Math.sin(t / 420 + i) * 0.3);
+  if (ECOANIM.fount) { const k = 1 + Math.sin(t / 160) * 0.12; ECOANIM.fount.scale.set(k, 1 / k, k); }
+  if ((ecoAnim3D.n = (ecoAnim3D.n || 0) + 1) % 4) return;
+  ECOANIM.smoke.forEach(s => {
+    if (!s.m.length) for (let i = 0; i < 4; i++) { const p = new THREE.Mesh(new THREE.SphereGeometry(0.35, 6, 5), new THREE.MeshBasicMaterial({ color: '#cfd4d8', transparent: true, opacity: 0.5 })); scene.add(p); s.m.push(p); }
+    s.m.forEach((p, i) => { const k = ((t / 2600) + i / 4) % 1; p.position.set(s.x + k * 1.2, s.y + k * 3, s.z); p.scale.setScalar(0.6 + k * 1.6); p.material.opacity = 0.55 * (1 - k); });
+  });
+}
+function swimAnim(m, p, t) {
+  if (!p || !p.sw) return;
+  if (m.car) m.car.visible = false;
+  if (p.dr > now()) { m.g.position.y = -0.75 + Math.abs(Math.sin(t / 260)) * 0.4; m.armL.rotation.x = -2.9 + Math.sin(t / 90) * 0.5; m.armR.rotation.x = -2.9 - Math.sin(t / 90) * 0.5; m.legL.rotation.x = m.legR.rotation.x = 0; return; }
+  m.g.position.y = -0.6 + Math.sin(t / 320) * 0.05;
+  const a = -(t / 260) % (Math.PI * 2); m.armL.rotation.x = a; m.armR.rotation.x = a + Math.PI;
+  m.legL.rotation.x = Math.sin(t / 90) * 0.45; m.legR.rotation.x = -Math.sin(t / 90) * 0.45;
+}
+
+// ---------- yönetici
+function ecoAdminHTML() {
+  const a = CITY.afet || {};
+  return `<h3>🏛 Cumhurbaşkanlığı kasası: ${cbk().toLocaleString('tr')} 💰</h3><p style="font-size:12px;opacity:.8;margin:0 0 6px">📈 GSYİH ${Math.floor(CITY.gdp || 0).toLocaleString('tr')} • 📦 ${depoTxt()}<br>🏭 Hatlar: ${Object.keys(eco().fab || {}).map(k => PROD[k] ? PROD[k].e : '').join(' ') || 'yok'} • 🌾 ${tarlaN()} parsel • ⚓ ${eco().liman ? 'açık' : 'kapalı'}${kurak() ? ' • 🌵 kuraklık ' + Math.ceil((a.until - now()) / 60000) + ' dk' : ''}</p>
+  <div class="row"><button id="aEcoSwim" style="background:${ECOCFG.swim === false ? '#7f8c8d' : '#2e86de'}">🏊 Yüzme: ${ECOCFG.swim === false ? 'kapalı' : 'açık'}</button><button id="aEcoDrown" style="background:${ECOCFG.drown === false ? '#7f8c8d' : '#2e86de'}">🆘 Boğulma: ${ECOCFG.drown === false ? 'kapalı' : 'açık'}</button></div>
+  <div class="row" style="margin-top:6px"><button id="aEcoAfet" style="background:${ECOCFG.afet === false ? '#7f8c8d' : '#2e86de'}">🌦 Afet: ${ECOCFG.afet === false ? 'kapalı' : 'açık'}</button><button id="aKurak" style="background:#d35400">${kurak() ? '☀️ Kuraklığı bitir' : '🌵 Kuraklık başlat'}</button></div>
+  <div class="row" style="margin-top:6px"><button id="aTarlaRs" style="background:#8e44ad">🧹 Tarlaları boşalt</button></div>`;
+}
+function ecoAdminWire(el) {
+  const tg = k => () => set(ref(db, 'config/eco/' + k), ECOCFG[k] === false).then(adminUI).catch(e => alert('❌ ' + e.message));
+  el.querySelector('#aEcoSwim').onclick = tg('swim'); el.querySelector('#aEcoDrown').onclick = tg('drown'); el.querySelector('#aEcoAfet').onclick = tg('afet');
+  el.querySelector('#aKurak').onclick = () => {
+    const on = kurak();
+    set(ref(db, 'city/afet'), on ? { t: 'yok', until: 0, next: now() + 6 * 3600000 } : { t: 'kurak', until: now() + 3 * 3600000, next: now() + 8 * 3600000 }).then(() => {
+      say(on ? '☀️ <b>Kuraklık bitti!</b> Tarlalar yine tam ürün veriyor 🌾' : '🌵 <b>KURAKLIK!</b> 3 saat boyunca tarlalar yarı ürün verecek. Ticaretle gıda getirin!', true, 'ann'); adminUI();
+    }).catch(e => alert('❌ ' + e.message));
+  };
+  el.querySelector('#aTarlaRs').onclick = () => { if (confirm('Bütün tarla parselleri boşaltılsın mı?')) set(ref(db, 'city/tarla'), null).then(() => alert('✅ Boşaltıldı')).catch(e => alert('❌ ' + e.message)); };
 }
 
 // ================= EVENTS =================
@@ -3299,6 +3880,7 @@ async function init3D() {
   BUILD.forEach(b => {
     const cxB = b.x + b.w / 2, czB = b.y + b.h / 2, H = b.H;
     const bg = new THREE.Group(); scene.add(bg); const box = (w, h, d, c, x, y, z, p, cast, m) => boxIn(w, h, d, c, x, y, z, bg, cast, m);
+    if (ecoDeco(b, bg, box, 0)) return;
     if (b.open) { buildStage(bg, box); return; }
     box(b.w - 0.2, H, b.h - 0.2, b.c, cxB, H / 2, czB);
     box(b.w + 0.3, 0.45, b.h + 0.3, b.r, cxB, H + 0.22, czB);
@@ -3319,8 +3901,10 @@ async function init3D() {
     if (b.id !== 'adalet') box(b.w + 0.2, 0.25, 1.2, b.r, cxB, 2.15, fz + 0.5, null, true);
     const sign = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 1.05), new THREE.MeshBasicMaterial({ map: signTex(b.n, '#ffffff', '#111111') }));
     sign.position.set(cxB, H - 0.3, fz + (b.id === 'adalet' ? 0.5 : 0.09)); bg.add(sign);
+    ecoDeco(b, bg, box, 1);
     addOcc(bg, b.x, b.x + b.w, b.y, b.y + b.h + 1.2, b.id === 'cami' ? 6.5 : H + 1);
   });
+  ecoWorld3D(o);
   box(1.2, 1.4, 0.15, '#7f8c8d', JAIL_SPOT.x * S3, 0.7, JAIL_SPOT.y * S3 + 0.8);
   const trees = [];
   for (let gy = 0; gy < WN; gy++) for (let gx = 0; gx < WN; gx++) {
@@ -3508,11 +4092,12 @@ function syncPerson(id, p, me, t) {
   m.legL.rotation.x = sw; m.legR.rotation.x = -sw; m.armL.rotation.x = -sw * 0.8; m.armR.rotation.x = sw * 0.8;
   m.g.position.y = onBike ? 0.45 : p._mv ? Math.abs(Math.sin(t / 110)) * 0.06 : 0;
   m.g.rotation.z = 0; const dm = danceMode(me ? myId : id, p); if (dm) { if (dm === 2) m.g.position.y += 0.62; danceAnim(m, dm, t, (String(id).charCodeAt(1) || 0) % 4); }
+  swimAnim(m, p, t);
   syncPet(m, p, t);
   const r = me ? myRole() : roleOf(id), wanted = p.wanted > now(), jailed = p.jail > now();
   const cls = jailed ? 'jail' : wanted ? 'bad' : r ? 'role' : me ? 'me' : '';
   const cbx = isCB(me ? myId : id);
-  const tag = (admins[me ? myId : id] ? '👑 ' : '') + (cbx ? '🏛 ' : '') + (jailed ? '⛓ ' : wanted ? '🚨 ' : r ? '👑 ' : me ? '⭐ ' : '') + (p.sick ? '🤒 ' : '') + petTag(p.pet);
+  const tag = (admins[me ? myId : id] ? '👑 ' : '') + (cbx ? '🏛 ' : '') + (jailed ? '⛓ ' : wanted ? '🚨 ' : r ? '👑 ' : me ? '⭐ ' : '') + (p.sick ? '🤒 ' : '') + (p.dr > now() ? '🆘 ' : p.sw ? '🏊 ' : '') + petTag(p.pet);
   const bub = p.msg && performance.now() - (p.msgAt || 0) < 6000 ? `<div class="bb">${esc(p.msg)}</div>` : '';
   const html = riding ? '' : `${bub}<div style="text-align:center"><span class="nm ${cls}" data-pid="${me ? '@me' : id}">${flagHtml(parties[PARTYOF[me ? myId : id]], 11)}${mods[me ? myId : id] ? '🛡 ' : ''}${tag}${esc(p.name || '')}</span></div><div class="jb">${esc(cbx ? 'Cumhurbaşkanı' : r ? ROLES[r].n : (headTitle(me ? myId : id, p.job) || jobTitle(p.job, me ? ME.kd : p.kd)))}${wanted ? ' • ARANIYOR' : ''}</div>`;
   if (m.label._h !== html) { m.label.innerHTML = html; m.label._h = html; }
@@ -3574,11 +4159,11 @@ function frame(t) {
     if (ME.jail > now()) { target = null; }
     if (ME.inside && !(ME.jail > now()) && !task && inputVec()[2] > 0.08) goInside(null);
     if (ME.ride && others[ME.ride] && others[ME.ride].hasPos) { const d = others[ME.ride]; ME.x = d.x; ME.y = d.y; ME._mv = true; sendPos(); }
-    else if (!(ME.jail > now()) && !ME.inside) {
+    else if (!(ME.jail > now()) && !ME.inside && !(ME.dr > now())) {
       const [jx, jy, jm] = inputVec();
       if (jm > 0.08) {
-        const sp = (ME.job === 'Taksici' ? 0.32 : ME.drive && ME.veh[ME.drive] ? VEH[ME.veh[ME.drive].t].sp : ME.sick ? 0.12 : 0.18) * dt * jm * (cityOn('road') ? 1.15 : 1);
-        const nx = Math.max(10, Math.min(WORLD - 10, ME.x + jx * sp)), ny = Math.max(10, Math.min(WORLD - 10, ME.y + jy * sp));
+        const sp = (ME.job === 'Taksici' ? 0.32 : ME.drive && ME.veh[ME.drive] ? VEH[ME.veh[ME.drive].t].sp : ME.sick ? 0.12 : 0.18) * dt * jm * (cityOn('road') ? 1.15 : 1) * (ME.sw ? (ME.job === 'Cankurtaran' ? 0.8 : 0.55) : 1);
+        const nx = Math.max(10, Math.min(XMAX, ME.x + jx * sp)), ny = Math.max(10, Math.min(WORLD - 10, ME.y + jy * sp));
         if (blocked(ME.x, ME.y) || !blocked(nx, ny)) { ME.x = nx; ME.y = ny; ME._mv = true; }
         else if (!blocked(nx, ME.y)) { ME.x = nx; ME._mv = true; }
         else if (!blocked(ME.x, ny)) { ME.y = ny; ME._mv = true; }
@@ -3586,6 +4171,7 @@ function frame(t) {
         sendPos(); ME._wasMv = true;
       } else if (ME._wasMv) { ME._wasMv = false; sendPos(true); }
     }
+    ecoFrame();
     cam.x += (ME.x - cam.x) * 0.1; cam.y += (ME.y - cam.y) * 0.1;
     fx = cam.x * S3; fz = cam.y * S3;
     if (t - lastActs > 200) { lastActs = t; setActs(computeActs()); }
@@ -3594,6 +4180,7 @@ function frame(t) {
     fx = adm.cx; fz = adm.cz;
   } else { const a = t / 9000; fx = WN / 2 + Math.sin(a) * 8; fz = WN / 2 + Math.cos(a) * 8; }
   for (const id in others) { const o = others[id]; if (!o.hasPos) continue; const ox = o.x, oy = o.y, ddx = o.tx - o.x, ddy = o.ty - o.y, dd = Math.hypot(ddx, ddy); if (dd > 600 || !o._sp) { o.x += ddx * 0.09; o.y += ddy * 0.09; } else if (dd > 0.01) { const st = Math.min(dd, o._sp * dt); o.x += ddx / dd * st; o.y += ddy / dd * st; } o._mv = Math.hypot(o.x - ox, o.y - oy) > 0.3; }
+  ecoAnim3D(t);
   const dist3 = 15 * zoom; camera3.position.set(fx, dist3 * 1.05, fz + dist3 * 0.95); camera3.lookAt(fx, 0.8, fz);
   sun.position.set(fx + 12, 25, fz + 8); sun.target.position.set(fx, 0, fz);
   // day / night
@@ -3683,7 +4270,8 @@ function adminUI() {
   ${Object.keys(ROLES).map(r => { const e = elections[r], h = roles[r]; return `<div style="font-size:13px;margin:6px 0"><b>${ROLES[r].n}</b>: ${h && h.until > t ? '👑 ' + esc(h.name) : 'boş'}${e ? ` • seçim ${Math.max(0, Math.ceil((e.ends - t) / 60000))} dk (${Object.values(e.cands || {}).map(c => esc(c.name) + ' ' + (c.votes || 0)).join(', ') || 'aday yok'})` : ''}</div>
     <div class="row">${PROLES.includes(r) ? `<button data-el="${r}" data-min="60">Seçim 1 sa</button><button data-el="${r}" data-min="120">2 sa</button>` : `<button disabled style="opacity:.6">🎖 en kıdemli ${PROF[r] || ""}</button>`}${e ? `<button data-end="${r}" style="background:#c0392b">Bitir</button>` : ''}${h ? `<button data-rm="${r}" style="background:#7f8c8d">Görevden al</button>` : ''}</div>`; }).join('')}
   ${adminCountryHTML()}
-  <h3>💼 Yönetici kasası: ${Math.floor(AKASA).toLocaleString('tr')} 💰</h3><p style="font-size:12px;opacity:.75;margin:0 0 6px">Senin binalarının (market, fırın, AVM, petshop, veteriner, kuaför…) satış gelirleri burada birikir.</p><div class="row"><input id="aAk" type="number" inputmode="numeric" placeholder="miktar" style="flex:3"><button id="aAkB" style="flex:2">➡️ Belediyeye aktar</button></div>
+  ${ecoAdminHTML()}
+  <h3>💼 Yönetici kasası: ${Math.floor(AKASA).toLocaleString('tr')} 💰</h3><p style="font-size:12px;opacity:.75;margin:0 0 6px">Senin binalarının (market, fırın, AVM, petshop, veteriner, kuaför…) satış gelirleri burada birikir.</p><div class="row"><input id="aAk" type="number" inputmode="numeric" placeholder="miktar" style="flex:3"><button id="aAkB" style="flex:2">🏛 Cumhurbaşkanlığına aktar</button></div>
   <h3>🏛 Belediye kasası: ${Math.floor(CITY.kasa || 0).toLocaleString('tr')} 💰</h3><div class="row"><input id="aKasa" type="number" inputmode="numeric" placeholder="miktar" style="flex:3"><button id="aKasaB" style="flex:2">➕ Kasaya koy</button></div>
   <h3>🗳 Adaylar (ekle / çıkar)</h3>${Object.entries(elections).filter(([r, e]) => e && e.ends > t && ROLES[r]).map(([r, e]) => `<div style="font-size:13px;margin:6px 0"><b>${ROLES[r].n}</b> (${Object.keys(e.cands || {}).length} aday)</div>${Object.entries(e.cands || {}).map(([cid, c]) => `<div class="row"><button class="pl" style="flex:4">${c.c ? flagHtml(c, 13) : ''}${esc(c.name)} • ${c.votes || 0} oy</button><button style="flex:1;background:#c0392b" data-rmc="${r}|${cid}">✖</button></div>`).join('')}<div class="row"><input id="aC_${r}" placeholder="oyuncu adı" autocapitalize="off" style="flex:3"><button data-addc="${r}" style="flex:1">➕</button></div>`).join('') || '<p>Açık seçim yok. Yukarıdan seçim başlat.</p>'}
   <h3>🏛 Partiler</h3>${Object.entries(parties).map(([pid, p]) => `<div class="row"><button class="pl" style="flex:4">${flagHtml(p, 13)}${esc(p.name)} • 👥${Object.keys(p.members || {}).length} 💰${Math.floor(p.kasa || 0)}</button><button style="flex:1;background:#c0392b" data-cp="${pid}">Kapat</button></div>`).join('') || '<p>Henüz parti yok.</p>'}
@@ -3693,10 +4281,10 @@ function adminUI() {
   <h3>🛡 Moderatörler</h3>${Object.entries(mods).map(([id, m]) => `<div class="row"><button class="pl" style="flex:4">${esc(m.name || id)}</button><button style="flex:1;background:#c0392b" data-unmod="${id}">✖</button></div>`).join('') || '<p style="font-size:13px">Henüz yok. Oyuncu listesinde ⚙️ ile ekle.</p>'}
   <h3>🚩 Cevapsız şikayetler</h3><p style="font-size:12px;opacity:.8">Suç şikayetleri Savcıya, sohbet şikayetleri moderatörlere gider. Burada sadece kimsenin bakmadıkları var (24 saat sonra kendiliğinden düşer).</p>${Object.entries(reports).filter(([, r]) => r && r.st !== 'kapandi' && r.t > t - 864e5).reverse().map(([k, r]) => `<div style="font-size:12px;margin:4px 0">💬 ${esc(r.byName)} → <b>${esc(r.targetName)}</b>: ${esc(r.reason)}</div><div class="row"><button data-f="${r.target}">Git</button><button data-delrep="${k}" style="background:#7f8c8d">Kapat</button></div>`).join('')}${openCrimes().reverse().map(([k, c]) => `<div style="font-size:12px;margin:4px 0">📂 ${esc(c.byName)} → <b>${esc(c.targetName)}</b>: ${esc(c.reason)} • ${ST[c.st] || ''}</div><div class="row"><button data-f="${c.target}">Git</button><button data-delcr="${k}" style="background:#7f8c8d">Kapat</button></div>`).join('') || ''}${!Object.values(reports).some(r => r && r.st !== 'kapandi' && r.t > t - 864e5) && !openCrimes().length ? '<p style="font-size:13px">Cevapsız şikayet yok 👍</p>' : ''}
   <h3>📋 Moderatör işlemleri</h3>${Object.values(modlog).reverse().map(m => `<div style="font-size:12px;margin:3px 0">${new Date(m.t).toLocaleTimeString('tr', { hour: '2-digit', minute: '2-digit' })} ${esc(m.by)}: ${esc(m.act)} → ${esc(m.target)}</div>`).join('') || '<p style="font-size:13px">Kayıt yok</p>'}`;
-  adminCountryWire(adminEl);
+  adminCountryWire(adminEl); ecoAdminWire(adminEl);
   adminEl.querySelector('#aKickAll').onclick = kickAll;
   adminEl.querySelector('#aKickOld').onclick = kickOld;
-  adminEl.querySelector('#aAkB').onclick = async () => { const v = Math.round(+adminEl.querySelector('#aAk').value || 0); if (v <= 0) return; try { const r = await runTransaction(ref(db, 'akasa'), k => (k || 0) >= v ? (k || 0) - v : undefined); if (!r.committed) return alert('❌ Yönetici kasasında o kadar para yok'); await runTransaction(ref(db, 'city/kasa'), k => (k || 0) + v); cityLog('Yönetici kasasından aktarım', v); say(`🏛 Belediye kasasına <b>${v.toLocaleString('tr')} 💰</b> aktarıldı!`, true, 'ann'); alert('✅ Aktarıldı'); adminUI(); } catch (e) { alert('❌ ' + e.message); } };
+  adminEl.querySelector('#aAkB').onclick = async () => { const v = Math.round(+adminEl.querySelector('#aAk').value || 0); if (v <= 0) return; try { const r = await runTransaction(ref(db, 'akasa'), k => (k || 0) >= v ? (k || 0) - v : undefined); if (!r.committed) return alert('❌ Yönetici kasasında o kadar para yok'); await runTransaction(ref(db, 'city/cbk'), k => (k || 0) + v); cityLog('Yönetici kasasından Cumhurbaşkanlığına', v); say(`🏛 Cumhurbaşkanlığı kasasına <b>${v.toLocaleString('tr')} 💰</b> aktarıldı!`, true, 'ann'); alert('✅ Aktarıldı'); adminUI(); } catch (e) { alert('❌ ' + e.message); } };
   adminEl.querySelector('#aWatch').onclick = () => { admAll = admAll > now() ? 0 : now() + 300000; adminZones(true); adminUI(); };
   adminEl.querySelector('#aCapB').onclick = () => { const v = Math.max(0, Math.round(+adminEl.querySelector('#aCap').value || 0)); set(ref(db, 'config/cap'), v).then(() => alert(v ? `🚦 Aynı anda en fazla ${v} kişi` : '🚦 Sınır kaldırıldı')).catch(e => alert('❌ ' + e.message)); };
   adminEl.querySelector('#aKasaB').onclick = async () => { const v = Math.round(+adminEl.querySelector('#aKasa').value || 0); if (!v) return; try { await runTransaction(ref(db, 'city/kasa'), k => Math.max(0, (k || 0) + v)); cityLog(v > 0 ? 'Yönetici kasaya para koydu' : 'Yönetici kasadan aldı', Math.abs(v)); if (v > 0) say(`🏛 Belediye kasasına <b>${v.toLocaleString('tr')} 💰</b> eklendi!`, true, 'ann'); alert('✅ Kasa güncellendi'); adminUI(); } catch (e) { alert('❌ ' + e.message); } };
