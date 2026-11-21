@@ -134,7 +134,7 @@ table.pl{width:100%;font-size:12px;border-collapse:collapse}table.pl td{padding:
 <button id="gGuest" class="lg" style="background:#3a4a6b">👤 Misafir olarak oyna</button>
 <button id="gResume" class="lg" style="display:none">Şehre gir 🏙️</button>
 <button id="gSwitch" class="lg" style="display:none;background:#2e86de">🔑 Giriş yap (başka hesap)</button>
-<div id="igWarn">⚠️ Instagram / TikTok'un içinde Google girişi çalışmaz.<br>Sağ üstteki <b>⋯</b> → <b>"Tarayıcıda aç"</b> de, sonra <b>Google ile gir</b> (ilerlemen hiç kaybolmaz).<br>Ya da aşağıdan isim yazıp <b>misafir</b> gir.</div>
+<div id="igWarn">Google hesabınla oynamak için <b>Google ile gir</b>'e bas: oyun telefonunun tarayıcısında açılır, oradan girersin (ilerlemen kaybolmaz).<br>Ya da yukarıya isim yazıp <b>Misafir olarak oyna</b>.</div>
 <div id="err"></div>
 <p style="font-size:12px;opacity:.85;text-align:center;margin:8px 0 0">⚠️ 7 gün oyuna girmeyen hesap otomatik silinir</p>
 </div></div>
@@ -172,7 +172,7 @@ const COUNTRIES = {
 let FULL1 = true; try { FULL1 = localStorage.getItem('kk_full1') !== '0'; } catch (e) { }   // Komşukent dolu mu: yönetici panelden açar/kapatır (pub/full1)
 const C = (() => { let c = 0; try { const u = +new URLSearchParams(location.search).get('c'), st = +localStorage.getItem('kk_c'), known = !!(localStorage.getItem('kk_me') || localStorage.getItem('kk_id')); c = u || (known ? st : 0) || (FULL1 ? 2 + Math.floor(Math.random() * 2) : 1); } catch (e) { c = 1; } if (!COUNTRIES[c] || !COUNTRIES[c].cfg) c = 1; try { localStorage.setItem('kk_c', String(c)); } catch (e) { } return c; })();
 const FB = {};
-const APP_V = '2026112205';
+const APP_V = '2026112206';
 let CAP = 0;   // bump on every upload (yyyymmddNN)
 const ADMIN = location.hash === '#yonetim';
 let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off, orderByChild, equalTo;
@@ -304,7 +304,16 @@ const errEl = document.getElementById('err');
 
 const LB = ['gGoogle', 'gGuest', 'gResume', 'gSwitch'].map(i => document.getElementById(i));
 const lbDisable = d => LB.forEach(b => b.disabled = d);
-if (IN_APP) { document.getElementById('igWarn').style.display = 'block'; LB[0].style.opacity = .5; }
+if (IN_APP) { document.getElementById('igWarn').style.display = 'block'; LB[0].innerHTML = '🌐 Google ile gir <small style="display:block;font-size:12px;opacity:.85">tarayıcıda açılır</small>'; }
+// Instagram / TikTok içinden tek dokunuşla gerçek tarayıcıya geç (Google bu uygulamaların içinde girişe izin vermiyor)
+function openExternal() {
+  const url = location.origin + location.pathname + '?c=' + C + '&g=1';
+  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+  if (isIOS) location.href = 'x-safari-' + url;
+  else location.href = 'intent://' + url.replace(/^https?:\/\//, '') + '#Intent;scheme=https;action=android.intent.action.VIEW;S.browser_fallback_url=' + encodeURIComponent(url) + ';end';
+  setTimeout(() => { if (document.visibilityState === 'visible') errEl.innerHTML = 'Tarayıcı açılmadıysa: sağ üstteki <b>⋯</b> → <b>' + (isIOS ? 'Safari\'de aç' : 'Tarayıcıda aç') + '</b> de, sonra <b>Google ile gir</b>. Ya da <b>Misafir olarak oyna</b>.'; }, 1800);
+}
+try { if (!IN_APP && new URLSearchParams(location.search).get('g') === '1') setTimeout(() => { errEl.innerHTML = '👇 Şimdi <b>Google ile gir</b>\'e bas'; LB[0].style.boxShadow = '0 0 0 4px #ffd54a'; }, 500); } catch (e) { }
 if (!ADMIN) fbReady.then(() => authReady).then(u => {
   if (u) { LB[0].style.display = LB[1].style.display = 'none'; LB[2].style.display = LB[3].style.display = 'block'; LB[2].textContent = `Şehre gir 🏙️ (${u.isAnonymous ? 'misafir hesabın' : 'Google hesabın'})`; }
 }).catch(() => {});
@@ -318,7 +327,7 @@ LB[3].onclick = async () => { await fbReady; await AU.signOut(auth); LB[0].style
 const AUTH_ERR = { 'auth/popup-blocked': 'Açılır pencere engellendi. Tekrar dene ya da misafir oyna.', 'auth/popup-closed-by-user': 'Giriş penceresi kapatıldı.', 'auth/cancelled-popup-request': 'Giriş iptal edildi.', 'auth/operation-not-supported-in-this-environment': 'Bu tarayıcıda Google girişi çalışmıyor. Safari ya da Chrome\'da aç, veya misafir oyna.', 'auth/web-storage-unsupported': 'Bu tarayıcıda giriş çalışmıyor. Safari ya da Chrome\'da aç.', 'auth/network-request-failed': 'İnternet bağlantısını kontrol et.', 'auth/admin-restricted-operation': 'Misafir girişi kapalı.', 'PERMISSION_DENIED': 'Erişim reddedildi.' };
 const withTimeout = (p, ms, msg) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej({ message: msg }), ms))]);
 async function enter(mode) {
-  if (mode === 'google' && IN_APP) { errEl.innerHTML = 'Instagram\'ın içinde Google girişi çalışmıyor 😕 Sağ üstteki <b>⋯</b> → <b>Tarayıcıda aç</b>, ya da <b>Misafir olarak oyna</b>.'; return; }
+  if (mode === 'google' && IN_APP) { openExternal(); return; }
   try { await withTimeout(enter2(mode), 20000, '⚠️ Şehre bağlanılamadı. Şehir şu an çok kalabalık olabilir, 1-2 dakika sonra tekrar dene.'); }
   catch (e) { lbDisable(false); errEl.textContent = AUTH_ERR[e.code] || (e.code ? 'Bağlanamadı: ' + e.code : e.message); }
 }
