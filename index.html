@@ -172,7 +172,7 @@ const COUNTRIES = {
 let FULL1 = true; try { FULL1 = localStorage.getItem('kk_full1') !== '0'; } catch (e) { }   // Komşukent dolu mu: yönetici panelden açar/kapatır (pub/full1)
 const C = (() => { let c = 0; try { const u = +new URLSearchParams(location.search).get('c'), st = +localStorage.getItem('kk_c'), known = !!(localStorage.getItem('kk_me') || localStorage.getItem('kk_id')); c = u || (known ? st : 0) || (FULL1 ? 2 + Math.floor(Math.random() * 2) : 1); } catch (e) { c = 1; } if (!COUNTRIES[c] || !COUNTRIES[c].cfg) c = 1; try { localStorage.setItem('kk_c', String(c)); } catch (e) { } return c; })();
 const FB = {};
-const APP_V = '2026112202';
+const APP_V = '2026112203';
 let CAP = 0;   // bump on every upload (yyyymmddNN)
 const ADMIN = location.hash === '#yonetim';
 let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off, orderByChild, equalTo;
@@ -367,7 +367,6 @@ async function enter2(mode) {
       if (old && old !== myId) { const o = (await get(ref(db, 'players/' + old))).val(); if (o) prev = { money: Math.min(2000, o.money || 0), energy: o.energy, acc: o.acc, wear: o.wear, m: o.m, lvl: o.lvl, inv: o.inv, q: o.q, play: o.play, job: o.job, pd: o.pd, joined: o.joined, pleft: o.pleft }; }
       if (takeFrom) setTimeout(() => toast('👋 Tekrar hoş geldin! Başka cihazdan girdiğin için ilerlemenin bir kısmı taşındı. Kaybetmemek için 👤 → Google\'a bağla', 7000), 3000);
     }
-    if (prev && prev.moved && prev.moved.code) { lbDisable(false); errEl.textContent = ''; movedScreen(prev.moved); return; }
     let claimed = null, tcode = null; try { tcode = localStorage.getItem('kk_tcode'); } catch (e) { }
     if (tcode && !(prev && prev.tcode)) {
       try {
@@ -379,17 +378,20 @@ async function enter2(mode) {
       } catch (e) { }
       try { localStorage.removeItem('kk_tcode'); } catch (e) { }
     }
+    if (claimed && prev) prev.moved = null;
+    if (!claimed && prev && prev.moved && prev.moved.code) { lbDisable(false); errEl.textContent = ''; movedScreen(prev.moved); return; }
+    try { localStorage.removeItem('kk_hops'); } catch (e) { }
     prev = prev || {};
     const job = JOBS.includes(prev.job) || prev.job === 'Cumhurbaşkanı' ? prev.job : 'İşsiz';
     ME = { name, job, color: myColor, money: prev.money ?? (isG ? 300 : 100), energy: prev.energy ?? 100, home: prev.home ?? null, shop: prev.shop ?? null,
-      acc: prev.acc || {}, wear: prev.wear || {}, m: prev.m || {}, inv: prev.inv || {}, veh: prev.veh || {}, q: prev.q || {}, lvl: prev.lvl || 0, sick: prev.sick || 0,
+      acc: prev.acc || {}, wear: prev.wear || {}, m: prev.m || {}, inv: prev.inv || {}, veh: prev.veh || {}, q: prev.q || {}, dq: prev.dq || null, lvl: prev.lvl || 0, sick: prev.sick || 0,
       play: prev.play || 0, pleft: prev.pleft || 0, jobDay: prev.jobDay || '', payDay: prev.payDay || '', jobChanged: prev.jobChanged || 0, jx: prev.jxv === 1 ? (prev.jx || 0) : (prev.jx || 0) + 1, jxv: 1, pet: prev.pet || null, bio: prev.bio || '', gocUsed: prev.gocUsed || 0, cbPd: prev.cbPd || '', preJob: prev.preJob || '', kd: undefined, stealDay: prev.stealDay || null, islah: prev.islah || 0, islahN: prev.islahN || 0, pd: prev.pd || {}, joined: prev.joined || now(), taxDay: prev.taxDay || '', drive: null, inside: null, bag: 0,
       x: prev.x ?? (SPAWN.x + (Math.random() - .5) * 200), y: prev.y ?? SPAWN.y, wanted: 0, jail: 0, ride: null };
     if (blocked(ME.x, ME.y) || ME.x > XMAX || ME.y > YMAX || (prev.v || 0) < 3) { ME.x = SPAWN.x + (Math.random() - .5) * 200; ME.y = SPAWN.y; }
     try { localStorage.setItem('kk_me', JSON.stringify({ name, job, color: myColor })); } catch (e) { }
     devAdd(myId); update(ref(db, 'players/' + myId), { dev: devId() }).catch(() => { });
     if (isG && prev.money == null) setTimeout(() => toast('🎁 Google ile girdiğin için +200 💰 hoş geldin bonusu!', 5000), 3500);
-    await update(ref(db, 'players/' + myId), Object.assign({ name, job, color: myColor, money: ME.money, energy: ME.energy, seen: serverTimestamp() }, claimed ? { tcode, gocUsed: 1 } : {}));
+    await update(ref(db, 'players/' + myId), Object.assign({ name, job, color: myColor, money: ME.money, energy: ME.energy, seen: serverTimestamp() }, claimed ? { tcode, gocUsed: 1, moved: null } : {}));
     if (claimed) {
       if (claimed.plots) { const u = {}; claimed.plots.forEach(k => { u['plots2/' + k + '/id'] = myId; u['plots2/' + k + '/name'] = name; u['plots2/' + k + '/code'] = null; }); update(ref(db), u).then(() => typeof refreshPlots === 'function' && refreshPlots()).catch(() => { }); }
       setTimeout(() => { saveMe(); say(`🌍 <b>${esc(name)}</b>, ${esc(ctryName(claimed.from))}'ten ${esc(ctryName(C))}'e göç etti!`, true); toast(`🌍 ${ctryName(C)}'e hoş geldin! Paran ve mesleğin taşındı`, 6000); }, 2500);
@@ -568,7 +570,7 @@ async function syncMoney() {
 function saveMe() {
   if (!ME) return;
   syncMoney();
-  update(ref(db, 'players/' + myId), { v: 3, seen: serverTimestamp(), inv: ME.inv, veh: ME.veh, q: ME.q, lvl: ME.lvl, sick: ME.sick, play: ME.play, pd: ME.pd, joined: ME.joined, taxDay: ME.taxDay, energy: Math.round(ME.energy), home: ME.home, shop: ME.shop, acc: ME.acc, wear: ME.wear, m: ME.m, x: Math.round(ME.x), y: Math.round(ME.y), name: ME.name, color: ME.color, job: ME.job, gocUsed: ME.gocUsed || 0, jx: ME.jx || 0, jxv: ME.jxv || 0 });
+  update(ref(db, 'players/' + myId), { v: 3, seen: serverTimestamp(), inv: ME.inv, veh: ME.veh, q: ME.q, dq: ME.dq || null, lvl: ME.lvl, sick: ME.sick, play: ME.play, pd: ME.pd, joined: ME.joined, taxDay: ME.taxDay, energy: Math.round(ME.energy), home: ME.home, shop: ME.shop, acc: ME.acc, wear: ME.wear, m: ME.m, x: Math.round(ME.x), y: Math.round(ME.y), name: ME.name, color: ME.color, job: ME.job, gocUsed: ME.gocUsed || 0, jx: ME.jx || 0, jxv: ME.jxv || 0 });
 }
 setInterval(() => {
   if (!ME || ME.sleep) return;
@@ -578,7 +580,7 @@ setInterval(() => {
   if (ME.drive && Math.random() < 0.06) { const v = ME.veh[ME.drive]; if (v) { v.br = Math.random() < 0.5 ? 'motor' : 'lastik'; toast(`💥 ${VEH[v.t].n} bozuldu! (${v.br === 'motor' ? 'motor arızası → Tamirci' : 'lastik patladı → Lastikçi'}) Sanayiye götür`, 5500); ME.drive = null; pub({ drive: null }); } }
   saveMe(); hud();
 }, 30000);
-function stat(k, v = 1) { const m = MK(); ME.m = ME.m || {}; ME.m[m] = ME.m[m] || {}; ME.m[m][k] = (ME.m[m][k] || 0) + v; if (k === 'worked') seniorSave(); warPoint(k); }
+function stat(k, v = 1) { dqStat(k, v); const m = MK(); ME.m = ME.m || {}; ME.m[m] = ME.m[m] || {}; ME.m[m][k] = (ME.m[m][k] || 0) + v; if (k === 'worked') seniorSave(); warPoint(k); }
 function earn(a, why) { ME.money += a; stat('earned', a); hud(); saveMe(); if (why) toast(why + ` +${a} 💰`); }
 function payTo(id, amount) { if (amount > 0) runTransaction(ref(db, 'players/' + id + '/money'), m => (m || 0) + amount); }
 function notify(id, m, extra = {}) { push(ref(db, 'notify/' + id), Object.assign({ m }, extra)); }
@@ -700,6 +702,8 @@ function profileMenu(id, nameHint) {
     if (friends[id]) items.push({ label: '💬 Özel mesaj', fn: () => openChat('f', id) }, { label: '➖ Arkadaşlıktan çıkar', fn: () => removeFriend(id) });
     else if (freqs[id]) items.push({ label: '✅ Arkadaşlık isteğini kabul et', fn: () => acceptFriend(id) });
     else items.push({ label: '➕ Arkadaş ekle', fn: () => addFriend(id, o.name) });
+    items.push({ label: '🔄 Takas teklif et', fn: () => takasForm(id, o.name) });
+    if (canAssign()) items.push({ label: '🧾 Görev ver', fn: () => gorevForm(id, o.name) });
   }
   if (opp) items.push({ label: `${flagHtml(opp)}${esc(opp.name)} partisine bak`, fn: () => partyInfo(PARTYOF[id]) });
   if (!IS_ADMIN) items.push({ label: '🚩 Şikayet et', fn: () => reportMenu(id, o) });
@@ -931,11 +935,12 @@ const QUESTS = [
 function g(k) { let s = 0; for (const m in ME.m || {}) s += (ME.m[m][k] || 0); return s; }
 function questMenu() {
   const done = QUESTS.filter(q => ME.q[q.id]).length;
-  mcard.className = 'card'; mcard.innerHTML = `<h2>📋 Görevler (${done}/${QUESTS.length})</h2><p>Görevleri bitir, ödülünü al. Hepsini bitiren Komşukent efsanesi olur 🏆</p>` + QUESTS.map(q => {
+  mcard.className = 'card'; mcard.innerHTML = `<h2>📋 Görevler</h2>` + takasHTML() + gorevHTML() + dqHTML() + `<p style="font-size:13px">Hepsini bitiren Komşukent efsanesi olur 🏆 (${done}/${QUESTS.length})</p>` + QUESTS.map(q => {
     const c = ME.q[q.id], ok = !c && q.ok(), p = c ? 1 : ok ? 1 : (q.pr ? q.pr() : 0);
     return `<div class="mi" style="display:block">${q.e} ${q.n} <span style="float:right">${c ? '✅' : '+' + q.r + ' 💰'}</span><div class="bar"><i style="width:${p * 100}%"></i></div>${ok ? `<button data-q="${q.id}" style="margin-top:8px;width:100%;padding:8px">🎁 Ödülü al</button>` : ''}</div>`;
   }).join('') + '<button class="mi" style="justify-content:center;background:#3a4a6b" id="mclose">Kapat</button>';
   mcard.querySelectorAll('[data-q]').forEach(b => b.onclick = () => { const q = QUESTS.find(x => x.id === b.dataset.q); if (ME.q[q.id] || !q.ok()) return; ME.q[q.id] = 1; earn(q.r, `🎁 Görev tamam: ${q.n}`); questMenu(); });
+  dqWire(); takasWire(); gorevWire();
   mcard.querySelector('#mclose').onclick = closeModal; modalEl.style.display = 'flex';
 }
 function afterLogin() {
@@ -2275,9 +2280,9 @@ const setJailRec = (id, until) => set(ref(db, 'jail/' + id), until || 0).catch((
 
 // ---------- sleep (idle) ----------
 let lastInput = Date.now();
-['pointerdown', 'keydown', 'touchstart'].forEach(ev => addEventListener(ev, () => { lastInput = Date.now(); if (ME && ME.afk) ME.afk = 0; }, { passive: true }));
+['pointerdown', 'keydown', 'touchstart'].forEach(ev => addEventListener(ev, () => { lastInput = Date.now(); if (ME && ME.afk) { ME.afk = 0; pub({ afk: 0 }); } }, { passive: true }));
 async function goSleep() {
-  if (!ME || ME.sleep) return; ME.sleep = 1; CHASE = null;
+  if (!ME || ME.sleep) return; ME.sleep = 1; CHASE = null; task = null;
   try { await remove(ref(db, 'online/' + myId)); if (myZone) await remove(ref(db, 'pos/' + myZone + '/' + myId)); } catch (e) { }
   try { goOffline(db); } catch (e) { }   // free the server connection slot
   const o = document.getElementById('sleepEl'); o.style.display = 'flex';
@@ -2292,9 +2297,9 @@ async function wake() {
 document.getElementById('sleepBtn').onclick = wake;
 setInterval(() => {
   if (!ME || ME.sleep) return; const idle = Date.now() - lastInput;
-  if (ME.jail > now() || task) { return; }
-  if (idle > 120000) goSleep();
-  else if (idle > 60000 && !ME.afk) ME.afk = 1;
+  if (ME.jail > now()) return;
+  if (idle > (task ? 600000 : 120000)) goSleep();
+  else if (idle > 60000 && !ME.afk) { ME.afk = 1; pub({ afk: 1 }); }
 }, 15000);
 
 // admin-side cleanup: profession roles must be held by the right job, one person one role, no elections for profession roles
@@ -2535,7 +2540,7 @@ function listenHeads() {
 
 // ================= AÇIK HAVA KONSER • DANS • PETSHOP • EVCİL HAYVAN • YÖNETİCİ KASASI =================
 let CITYSHOP = null;   // which city building's menu is open → its sales go to the admin till
-function akasaAdd(v) { v = Math.round(v); if (v > 0) push(ref(db, 'akasaq'), Math.min(6000, v)).catch(() => { }); }   // players can't read the till, so sales queue up; the admin's game adds them
+function akasaAdd(v) { cityIncome(v); }   // players can't read the till, so sales queue up; the admin's game adds them
 // ---------- concert stage ----------
 const KB = BMAP.konser;
 const STAGE = { x: KB.x + 1, y: KB.y + 0.3, w: KB.w - 2, h: 1.7 };
@@ -2783,6 +2788,14 @@ function gocMenu() {
 }
 function movedScreen(mv) {
   try { localStorage.setItem('kk_tcode', mv.code); } catch (e) { }
+  let hops = []; try { hops = JSON.parse(localStorage.getItem('kk_hops') || '[]').filter(x => x > Date.now() - 180000); } catch (e) { }
+  if (hops.length >= 3) {
+    modalEl.style.display = 'flex';
+    mcard.innerHTML = `<h2>🌍 Hesabın ülkeler arasında takıldı</h2><p>Hesabın <b>${esc(ctryName(mv.to))}</b> ülkesinde görünüyor. Oraya <b>Google ile giriş</b> yap. Olmazsa Instagram'dan <b>@komsukent</b>'e yaz, hemen düzeltelim.</p><button class="mi" style="justify-content:center;background:#2e7d32" id="mvGo">${esc(ctryName(mv.to))}'e git</button>`;
+    mcard.querySelector('#mvGo').onclick = () => { try { localStorage.removeItem('kk_hops'); } catch (e) { } goCountry(mv.to); };
+    return;
+  }
+  hops.push(Date.now()); try { localStorage.setItem('kk_hops', JSON.stringify(hops)); } catch (e) { }
   modalEl.style.display = 'flex';
   mcard.innerHTML = `<h2>🌍 Göçün onaylandı!</h2><p>Hesabın <b>${esc(ctryName(mv.to))}</b> ülkesine taşındı. Paran ve mesleğin seni orada bekliyor.</p><p style="font-size:13px;opacity:.85">Aynı yöntemle giriş yap (aynı isim ya da aynı Google hesabı).</p><button class="mi" style="justify-content:center;background:#2e7d32" id="mvGo">${COUNTRIES[mv.to] ? COUNTRIES[mv.to].f : '🌍'} ${esc(ctryName(mv.to))}'e geç</button>`;
   const go = mcard.querySelector('#mvGo'); go.onclick = () => goCountry(mv.to);
@@ -3364,6 +3377,7 @@ function ecoListen() {
   ['cbk', 'eco', 'depo', 'tarla', 'afet', 'mkt', 'gdp'].forEach(k => onValue(ref(db, 'city/' + k), s => { CITY[k] = s.val(); if (k === 'tarla' || k === 'eco') refreshTarla3D(); }));
   onValue(ref(db, 'config/eco'), s => { ECOCFG = s.val() || {}; });
   onValue(ref(db, 'config/autocb'), s => { AUTOCB = s.val() !== false; });
+  takasListen(); gorevListen();
   abListen();
 }
 
@@ -3562,7 +3576,7 @@ function ecoActs(L, b, t) {
   if (b && b.id === 'cumhur' && ME.inside !== 'cumhur') L.push({ label: isCB() ? '🏛 Makamına geç' : '🏛 Cumhurbaşkanlığı', cls: 'blue', fn: isCB() ? cbMenu : cumhurInfo });
   if (ME.sw) L.push({ label: '🏖 Kıyıya çık', cls: 'blue', fn: () => { ME.x = (SEA_X - 1.2) * T; sendPos(true); } });
   else if (nearShore() && ECOCFG.swim !== false) L.push({ label: '🏊 Denize gir • yüz', cls: 'blue', fn: () => { ME.swimOk = 1; if (ME.drive) { ME.drive = null; pub({ drive: null }); } ME.x = (SEA_X + 1.5) * T; sendPos(true); toast('🏊 Yüzüyorsun! Çok açılma, dikkat et 🌊', 3000); } });
-  if (onBeach() && !ME.sw) L.push({ label: '🏖 Güneşlen (+15⚡)', disabled: ME.energy >= 100, fn: () => startTask('rest', 20000, () => onBeach(), () => { ME.energy = Math.min(100, ME.energy + 15); hud(); saveMe(); toast('😎 Bronzlaştın! +15⚡'); }, '🏖 Güneşleniyor') });
+  if (onBeach() && !ME.sw) L.push({ label: '🏖 Güneşlen (+15⚡)', disabled: ME.energy >= 100, fn: () => startTask('rest', 20000, () => onBeach(), () => { ME.energy = Math.min(100, ME.energy + 15); stat('fun'); hud(); saveMe(); toast('😎 Bronzlaştın! +15⚡'); }, '🏖 Güneşleniyor') });
 }
 function runTo(id) { if (ME.inside) goInside(null); task = null; ME.swimOk = 1; CHASE = id; closeModal(); toast('🏃 Koş! Yaklaşınca 🛟 KURTAR çıkacak', 3000); }
 async function rescue(id) {
@@ -3941,6 +3955,181 @@ function autoCbWire(el) {
   el.querySelector('#aAcbT').onclick = () => set(ref(db, 'config/autocb'), !AUTOCB).then(adminUI).catch(e => alert('❌ ' + e.message));
   el.querySelector('#aAcbN').onclick = () => { if (confirm('Şu anki cumhurbaşkanı yerine en aktif oyuncu seçilsin mi?')) autoCB(true); };
 }
+
+// ================= GÜNLÜK GÖREVLER • TAKAS • GÖREV DAĞILIMI • SAATLİK VERGİ =================
+const DPOOL = [
+  { id: 'w2', n: '2 mesai tamamla', e: '💼', k: 'worked', c: 2, r: 60 },
+  { id: 'w4', n: '4 mesai tamamla', e: '💪', k: 'worked', c: 4, r: 120 },
+  { id: 'b2', n: '2 alışveriş yap', e: '🛒', k: 'bought', c: 2, r: 40 },
+  { id: 'a1', n: 'Bir şey ye ya da iç', e: '🍔', k: 'ate', c: 1, r: 30 },
+  { id: 'f1', n: 'Eğlen: kitap, sinema, güneşlen…', e: '🎉', k: 'fun', c: 1, r: 40 },
+  { id: 'e3', n: '300 💰 kazan', e: '💰', k: 'earned', c: 300, r: 60 },
+  { id: 'p30', n: 'Bugün 30 dakika oyna', e: '⏱', k: '_play', c: 30, r: 50 },
+  { id: 'c1', n: 'Konsere git', e: '🎤', k: 'concert', c: 1, r: 50 },
+];
+const dayKey = () => new Date().toISOString().slice(0, 10);
+function dqList() {
+  const d = dayKey(); let h = 0; for (const ch of d + (myId || '')) h = (h * 31 + ch.charCodeAt(0)) | 0;
+  const pool = DPOOL.slice(), out = []; let x = Math.abs(h);
+  while (out.length < 3) { const i = x % pool.length; out.push(pool.splice(i, 1)[0]); x = Math.floor(x / 7) + 13; }
+  return out;
+}
+function dqVal(q) {
+  if (q.k === '_play') return Math.floor(((ME.pd || {})[dayKey()] || 0) / 60000);
+  const dq = ME.dq || {}; return dq.d === dayKey() ? ((dq.c || {})[q.k] || 0) : 0;
+}
+function dqStat(k, v) {
+  if (!ME) return; const d = dayKey();
+  if (!ME.dq || ME.dq.d !== d) ME.dq = { d, c: {}, got: {} };
+  ME.dq.c[k] = (ME.dq.c[k] || 0) + v;
+  for (const q of dqList()) if (q.k === k && !ME.dq.got[q.id] && dqVal(q) >= q.c && !(dqStat.told || {})[q.id + d]) { dqStat.told = dqStat.told || {}; dqStat.told[q.id + d] = 1; toast(`📅 Günlük görev tamam: ${q.e} ${q.n}! 📋 Görevler'den ödülünü al`, 4000); }
+}
+function dqHTML() {
+  const L = dqList(), dq = (ME.dq && ME.dq.d === dayKey()) ? ME.dq : { got: {} }, all = L.every(q => dq.got && dq.got[q.id]);
+  return `<h3 style="margin:4px 0">📅 Günlük görevler <small style="opacity:.7">(her gün yenilenir)</small></h3>` + L.map(q => {
+    const v = Math.min(q.c, dqVal(q)), got = dq.got && dq.got[q.id], ok = !got && v >= q.c;
+    return `<div class="mi" style="display:block">${q.e} ${q.n} <span style="float:right">${got ? '✅' : '+' + q.r + ' 💰'}</span><div class="bar"><i style="width:${(got ? 1 : v / q.c) * 100}%"></i></div>${ok ? `<button data-dq="${q.id}" style="margin-top:8px;width:100%;padding:8px">🎁 Ödülü al</button>` : ''}</div>`;
+  }).join('') + (all ? (dq.bonus ? '<p style="text-align:center">🏆 Bugünün bonusu alındı! Yarın yeni görevler var.</p>' : `<button data-dqb="1" class="mi" style="justify-content:center;background:#d4ac0d">🏆 Hepsini bitirdin! +100 💰 bonus al</button>`) : '<p style="font-size:12px;opacity:.75;text-align:center">Üçünü de bitirene +100 💰 bonus</p>') + '<h3 style="margin:10px 0 4px">🏆 Kalıcı görevler</h3>';
+}
+function dqWire() {
+  mcard.querySelectorAll('[data-dq]').forEach(b => b.onclick = () => {
+    const q = dqList().find(x => x.id === b.dataset.dq); if (!q || !ME.dq || ME.dq.d !== dayKey() || ME.dq.got[q.id] || dqVal(q) < q.c) return;
+    ME.dq.got[q.id] = 1; earn(q.r, `📅 Günlük görev: ${q.n}`); questMenu();
+  });
+  const bb = mcard.querySelector('[data-dqb]'); if (bb) bb.onclick = () => { if (!ME.dq || ME.dq.bonus || !dqList().every(q => ME.dq.got[q.id])) return; ME.dq.bonus = 1; earn(100, '🏆 Günlük bonus!'); questMenu(); };
+}
+
+// ---- takas: oyuncudan oyuncuya eşya (yiyecek, araç, aksesuar) — istersen karşılığında para
+function myTradeables() {
+  const L = [];
+  for (const [k, n] of Object.entries(ME.inv || {})) if (FOOD[k] && n > 0) L.push({ t: 'inv', k, n: `${FOOD[k].e} ${FOOD[k].n} (${n})` });
+  for (const [id, v] of Object.entries(ME.veh || {})) if (ME.drive !== id && VEH[v.t]) L.push({ t: 'veh', k: id, n: `${VEH[v.t].e} ${VEH[v.t].n}${v.br ? ' (arızalı)' : ''}`, d: v });
+  for (const k of Object.keys(ME.acc || {})) { const a = ACC[k] || (k.startsWith('c_') && CLOTH[k.slice(2)]); if (a && !Object.values(ME.wear || {}).includes(k) && !Object.values(ME.wear || {}).includes(k.slice(2))) L.push({ t: 'acc', k, n: `${a.e} ${a.n}` }); }
+  return L;
+}
+function takasForm(to, tn) {
+  const L = myTradeables(); if (!L.length) return toast('Takas edecek eşyan yok (yiyecek, araç ya da üstünde olmayan aksesuar)');
+  const g = id => document.getElementById(id);
+  modal(`🔄 ${esc(tn)} ile takas`, [{ label: '📨 Teklifi gönder', cls: 'blue', fn: async () => {
+    const it = L[+g('tkI').value], p = Math.max(0, Math.min(5000, Math.round(+g('tkP').value || 0)));
+    if (!it) return;
+    if (it.t === 'inv') { if (!(ME.inv[it.k] > 0)) return; ME.inv[it.k]--; if (!ME.inv[it.k]) delete ME.inv[it.k]; }
+    else if (it.t === 'veh') { if (!ME.veh[it.k]) return; delete ME.veh[it.k]; }
+    else { if (!ME.acc[it.k]) return; delete ME.acc[it.k]; }
+    saveMe();
+    const id = push(ref(db, 'takasOut/' + myId)).key, offer = { f: myId, fn: ME.name, to, tn, it: { t: it.t, k: it.k, n: it.n, d: it.d || null }, p, st: 'teklif', t: now() };
+    try { await set(ref(db, `takas/${to}/${id}`), offer); await set(ref(db, `takasOut/${myId}/${id}`), { to, t: now(), it: offer.it }); }
+    catch (e) { takasRestore(offer.it); return toast('Teklif gönderilemedi'); }
+    notify(to, `🔄 ${ME.name} sana takas teklif etti: ${it.n}${p ? ` • ${p} 💰` : ' • HEDİYE'} (📋 Görevler → Takas)`);
+    toast('📨 Takas teklifi gönderildi. Eşyan karşı taraf karar verene kadar emanette.', 4000);
+  } }], `<p>Ne veriyorsun?</p><select id="tkI" style="width:100%;padding:8px">${L.map((x, i) => `<option value="${i}">${x.n}</option>`).join('')}</select>
+    <p>Karşılığında kaç 💰 istiyorsun? <small>(0 yazarsan hediye)</small></p><input id="tkP" type="number" inputmode="numeric" value="0" min="0" max="5000">
+    <p style="font-size:12px;opacity:.75">Eşya teklif süresince emanette kalır. Reddedilirse ya da 24 saatte cevap gelmezse sana geri döner.</p>`);
+}
+function takasRestore(it) {
+  if (it.t === 'inv') ME.inv[it.k] = (ME.inv[it.k] || 0) + 1;
+  else if (it.t === 'veh') ME.veh[it.k] = it.d || { t: 'bisiklet' };
+  else ME.acc[it.k] = 1;
+  saveMe();
+}
+let TAKAS_IN = {};
+function takasListen() { onValue(ref(db, 'takas/' + myId), s => { TAKAS_IN = s.val() || {}; const n = Object.values(TAKAS_IN).filter(o => o && o.st === 'teklif').length; if (n && !takasListen.told) { takasListen.told = 1; toast(`🔄 ${n} takas teklifin var! 📋 Görevler'den bak`, 5000); } }); setInterval(takasOutTick, 60000); setTimeout(takasOutTick, 8000); }
+async function takasOutTick() {     // gönderdiğim teklifler: kabul edilen silinir, reddedilen / süresi dolan eşya geri gelir
+  if (!ME || !db) return;
+  const out = (await get(ref(db, 'takasOut/' + myId)).catch(() => null))?.val() || {};
+  for (const [id, o] of Object.entries(out)) {
+    const cur = (await get(ref(db, `takas/${o.to}/${id}`)).catch(() => null))?.val();
+    if (cur && cur.st === 'teklif' && now() - (cur.t || 0) < 864e5) continue;
+    if (cur && cur.st === 'ok') { await remove(ref(db, `takas/${o.to}/${id}`)).catch(() => { }); }
+    else { takasRestore(o.it); if (cur) await remove(ref(db, `takas/${o.to}/${id}`)).catch(() => { }); toast(`↩️ Takas olmadı, ${o.it.n} geri geldi`, 4000); }
+    await remove(ref(db, `takasOut/${myId}/${id}`)).catch(() => { });
+  }
+}
+async function takasAccept(id) {
+  const o = TAKAS_IN[id]; if (!o || o.st !== 'teklif') return;
+  if (o.p && ME.money < o.p) return toast('Para yetmiyor');
+  const r = await runTransaction(ref(db, `takas/${myId}/${id}/st`), s => s === 'teklif' ? 'ok' : undefined).catch(() => null);
+  if (!r || !r.committed) return toast('Bu teklif artık geçerli değil');
+  if (o.p) { ME.money -= o.p; for (let left = o.p; left > 0; left -= 1000) await runTransaction(ref(db, 'players/' + o.f + '/money'), m => (m || 0) + Math.min(1000, left)).catch(() => { }); }
+  takasRestore(o.it); hud();
+  notify(o.f, `✅ ${ME.name} takası kabul etti: ${o.it.n}${o.p ? ` • +${o.p} 💰 hesabına geçti` : ''}`);
+  toast(`🔄 Takas tamam: ${o.it.n} artık senin!`, 4000); questMenu();
+}
+async function takasReject(id) { const o = TAKAS_IN[id]; if (!o) return; await update(ref(db, `takas/${myId}/${id}`), { st: 'red' }).catch(() => { }); notify(o.f, `❌ ${ME.name} takas teklifini reddetti. ${o.it.n} sana geri dönüyor`); questMenu(); }
+function takasHTML() {
+  const L = Object.entries(TAKAS_IN).filter(([, o]) => o && o.st === 'teklif'); if (!L.length) return '';
+  return `<h3 style="margin:10px 0 4px">🔄 Takas teklifleri</h3>` + L.map(([id, o]) => `<div class="mi" style="display:block"><b>${esc(o.fn)}</b> veriyor: ${o.it.n} • ${o.p ? `<b>${o.p} 💰</b> istiyor` : '<b>HEDİYE</b> 🎁'}<div class="row" style="margin-top:8px"><button data-tka="${id}" style="background:#27ae60">✅ Kabul</button><button data-tkr="${id}" style="background:#c0392b">❌ Reddet</button></div></div>`).join('');
+}
+function takasWire() {
+  mcard.querySelectorAll('[data-tka]').forEach(b => b.onclick = () => takasAccept(b.dataset.tka));
+  mcard.querySelectorAll('[data-tkr]').forEach(b => b.onclick = () => takasReject(b.dataset.tkr));
+}
+
+// ---- görev dağılımı: Cumhurbaşkanı ve Belediye Başkanı oyunculara ödüllü görev verir
+const canAssign = () => ME && (isCB() || myRole() === 'baskan');
+let GOREV_IN = {}, GOREV_OUT = {};
+function gorevListen() {
+  onValue(ref(db, 'gorev/' + myId), s => { const v = s.val() || {}; const nw = Object.keys(v).filter(k => !GOREV_IN[k] && v[k].st === 'ver'); GOREV_IN = v; if (nw.length && gorevListen.ready) toast(`🧾 Yeni görevin var: "${esc(v[nw[0]].txt)}" (📋 Görevler)`, 6000); gorevListen.ready = 1; });
+  onValue(ref(db, 'gorevOut/' + myId), s => { GOREV_OUT = s.val() || {}; });
+}
+function gorevForm(to, tn) {
+  const g = id => document.getElementById(id), src = isCB() ? 'cbk' : 'kasa';
+  modal(`🧾 ${esc(tn)}'e görev ver`, [{ label: '📨 Görevi ver', cls: 'blue', fn: async () => {
+    const txt = cleanText((g('gvT').value || '').trim().slice(0, 80)), r = Math.max(0, Math.min(1000, Math.round(+g('gvR').value || 0)));
+    if (txt.length < 3) return toast('Görevi yaz');
+    const id = push(ref(db, 'gorevOut/' + myId)).key;
+    await set(ref(db, `gorev/${to}/${id}`), { by: myId, bn: ME.name, rol: isCB() ? 'Cumhurbaşkanı' : 'Belediye Başkanı', txt, r, src, st: 'ver', t: now() }).catch(e => toast('Görev verilemedi'));
+    await set(ref(db, `gorevOut/${myId}/${id}`), { to, tn, txt, r, src, t: now() }).catch(() => { });
+    notify(to, `🧾 ${ME.name} sana görev verdi: "${txt}"${r ? ` • ödül ${r} 💰` : ''}`);
+    toast('🧾 Görev verildi', 3000);
+  } }], `<p>Görev ne?</p><input id="gvT" maxlength="80" placeholder="örn. Belediye önünde nöbet tut, tarlayı ek…"><p>Ödül (${src === 'cbk' ? 'Cumhurbaşkanlığı' : 'Belediye'} kasasından, onaylayınca ödenir)</p><input id="gvR" type="number" inputmode="numeric" value="50" min="0" max="1000">`);
+}
+async function gorevDone(id) { const o = GOREV_IN[id]; if (!o) return; await update(ref(db, `gorev/${myId}/${id}`), { st: 'bitti', tb: now() }).catch(() => { }); notify(o.by, `🧾 ${ME.name} görevi bitirdi: "${o.txt}" • onaylamak için 📋 Görevler`); toast('👍 Bildirildi, onay bekleniyor'); questMenu(); }
+async function gorevApprove(id, pay) {
+  const o = GOREV_OUT[id]; if (!o) return;
+  const cur = (await get(ref(db, `gorev/${o.to}/${id}`)).catch(() => null))?.val();
+  if (pay && cur && o.r > 0) {
+    let er = '';
+    if (o.src === 'cbk') er = await cbkTake(o.r);
+    else { const r = await runTransaction(ref(db, 'city/kasa'), x => (x || 0) >= o.r ? x - o.r : undefined).catch(() => null); if (!r || !r.committed) er = 'Belediye kasasında yeterli para yok'; }
+    if (er) return toast(er, 5000);
+    for (let left = o.r; left > 0; left -= 1000) await runTransaction(ref(db, 'players/' + o.to + '/money'), m => (m || 0) + Math.min(1000, left)).catch(() => { });
+    notify(o.to, `✅ Görevin onaylandı: "${o.txt}" • +${o.r} 💰`);
+  } else if (cur) notify(o.to, `🧾 Görev kaldırıldı: "${o.txt}"`);
+  await remove(ref(db, `gorev/${o.to}/${id}`)).catch(() => { }); await remove(ref(db, `gorevOut/${myId}/${id}`)).catch(() => { });
+  questMenu();
+}
+function gorevHTML() {
+  let h = '';
+  const mine = Object.entries(GOREV_IN).filter(([, o]) => o);
+  if (mine.length) h += `<h3 style="margin:10px 0 4px">🧾 Sana verilen görevler</h3>` + mine.map(([id, o]) => `<div class="mi" style="display:block">${esc(o.txt)}<br><small>${esc(o.rol || '')} ${esc(o.bn)} verdi${o.r ? ` • ödül ${o.r} 💰` : ''}</small>${o.st === 'bitti' ? '<p style="margin:6px 0 0">⏳ Onay bekleniyor</p>' : `<button data-gvd="${id}" style="margin-top:8px;width:100%;padding:8px">✅ Yaptım</button>`}</div>`).join('');
+  if (canAssign()) {
+    const out = Object.entries(GOREV_OUT);
+    h += `<h3 style="margin:10px 0 4px">📋 Görev dağılımı</h3><p style="font-size:12px;opacity:.75;margin:0 0 6px">Oyuncuya görev vermek için adına dokun → "🧾 Görev ver".</p>` + out.map(([id, o]) => `<div class="mi" style="display:block"><b>${esc(o.tn)}</b>: ${esc(o.txt)}${o.r ? ` • ${o.r} 💰` : ''}<div class="row" style="margin-top:8px"><button data-gva="${id}" style="background:#27ae60">✅ Onayla & öde</button><button data-gvx="${id}" style="background:#c0392b">✖ Kaldır</button></div></div>`).join('');
+  }
+  return h;
+}
+function gorevWire() {
+  mcard.querySelectorAll('[data-gvd]').forEach(b => b.onclick = () => gorevDone(b.dataset.gvd));
+  mcard.querySelectorAll('[data-gva]').forEach(b => b.onclick = () => gorevApprove(b.dataset.gva, true));
+  mcard.querySelectorAll('[data-gvx]').forEach(b => b.onclick = () => { if (confirm('Görev kaldırılsın mı?')) gorevApprove(b.dataset.gvx, false); });
+}
+
+// ---- satış gelirleri doğrudan ülkeye: %75 Cumhurbaşkanlığı, %25 belediye
+function cityIncome(v) {
+  v = Math.round(v); if (v <= 0) return;
+  const a = Math.round(v * 0.75);
+  runTransaction(ref(db, 'city/cbk'), x => (x || 0) + a).catch(() => { });
+  if (v - a > 0) runTransaction(ref(db, 'city/kasa'), x => (x || 0) + v - a).catch(() => { });
+}
+// ---- saatlik vergi: her 1 saat aktif oyunda küçük bir vergi (günlük girmeyen de oynadıkça öder)
+let TAXP = 0;
+setInterval(() => {
+  if (!ME || ME.sleep || !db) return; TAXP += 60000;
+  if (TAXP < 3600000) return; TAXP = 0;
+  const t = Math.min(Math.floor(ME.money), Math.round(10 * Math.max(0.5, Math.min(2, +CITY.tax || 1))));
+  if (t <= 0) return; ME.money -= t; cityIncome(t); hud(); saveMe(); toast(`🧾 Saatlik vergi: ${t} 💰 (ülke kasasına)`, 3000);
+}, 60000);
 
 // ================= EVENTS =================
 const EV_NAMES = { yangin: '🔥 YANGIN', soygun: '🚨 SOYGUN', festival: '🎉 FESTİVAL' };
@@ -4503,10 +4692,10 @@ function adminLogin() {
     onChildChanged(ref(db, 'reports'), s2 => { reports[s2.key] = s2.val(); });
     onChildAdded(query(ref(db, 'modlog'), limitToLast(20)), s2 => { modlog[s2.key] = s2.val(); });
     adminZones(true); setInterval(() => adminZones(false), 1500);
-    onValue(ref(db, 'akasa'), s2 => { AKASA = s2.val() || 0; });
+    onValue(ref(db, 'akasa'), async s2 => { AKASA = s2.val() || 0; if (AKASA > 0) { let mv = 0; const r = await runTransaction(ref(db, 'akasa'), k => { mv = k || 0; return 0; }).catch(() => null); if (r && r.committed && mv > 0) { cityIncome(mv); toast(`🏛 Yönetici kasasındaki ${Math.floor(mv)} 💰 ülke kasalarına aktarıldı (%75 Cumhurbaşkanlığı, %25 belediye)`, 5000); } } });
     onChildAdded(ref(db, 'akasaq'), async s2 => {
       const r = await runTransaction(ref(db, 'akasaq/' + s2.key), c => c == null ? undefined : null).catch(() => null);
-      const v = +s2.val() || 0; if (r && r.committed && v > 0) runTransaction(ref(db, 'akasa'), k => (k || 0) + v).catch(() => { });
+      const v = +s2.val() || 0; if (r && r.committed && v > 0) cityIncome(v);
     });
     zoom = 1.8; adminUI(); setInterval(adminUI, 3000);
   };
