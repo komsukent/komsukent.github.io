@@ -172,7 +172,7 @@ const COUNTRIES = {
 let FULL1 = true; try { FULL1 = localStorage.getItem('kk_full1') !== '0'; } catch (e) { }   // Komşukent dolu mu: yönetici panelden açar/kapatır (pub/full1)
 const C = (() => { let c = 0; try { const u = +new URLSearchParams(location.search).get('c'), st = +localStorage.getItem('kk_c'), known = !!(localStorage.getItem('kk_me') || localStorage.getItem('kk_id')); c = u || (known ? st : 0) || (FULL1 ? 2 + Math.floor(Math.random() * 2) : 1); } catch (e) { c = 1; } if (!COUNTRIES[c] || !COUNTRIES[c].cfg) c = 1; try { localStorage.setItem('kk_c', String(c)); } catch (e) { } return c; })();
 const FB = {};
-const APP_V = '2026112207';
+const APP_V = '2026112208';
 let CAP = 0;   // bump on every upload (yyyymmddNN)
 const ADMIN = location.hash === '#yonetim';
 let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off, orderByChild, equalTo;
@@ -396,7 +396,7 @@ async function enter2(mode) {
     prev = prev || {};
     const job = JOBS.includes(prev.job) || prev.job === 'Cumhurbaşkanı' ? prev.job : 'İşsiz';
     ME = { name, job, color: myColor, money: prev.money ?? (isG ? 300 : 100), energy: prev.energy ?? 100, home: prev.home ?? null, shop: prev.shop ?? null,
-      acc: prev.acc || {}, wear: prev.wear || {}, m: prev.m || {}, inv: prev.inv || {}, veh: prev.veh || {}, q: prev.q || {}, dq: prev.dq || null, fan: prev.fan || null, fpw: prev.fpw || 50, ftr: prev.ftr || 0, lvl: prev.lvl || 0, sick: prev.sick || 0,
+      acc: prev.acc || {}, wear: prev.wear || {}, m: prev.m || {}, inv: prev.inv || {}, veh: prev.veh || {}, q: prev.q || {}, dq: prev.dq ? { d: prev.dq.d, c: prev.dq.c || {}, got: prev.dq.got || {}, bonus: prev.dq.bonus || 0 } : null, fan: prev.fan || null, fpw: prev.fpw || 50, ftr: prev.ftr || 0, lvl: prev.lvl || 0, sick: prev.sick || 0,
       play: prev.play || 0, pleft: prev.pleft || 0, jobDay: prev.jobDay || '', payDay: prev.payDay || '', jobChanged: prev.jobChanged || 0, jx: prev.jxv === 1 ? (prev.jx || 0) : (prev.jx || 0) + 1, jxv: 1, pet: prev.pet || null, bio: prev.bio || '', gocUsed: prev.gocUsed || 0, cbPd: prev.cbPd || '', preJob: prev.preJob || '', kd: undefined, stealDay: prev.stealDay || null, islah: prev.islah || 0, islahN: prev.islahN || 0, pd: prev.pd || {}, joined: prev.joined || now(), taxDay: prev.taxDay || '', drive: null, inside: null, bag: 0,
       x: prev.x ?? (SPAWN.x + (Math.random() - .5) * 200), y: prev.y ?? SPAWN.y, wanted: 0, jail: 0, ride: null };
     if (blocked(ME.x, ME.y) || ME.x > XMAX || ME.y > YMAX || (prev.v || 0) < 3) { ME.x = SPAWN.x + (Math.random() - .5) * 200; ME.y = SPAWN.y; }
@@ -593,7 +593,7 @@ setInterval(() => {
   if (ME.drive && Math.random() < 0.06) { const v = ME.veh[ME.drive]; if (v) { v.br = Math.random() < 0.5 ? 'motor' : 'lastik'; toast(`💥 ${VEH[v.t].n} bozuldu! (${v.br === 'motor' ? 'motor arızası → Tamirci' : 'lastik patladı → Lastikçi'}) Sanayiye götür`, 5500); ME.drive = null; pub({ drive: null }); } }
   saveMe(); hud();
 }, 30000);
-function stat(k, v = 1) { dqStat(k, v); const m = MK(); ME.m = ME.m || {}; ME.m[m] = ME.m[m] || {}; ME.m[m][k] = (ME.m[m][k] || 0) + v; if (k === 'worked') seniorSave(); warPoint(k); }
+function stat(k, v = 1) { try { dqStat(k, v); } catch (e) { console.log('dq', e); } const m = MK(); ME.m = ME.m || {}; ME.m[m] = ME.m[m] || {}; ME.m[m][k] = (ME.m[m][k] || 0) + v; if (k === 'worked') seniorSave(); warPoint(k); }
 function earn(a, why) { ME.money += a; stat('earned', a); hud(); saveMe(); if (why) toast(why + ` +${a} 💰`); }
 function payTo(id, amount) { if (amount > 0) runTransaction(ref(db, 'players/' + id + '/money'), m => (m || 0) + amount); }
 function notify(id, m, extra = {}) { push(ref(db, 'notify/' + id), Object.assign({ m }, extra)); }
@@ -4002,6 +4002,7 @@ function dqVal(q) {
 function dqStat(k, v) {
   if (!ME) return; const d = dayKey();
   if (!ME.dq || ME.dq.d !== d) ME.dq = { d, c: {}, got: {} };
+  ME.dq.c = ME.dq.c || {}; ME.dq.got = ME.dq.got || {};
   ME.dq.c[k] = (ME.dq.c[k] || 0) + v;
   for (const q of dqList()) if (q.k === k && !ME.dq.got[q.id] && dqVal(q) >= q.c && !(dqStat.told || {})[q.id + d]) { dqStat.told = dqStat.told || {}; dqStat.told[q.id + d] = 1; toast(`📅 Günlük görev tamam: ${q.e} ${q.n}! 📋 Görevler'den ödülünü al`, 4000); }
 }
@@ -4013,6 +4014,7 @@ function dqHTML() {
   }).join('') + (all ? (dq.bonus ? '<p style="text-align:center">🏆 Bugünün bonusu alındı! Yarın yeni görevler var.</p>' : `<button data-dqb="1" class="mi" style="justify-content:center;background:#d4ac0d">🏆 Hepsini bitirdin! +100 💰 bonus al</button>`) : '<p style="font-size:12px;opacity:.75;text-align:center">Üçünü de bitirene +100 💰 bonus</p>') + '<h3 style="margin:10px 0 4px">🏆 Kalıcı görevler</h3>';
 }
 function dqWire() {
+  if (ME.dq) { ME.dq.c = ME.dq.c || {}; ME.dq.got = ME.dq.got || {}; }
   mcard.querySelectorAll('[data-dq]').forEach(b => b.onclick = () => {
     const q = dqList().find(x => x.id === b.dataset.dq); if (!q || !ME.dq || ME.dq.d !== dayKey() || ME.dq.got[q.id] || dqVal(q) < q.c) return;
     ME.dq.got[q.id] = 1; earn(q.r, `📅 Günlük görev: ${q.n}`); questMenu();
@@ -4337,6 +4339,7 @@ async function futSeasonEnd(s, teams) {
 }
 function futMine(teams) {   // benim takımım (sahibi) / oynadığım takım / taraftarı olduğum
   let own = null, play = null;
+  if (!ME) return { own, play, fan: null };
   for (const [tid, t] of Object.entries(teams || {})) { if (t.o === myId) own = tid; for (const [pid, p] of Object.entries(t.pl || {})) if (p.u === myId) play = { tid, pid }; }
   return { own, play, fan: ME.fan || null };
 }
@@ -4381,7 +4384,7 @@ async function futMenu() {
     { label: '🏆 Şampiyonlar & Ülkeler Kupası', fn: () => futHonors() },
   ];
   if (my.own) items.unshift({ label: `⭐ Takımım: ${esc(teams[my.own].n)}`, cls: 'blue', fn: () => futTeam(my.own) });
-  if (ME.job === 'Futbolcu') items.unshift({ label: my.play ? `👟 Kariyerim: ${esc(teams[my.play.tid].n)}` : '👟 Futbolcu kariyerim (takım bul)', cls: 'blue', fn: () => futCareer() });
+  if (ME && ME.job === 'Futbolcu') items.unshift({ label: my.play ? `👟 Kariyerim: ${esc(teams[my.play.tid].n)}` : '👟 Futbolcu kariyerim (takım bul)', cls: 'blue', fn: () => futCareer() });
   modal('⚽ Komşukent Ligi', items, `<p>${s}. sezon • ${Math.min(d, FUT_ROUNDS)}/${FUT_ROUNDS} hafta oynandı<br>${live >= 0 ? `🔴 <b>CANLI: ${live + 1}. hafta, ${futMin(live)}. dakika</b>` : next ? `Sıradaki maçlar: <b>${fmtKick(next)}</b>` : 'Sezon bitti, yeni sezon yakında'}</p>
     <p style="font-size:12px;opacity:.8">Maçlar Cuma, Cumartesi, Pazar, Pazartesi 21:00'de. Takım ${FUT_PRICE.toLocaleString('tr')} 💰. Şampiyon Ülkeler Kupası'na gider.</p>`);
 }
@@ -4419,15 +4422,15 @@ async function futTeam(tid) {
   const my = futMine(teams), mine = t.o === myId, r = FUTDONE, xi = futXI(t, r), str = Math.round(futStr(xi));
   const pl = Object.entries(t.pl || {}).sort((a, b) => posOrd[a[1].ps] - posOrd[b[1].ps] || b[1].pw - a[1].pw);
   const items = [];
-  if (!t.o) items.push({ label: `💰 Takımı satın al (${FUT_PRICE.toLocaleString('tr')} 💰)`, cls: 'blue', disabled: !!my.own || ME.money < FUT_PRICE, fn: () => futBuy(tid) });
+  if (!t.o && ME) items.push({ label: `💰 Takımı satın al (${FUT_PRICE.toLocaleString('tr')} 💰)`, cls: 'blue', disabled: !!my.own || ME.money < FUT_PRICE, fn: () => futBuy(tid) });
   if (mine) {
     items.push({ label: '⬆ Futbolcu gücü yükselt', cls: 'blue', fn: () => futUpgrade(tid) }, { label: '💸 Futbolcu sat (pazara çıkar)', fn: () => futSellMenu(tid) });
     const apps = (await get(ref(db, 'fut/apply/' + tid)).catch(() => null))?.val() || {};
     for (const [uid, a] of Object.entries(apps)) items.push({ label: `✍️ Başvuru: ${esc(a.n)} (${a.ps}, güç ${a.pw})`, cls: 'blue', fn: () => futAccept(tid, uid, a) });
     pl.filter(([, p]) => p.u).forEach(([pid, p]) => items.push({ label: `👋 ${esc(p.n)} ile yollarını ayır`, fn: () => { if (confirm(esc(p.n) + ' takımdan çıkarılsın mı?')) remove(ref(db, `fut/teams/${tid}/pl/${pid}`)).then(() => { notify(p.u, `⚽ ${t.n} seni kadrodan çıkardı`); futTeam(tid); }); } }));
   }
-  if (ME.job === 'Futbolcu' && !my.play && !mine) items.push({ label: '✍️ Bu takıma futbolcu olarak başvur', cls: 'blue', fn: () => futApply(tid) });
-  if (ME.fan !== tid) items.push({ label: '📣 Taraftarı ol (gollerinden haberin olur)', fn: () => { ME.fan = tid; update(ref(db, 'players/' + myId), { fan: tid }); toast(`📣 Artık ${t.n} taraftarısın!`); } });
+  if (ME && ME.job === 'Futbolcu' && !my.play && !mine) items.push({ label: '✍️ Bu takıma futbolcu olarak başvur', cls: 'blue', fn: () => futApply(tid) });
+  if (ME && ME.fan !== tid) items.push({ label: '📣 Taraftarı ol (gollerinden haberin olur)', fn: () => { ME.fan = tid; update(ref(db, 'players/' + myId), { fan: tid }); toast(`📣 Artık ${t.n} taraftarısın!`); } });
   items.push({ label: '⬅ Geri', fn: futTeamList });
   modal(`<span style="color:${t.c1}">⬤</span> ${esc(t.n)}`, items, `<p>${t.o ? `👔 Başkan: <b>${esc(t.on || '')}</b>` : '🏷 Bu takım SATILIK'} • 💪 Takım gücü: <b>${str}</b> • 👥 ${pl.length} oyuncu</p>
     <div style="max-height:38vh;overflow:auto;font-size:13px">${pl.map(([, p]) => `<div style="margin:2px 0">${futPlayerRow(p, r)} <span style="opacity:.6">• ${p.a || ''} yaş • ${futVal(p).toLocaleString('tr')} 💰</span></div>`).join('')}</div>`);
@@ -4844,7 +4847,7 @@ async function buildRank() {   // admin only, every 30 min: one full read instea
   await set(ref(db, 'rank'), { t: now(), html }).catch(() => { });
 }
 document.getElementById('bRank').onclick = () => db && rankMenu();
-document.getElementById('bFut').onclick = () => db && ME && futMenu();
+document.getElementById('bFut').onclick = () => { if (!db) return toast('Önce şehre gir'); futMenu().catch(e => { console.log(e); toast('Lig açılamadı, tekrar dene'); }); };
 document.getElementById('bWard').onclick = () => ME && wardrobe(null);
 
 // ================= 3D =================
