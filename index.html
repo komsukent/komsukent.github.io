@@ -172,7 +172,7 @@ const COUNTRIES = {
 let FULL1 = true; try { FULL1 = localStorage.getItem('kk_full1') !== '0'; } catch (e) { }   // Komşukent dolu mu: yönetici panelden açar/kapatır (pub/full1)
 const C = (() => { let c = 0; try { const u = +new URLSearchParams(location.search).get('c'), st = +localStorage.getItem('kk_c'), known = !!(localStorage.getItem('kk_me') || localStorage.getItem('kk_id')); c = u || (known ? st : 0) || (FULL1 ? 2 + Math.floor(Math.random() * 2) : 1); } catch (e) { c = 1; } if (!COUNTRIES[c] || !COUNTRIES[c].cfg) c = 1; try { localStorage.setItem('kk_c', String(c)); } catch (e) { } return c; })();
 const FB = {};
-const APP_V = '2026112203';
+const APP_V = '2026112204';
 let CAP = 0;   // bump on every upload (yyyymmddNN)
 const ADMIN = location.hash === '#yonetim';
 let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off, orderByChild, equalTo;
@@ -309,8 +309,10 @@ if (!ADMIN) fbReady.then(() => authReady).then(u => {
   if (u) { LB[0].style.display = LB[1].style.display = 'none'; LB[2].style.display = LB[3].style.display = 'block'; LB[2].textContent = `Şehre gir 🏙️ (${u.isAnonymous ? 'misafir hesabın' : 'Google hesabın'})`; }
 }).catch(() => {});
 // taşınan oyuncu: yeni ülkede kendiliğinden girer (düğmeye basmayı beklemez)
-let AUTO_T = null; try { AUTO_T = localStorage.getItem('kk_tcode'); } catch (e) { }
-if (AUTO_T && !ADMIN) fbReady.then(() => authReady).then(u => { errEl.textContent = '🌍 Yeni ülkene taşınıyorsun…'; setTimeout(() => enter(u ? 'resume' : 'guest'), 700); }).catch(() => { });
+let AUTO_T = null, AUTO_M = ''; try { AUTO_T = localStorage.getItem('kk_tcode'); AUTO_M = localStorage.getItem('kk_tmode') || ''; } catch (e) { }
+if (AUTO_T && !ADMIN) fbReady.then(() => authReady).then(u => {
+  if (!u && AUTO_M === 'google') { errEl.textContent = '🌍 Yeni ülkene hoş geldin! Eşyaların ve paran seni bekliyor. Aşağıdaki "Google ile giriş" butonuna bas 👇'; return; }
+  errEl.textContent = '🌍 Yeni ülkene taşınıyorsun…'; setTimeout(() => enter(u ? 'resume' : 'guest'), 700); }).catch(() => { });
 LB[0].onclick = () => enter('google'); LB[1].onclick = () => enter('guest'); LB[2].onclick = () => enter('resume');
 LB[3].onclick = async () => { await fbReady; await AU.signOut(auth); LB[0].style.display = LB[1].style.display = 'block'; LB[2].style.display = LB[3].style.display = 'none'; };
 const AUTH_ERR = { 'auth/popup-blocked': 'Açılır pencere engellendi. Tekrar dene ya da misafir oyna.', 'auth/popup-closed-by-user': 'Giriş penceresi kapatıldı.', 'auth/cancelled-popup-request': 'Giriş iptal edildi.', 'auth/operation-not-supported-in-this-environment': 'Bu tarayıcıda Google girişi çalışmıyor. Safari ya da Chrome\'da aç, veya misafir oyna.', 'auth/web-storage-unsupported': 'Bu tarayıcıda giriş çalışmıyor. Safari ya da Chrome\'da aç.', 'auth/network-request-failed': 'İnternet bağlantısını kontrol et.', 'auth/admin-restricted-operation': 'Misafir girişi kapalı.', 'PERMISSION_DENIED': 'Erişim reddedildi.' };
@@ -328,6 +330,7 @@ async function enter2(mode) {
   lbDisable(true); errEl.textContent = 'Şehre bağlanılıyor…';
   try {
     await withTimeout(fbReady, 12000, 'Oyun sunucusuna ulaşılamadı. İnternetini kontrol et.'); await authReady;
+    if (mode === 'google' && auth.currentUser && auth.currentUser.isAnonymous) { await AU.signOut(auth); }
     if (mode === 'google' && !auth.currentUser) await AU.signInWithPopup(auth, new AU.GoogleAuthProvider());
     if (mode === 'guest' && !auth.currentUser) await AU.signInAnonymously(auth);
     if (!auth.currentUser) throw { message: 'Giriş yapılamadı' };
@@ -380,7 +383,7 @@ async function enter2(mode) {
     }
     if (claimed && prev) prev.moved = null;
     if (!claimed && prev && prev.moved && prev.moved.code) { lbDisable(false); errEl.textContent = ''; movedScreen(prev.moved); return; }
-    try { localStorage.removeItem('kk_hops'); } catch (e) { }
+    try { localStorage.removeItem('kk_hops'); localStorage.removeItem('kk_tmode'); } catch (e) { }
     prev = prev || {};
     const job = JOBS.includes(prev.job) || prev.job === 'Cumhurbaşkanı' ? prev.job : 'İşsiz';
     ME = { name, job, color: myColor, money: prev.money ?? (isG ? 300 : 100), energy: prev.energy ?? 100, home: prev.home ?? null, shop: prev.shop ?? null,
@@ -2787,12 +2790,18 @@ function gocMenu() {
     } }], `<p><b>Tek hakkın bu!</b> Geri dönüş yok.</p><p>💰 Paran, 👔 mesleğin, kıyafetlerin, 🐾 hayvanın ve mesai geçmişin taşınır.</p><p>🏠 Ev ve dükkanların burada satılır, parası hesabına eklenir.</p><p>👑 Makamın varsa burada boşalır.</p>`) })), `<p>Herkesin 1 kez ülke değiştirme hakkı var.</p>`);
 }
 function movedScreen(mv) {
-  try { localStorage.setItem('kk_tcode', mv.code); } catch (e) { }
+  try { localStorage.setItem('kk_tcode', mv.code); localStorage.setItem('kk_tmode', auth.currentUser && !auth.currentUser.isAnonymous ? 'google' : 'guest'); } catch (e) { }
   let hops = []; try { hops = JSON.parse(localStorage.getItem('kk_hops') || '[]').filter(x => x > Date.now() - 180000); } catch (e) { }
   if (hops.length >= 3) {
     modalEl.style.display = 'flex';
-    mcard.innerHTML = `<h2>🌍 Hesabın ülkeler arasında takıldı</h2><p>Hesabın <b>${esc(ctryName(mv.to))}</b> ülkesinde görünüyor. Oraya <b>Google ile giriş</b> yap. Olmazsa Instagram'dan <b>@komsukent</b>'e yaz, hemen düzeltelim.</p><button class="mi" style="justify-content:center;background:#2e7d32" id="mvGo">${esc(ctryName(mv.to))}'e git</button>`;
+    mcard.innerHTML = `<h2>🌍 Hesabın ülkeler arasında takıldı</h2><p>Merak etme, hemen çözüyoruz 🙂 Hangi ülkede oynamak istiyorsun?</p><button class="mi" style="justify-content:center;background:#2e7d32" id="mvStay">🏠 Burada kal: ${esc(ctryName(C))}</button><button class="mi" style="justify-content:center;background:#1565c0" id="mvGo">✈️ ${esc(ctryName(mv.to))}'e git</button>`;
     mcard.querySelector('#mvGo').onclick = () => { try { localStorage.removeItem('kk_hops'); } catch (e) { } goCountry(mv.to); };
+    mcard.querySelector('#mvStay').onclick = async () => {
+      mcard.innerHTML = '<h2>⏳ Hesabın bu ülkeye bağlanıyor…</h2>';
+      try { await update(ref(db, 'players/' + myId), { moved: null, gocUsed: 1 }); } catch (e) { }
+      try { ['kk_hops', 'kk_tcode', 'kk_tmode'].forEach(k => localStorage.removeItem(k)); } catch (e) { }
+      closeModal(); enter('resume');
+    };
     return;
   }
   hops.push(Date.now()); try { localStorage.setItem('kk_hops', JSON.stringify(hops)); } catch (e) { }
