@@ -108,7 +108,7 @@ table.pl{width:100%;font-size:12px;border-collapse:collapse}table.pl td{padding:
 <body>
 <div id="labels"></div>
 <div id="hud" class="ui"><span class="pill" id="me">…</span><span class="pill" id="money">💰 0</span><span class="pill" id="energy">⚡ 100</span><span class="pill" id="clock">🕐</span><span class="pill" id="online">🟢 0</span></div>
-<div id="side" class="ui"><button id="bFull">⛶</button><button id="zin">＋</button><button id="zout">－</button><button id="bChat">💬<span class="badge" id="badge"></span></button><button id="b155" title="155 İmdat">☎️</button><button id="bQuest">📋</button><button id="bBag">🎒</button><button id="bVeh">🚗</button><button id="bRank">🏆</button><button id="bWard">👕</button><button id="bPl" style="display:none">👥</button></div>
+<div id="side" class="ui"><button id="bFull">⛶</button><button id="zin">＋</button><button id="zout">－</button><button id="bChat">💬<span class="badge" id="badge"></span></button><button id="b155" title="155 İmdat">☎️</button><button id="bQuest">📋</button><button id="bBag">🎒</button><button id="bVeh">🚗</button><button id="bFut">⚽</button><button id="bRank">🏆</button><button id="bWard">👕</button><button id="bPl" style="display:none">👥</button></div>
 <div id="joy"><i></i></div><div id="joyHint" class="ui">🕹<br>Sürükle</div>
 <div id="acts" class="ui"></div>
 <div id="toast" class="ui"></div>
@@ -172,7 +172,7 @@ const COUNTRIES = {
 let FULL1 = true; try { FULL1 = localStorage.getItem('kk_full1') !== '0'; } catch (e) { }   // Komşukent dolu mu: yönetici panelden açar/kapatır (pub/full1)
 const C = (() => { let c = 0; try { const u = +new URLSearchParams(location.search).get('c'), st = +localStorage.getItem('kk_c'), known = !!(localStorage.getItem('kk_me') || localStorage.getItem('kk_id')); c = u || (known ? st : 0) || (FULL1 ? 2 + Math.floor(Math.random() * 2) : 1); } catch (e) { c = 1; } if (!COUNTRIES[c] || !COUNTRIES[c].cfg) c = 1; try { localStorage.setItem('kk_c', String(c)); } catch (e) { } return c; })();
 const FB = {};
-const APP_V = '2026112206';
+const APP_V = '2026112207';
 let CAP = 0;   // bump on every upload (yyyymmddNN)
 const ADMIN = location.hash === '#yonetim';
 let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off, orderByChild, equalTo;
@@ -396,7 +396,7 @@ async function enter2(mode) {
     prev = prev || {};
     const job = JOBS.includes(prev.job) || prev.job === 'Cumhurbaşkanı' ? prev.job : 'İşsiz';
     ME = { name, job, color: myColor, money: prev.money ?? (isG ? 300 : 100), energy: prev.energy ?? 100, home: prev.home ?? null, shop: prev.shop ?? null,
-      acc: prev.acc || {}, wear: prev.wear || {}, m: prev.m || {}, inv: prev.inv || {}, veh: prev.veh || {}, q: prev.q || {}, dq: prev.dq || null, lvl: prev.lvl || 0, sick: prev.sick || 0,
+      acc: prev.acc || {}, wear: prev.wear || {}, m: prev.m || {}, inv: prev.inv || {}, veh: prev.veh || {}, q: prev.q || {}, dq: prev.dq || null, fan: prev.fan || null, fpw: prev.fpw || 50, ftr: prev.ftr || 0, lvl: prev.lvl || 0, sick: prev.sick || 0,
       play: prev.play || 0, pleft: prev.pleft || 0, jobDay: prev.jobDay || '', payDay: prev.payDay || '', jobChanged: prev.jobChanged || 0, jx: prev.jxv === 1 ? (prev.jx || 0) : (prev.jx || 0) + 1, jxv: 1, pet: prev.pet || null, bio: prev.bio || '', gocUsed: prev.gocUsed || 0, cbPd: prev.cbPd || '', preJob: prev.preJob || '', kd: undefined, stealDay: prev.stealDay || null, islah: prev.islah || 0, islahN: prev.islahN || 0, pd: prev.pd || {}, joined: prev.joined || now(), taxDay: prev.taxDay || '', drive: null, inside: null, bag: 0,
       x: prev.x ?? (SPAWN.x + (Math.random() - .5) * 200), y: prev.y ?? SPAWN.y, wanted: 0, jail: 0, ride: null };
     if (blocked(ME.x, ME.y) || ME.x > XMAX || ME.y > YMAX || (prev.v || 0) < 3) { ME.x = SPAWN.x + (Math.random() - .5) * 200; ME.y = SPAWN.y; }
@@ -1047,7 +1047,7 @@ setInterval(() => { const b = document.getElementById('bPl'); if (myId && (IS_AD
 
 // ================= GEOMETRY HELPERS =================
 function inside(r, x, y, pad = 0) { return x > r.x * T - pad && x < (r.x + r.w) * T + pad && y > r.y * T - pad && y < (r.y + r.h) * T + pad; }
-function blocked(x, y) { return ecoBlocked(x, y) || BUILD.some(b => !b.open && inside(b, x, y)) || inside(STAGE, x, y) || PLOTS.some(p => plots[p.k] && inside(p, x, y, -12)); }
+function blocked(x, y) { return ecoBlocked(x, y) || BUILD.some(b => !b.open && inside(b, x, y)) || inside(STAGE, x, y) || PLOTS.some(p => plots[p.k] && inside(p, x, y, -12)) || futBlocked(x, y); }
 const nearB = (b, pad = 30) => ME && inside(b, ME.x, ME.y, pad);
 const nearPlot = (p, pad = 14) => ME && inside(p, ME.x, ME.y, pad);
 function nearOthers(r) { return Object.entries(others).filter(([id, o]) => o.hasPos && o.name && live(o) && dist(o, ME) < r); }
@@ -1135,7 +1135,7 @@ function computeActs() {
   }
   if (ME.job === 'Taksici' && !b) L.push({ label: '🚕 Müşterilerin sana binebilir', cls: 'gray' });
   newJobActs(L, b, p, near, t);
-  ecoActs(L, b, t); abActs(L, b, t);
+  ecoActs(L, b, t); abActs(L, b, t); futActs(L, b, t);
   // thief / con man
   if ((ME.job === 'Hırsız' && isNight()) || ME.job === 'Dolandırıcı') {
     const blk = stealBlock();
@@ -3310,7 +3310,7 @@ async function worldMenu() {
     ${war ? `<p style="background:#5a1a1a;padding:8px;border-radius:10px">⚔️ <b>${esc(ctryName(en))} ile SAVAŞTAYIZ!</b><br>Skor: ${esc(ctryName(C))} ${(war.sc || {})[C] || 0} - ${(war.sc || {})[en] || 0} ${esc(ctryName(en))}<br>⏳ ${Math.ceil((war.end - t) / 3600000)} saat kaldı • Her mesai ve yakalama +1 puan!</p>` : ''}
     ${rel.length ? `<p>${rel.join('<br>')}</p>` : ''}
     ${WNEWS.length ? `<p><b>📰 Dünya haberleri</b><br>${WNEWS.slice().reverse().map(n => '• ' + n.h).join('<br>')}</p>` : ''}
-    <p style="font-size:12px;opacity:.7">⚽ Dünya Kupası stadyum açılınca gelecek!</p>`);
+    <p style="font-size:12px;opacity:.7">⚽ Ülkeler Kupası: her ülkenin lig şampiyonu karşılaşır (⚽ menüsü)</p>`);
 }
 
 // ---- yönetici: zirve anahtarları
@@ -3398,7 +3398,7 @@ function ecoListen() {
   ['cbk', 'eco', 'depo', 'tarla', 'afet', 'mkt', 'gdp'].forEach(k => onValue(ref(db, 'city/' + k), s => { CITY[k] = s.val(); if (k === 'tarla' || k === 'eco') refreshTarla3D(); }));
   onValue(ref(db, 'config/eco'), s => { ECOCFG = s.val() || {}; });
   onValue(ref(db, 'config/autocb'), s => { AUTOCB = s.val() !== false; });
-  takasListen(); gorevListen();
+  takasListen(); gorevListen(); futListen();
   abListen();
 }
 
@@ -3874,7 +3874,7 @@ const ABCAT = {
   hayvanat: { n: 'Hayvanat Bahçesi', e: '🦁', jobs: ['Hayvan Bakıcısı'], c: '#6ab04c', r: '#f0932b', act: '🦁 Hayvanları gez', cost: 15, ms: 25000, en: 30 },
   lunapark: { n: 'Lunapark', e: '🎡', jobs: ['Lunapark Görevlisi'], c: '#fd79a8', r: '#6c5ce7', act: '🎡 Eğlen', cost: 25, ms: 25000, en: 40 },
 };
-const ABN = 8, YMAX = 120 * T - 10;
+const ABN = 8, YMAX = 172 * T - 10;
 const abLot = i => ({ x: 3 + i * 12, y: 101, w: 10, h: 10 });
 let ABLD = {}, AB3D = {};
 const abJobOpen = j => Object.values(ABLD).some(v => v && ABCAT[v.type] && ABCAT[v.type].jobs.includes(j));
@@ -4152,6 +4152,592 @@ setInterval(() => {
   if (t <= 0) return; ME.money -= t; cityIncome(t); hud(); saveMe(); toast(`🧾 Saatlik vergi: ${t} 💰 (ülke kasasına)`, 3000);
 }, 60000);
 
+// ================= FUTBOL: KOMŞUKENT STADYUMU • HALI SAHALAR • LİG • TRANSFER • ÜLKELER KUPASI =================
+const FUT_N = 18, FUT_PRICE = 20000, FUT_MAXSQ = 25, FUT_MINSQ = 16, FUT_ROUNDS = (FUT_N - 1) * 2;
+const STX = 36, STZ = 143, SPX = 15, SPZ = 10, SGAP = 3.0, SROWS = 8, SRD = 1.2, SRH = 0.6, SSEAT = 1.0;   // stad (karo birimi)
+const SOUT = SGAP + SROWS * SRD;
+const HSAHA = [{ x: 70, y: 128, w: 12, h: 20 }, { x: 85, y: 128, w: 12, h: 20 }];
+const FUTPOS = { KL: 'Kaleci', DF: 'Defans', OS: 'Orta saha', FV: 'Forvet' };
+const FUT_BAN = ['galatasaray', 'fenerbahce', 'besiktas', 'trabzon', 'basaksehir', 'bursaspor', 'goztepe', 'altay', 'ankaragucu', 'sivasspor', 'kayserispor', 'konyaspor', 'antalyaspor', 'alanyaspor', 'rizespor', 'kasimpasa', 'samsunspor', 'hatayspor', 'gaziantep', 'demirspor', 'eyupspor', 'kocaelispor', 'sakaryaspor', 'genclerbirligi', 'realmadrid', 'madrid', 'barcelona', 'barca', 'atletico', 'manchester', 'liverpool', 'chelsea', 'arsenal', 'tottenham', 'newcastle', 'bayern', 'dortmund', 'leverkusen', 'juventus', 'milan', 'inter', 'napoli', 'roma', 'lazio', 'psg', 'parissaint', 'marseille', 'ajax', 'porto', 'benfica', 'sporting', 'celtic', 'rangers', 'boca', 'riverplate', 'flamengo', 'santos', 'alnassr', 'alhilal', 'alittihad', 'fener', 'cimbom', 'karakartal', 'kanarya', 'bordomavi', 'bjk', 'fifa', 'uefa'];
+const FUT_BAN_W = ['gs', 'fb', 'ts', 'bjk', 'mu', 'city', 'united', 'real'];
+function futNameOk(n) {
+  const k = fold(n.toLocaleLowerCase('tr')).replace(/[^a-z0-9 ]/g, ''), flat = k.replace(/ /g, '');
+  if (FUT_BAN.some(b => flat.includes(b))) return false;
+  if (k.split(' ').some(w => FUT_BAN_W.includes(w))) return false;
+  return n.length >= 3 && n.length <= 24 && cleanText(n) === n;
+}
+const FUT_PL = ['Falez', 'Sahil', 'Liman', 'Maden', 'Fabrika', 'Tarla', 'Çarşı', 'Saray', 'Gar', 'Çeşme', 'Park', 'Köprü', 'Değirmen', 'Bağ', 'Bostan', 'Orman', 'Göl', 'Kumsal', 'Pazar', 'Meydan', 'Kale', 'Vadi', 'Tepe', 'Çınar', 'Pınar', 'Rüzgar', 'Dalga', 'Kervan'];
+const FUT_SF = ['Spor', 'FK', 'Gücü', 'Gençlik', 'Yıldızları', 'Kartalları', 'Kaplanları', 'Şimşekleri', 'Fırtınası', 'SK', 'Atletik', 'İdman'];
+const FUT_AD = ['Ali', 'Mehmet', 'Mustafa', 'Ahmet', 'Emre', 'Burak', 'Can', 'Kerem', 'Arda', 'Yusuf', 'Efe', 'Kaan', 'Berk', 'Eren', 'Oğuz', 'Serkan', 'Hakan', 'Volkan', 'Tolga', 'Ozan', 'Barış', 'Murat', 'Onur', 'Sinan', 'Cenk', 'Umut', 'Tuna', 'Doruk', 'Alp', 'Batu', 'Mert', 'Ege', 'Deniz', 'Kuzey', 'Yiğit', 'Selim', 'Halil', 'İsmail', 'Furkan', 'Taha'];
+const FUT_SOY = ['Yılmaz', 'Kaya', 'Demir', 'Şahin', 'Çelik', 'Yıldız', 'Aydın', 'Öztürk', 'Arslan', 'Doğan', 'Kılıç', 'Aslan', 'Çetin', 'Kara', 'Koç', 'Kurt', 'Özdemir', 'Polat', 'Erdem', 'Güneş', 'Bulut', 'Tekin', 'Ateş', 'Uçar', 'Bozkurt', 'Korkmaz', 'Acar', 'Sönmez', 'Kalkan', 'Toprak', 'Yalçın', 'Duman', 'Karaca', 'Tuncer', 'Sarı', 'Ekinci', 'Güler', 'Aksoy', 'Turan', 'Er'];
+function futRng(seed) { let a = seed >>> 0; return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function futHash(s) { let h = 2166136261; for (const ch of String(s)) h = Math.imul(h ^ ch.charCodeAt(0), 16777619); return h >>> 0; }
+const futCost = pw => Math.round(200 * Math.pow(1.07, pw - 50));             // pw → pw+1 yükseltme ücreti
+const futVal = p => Math.round(150 * Math.pow(1.09, (p.pw || 50) - 45) * ((p.a || 25) < 24 ? 1.3 : (p.a || 25) > 31 ? 0.7 : 1));
+let FUTCFG = null, FUTDONE = 0, FUTT = null, FUTTT = 0, FUTLIVE = { r: -1, res: null, told: {} };
+const futTeamIds = () => Array.from({ length: FUT_N }, (_, i) => 't' + i);
+
+// ---- takvim: Cuma, Cumartesi, Pazar, Pazartesi 21:00 (TR)
+const TRH = 3 * 3600000, FDAY = 864e5;
+const trDay = ts => new Date(ts + TRH).getUTCDay();
+const trKick = ts => { const d = new Date(ts + TRH); return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 21) - TRH; };
+const isMD = ts => [5, 6, 0, 1].includes(trDay(ts));
+function futNextStart(after) { let k = trKick(after); if (k <= after) k += FDAY; while (trDay(k) !== 5) k += FDAY; return k; }
+let FUTK = null;
+function futKicks() {
+  if (!FUTCFG) return [];
+  if (FUTK && FUTK.s === FUTCFG.s && FUTK.st === FUTCFG.st) return FUTK.k;
+  const k = []; let ts = FUTCFG.st;
+  while (k.length < FUT_ROUNDS) { if (isMD(ts)) k.push(ts); ts += FDAY; }
+  FUTK = { s: FUTCFG.s, st: FUTCFG.st, k }; return k;
+}
+const futDue = () => futKicks().filter(k => k <= now()).length;
+function futLiveRound() { const K = futKicks(), t = now(); for (let r = 0; r < K.length; r++) if (t >= K[r] && t < K[r] + 10 * 60000) return r; return -1; }
+const futMin = r => Math.min(90, Math.floor((now() - futKicks()[r]) / (10 * 60000) * 90));
+const fmtKick = ts => { const d = new Date(ts + TRH); return `${['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'][d.getUTCDay()]} ${d.getUTCDate()}.${d.getUTCMonth() + 1} 21:00`; };
+
+// ---- fikstür (çember yöntemi, sezon başına karıştırılır)
+function futFixture(s, r) {
+  const ids = futTeamIds(), rng = futRng(futHash('fx' + s + C));
+  for (let i = ids.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [ids[i], ids[j]] = [ids[j], ids[i]]; }
+  const n = ids.length, half = r >= n - 1, rr = r % (n - 1), rest = ids.slice(1);
+  const rot = [ids[0], ...rest.slice(rr), ...rest.slice(0, rr)];
+  const m = [];
+  for (let i = 0; i < n / 2; i++) { let h = rot[i], a = rot[n - 1 - i]; if ((rr + i) % 2) [h, a] = [a, h]; if (half) [h, a] = [a, h]; m.push([h, a]); }
+  return m;
+}
+
+// ---- takım üretimi (ilk açılışta bir kez)
+function futMakePlayer(rng, ps, base) {
+  return { n: FUT_AD[Math.floor(rng() * FUT_AD.length)] + ' ' + FUT_SOY[Math.floor(rng() * FUT_SOY.length)], ps, pw: Math.round(base + rng() * 22), a: 18 + Math.floor(rng() * 16) };
+}
+function futMakeSquad(rng) {
+  const base = 42 + rng() * 14, pl = {}; let i = 0;
+  for (const [ps, k] of [['KL', 2], ['DF', 6], ['OS', 6], ['FV', 4]]) for (let j = 0; j < k; j++) pl['p' + (i++)] = futMakePlayer(rng, ps, base);
+  return pl;
+}
+async function futSeed() {
+  const r = await runTransaction(ref(db, 'fut/seed'), v => v ? undefined : { by: myId, t: now() }).catch(() => null);
+  if (!r || !r.committed) return;
+  const rng = futRng(futHash('seed' + C + now())), used = new Set(), teams = {};
+  const pal = [['#c0392b', '#ffffff'], ['#1f4e9e', '#ffd23c'], ['#27ae60', '#ffffff'], ['#8e44ad', '#f1c40f'], ['#111111', '#ffffff'], ['#e67e22', '#1b2a49'], ['#16a085', '#ffffff'], ['#d35400', '#000000'], ['#2c3e50', '#e74c3c'], ['#f1c40f', '#1f4e9e'], ['#7f8c8d', '#ffffff'], ['#e84393', '#ffffff'], ['#00a8ff', '#ffffff'], ['#6ab04c', '#000000'], ['#b33939', '#f7f1e3'], ['#40407a', '#ffb142'], ['#218c74', '#ffda79'], ['#cd6133', '#ffffff']];
+  futTeamIds().forEach((id, i) => {
+    let n; do { n = FUT_PL[Math.floor(rng() * FUT_PL.length)] + ' ' + FUT_SF[Math.floor(rng() * FUT_SF.length)]; } while (used.has(n)); used.add(n);
+    teams[id] = { n, c1: pal[i][0], c2: pal[i][1], pl: futMakeSquad(rng), k: 18 };
+  });
+  await set(ref(db, 'fut/teams'), teams);
+  await set(ref(db, 'fut/cfg'), { s: 1, st: futNextStart(now() + 3 * FDAY) });
+  say('⚽ <b>Komşukent Ligi kuruldu!</b> 18 takım satın alınmayı bekliyor. Stadyuma gel, takımını al, ismini koy! 🏟️', true, 'ann');
+}
+async function futTeams(force) {
+  if (!force && FUTT && now() - FUTTT < 20000) return FUTT;
+  FUTT = (await get(ref(db, 'fut/teams')).catch(() => null))?.val() || {}; FUTTT = now(); return FUTT;
+}
+
+// ---- maç motoru
+function futXI(t, r) {
+  const ok = p => p && !((p.inj || -1) >= r) && !((p.sus || -1) >= r);
+  const L = Object.entries(t.pl || {}).filter(([, p]) => ok(p));
+  const pick = (ps, k) => L.filter(([, p]) => p.ps === ps).sort((a, b) => b[1].pw - a[1].pw).slice(0, k);
+  let xi = [...pick('KL', 1), ...pick('DF', 4), ...pick('OS', 4), ...pick('FV', 2)];
+  if (xi.length < 11) { const rest = L.filter(e => !xi.includes(e)).sort((a, b) => b[1].pw - a[1].pw); xi = xi.concat(rest.slice(0, 11 - xi.length)); }
+  return xi;
+}
+function futStr(xi) {
+  if (!xi.length) return 30;
+  const avg = ps => { const a = xi.filter(([, p]) => p.ps === ps); return a.length ? a.reduce((s, [, p]) => s + p.pw, 0) / a.length : 30; };
+  return 0.12 * avg('KL') + 0.28 * avg('DF') + 0.3 * avg('OS') + 0.3 * avg('FV') - (11 - xi.length) * 4;
+}
+function futPois(l, rng) { let k = 0, p = 1; const L = Math.exp(-l); do { k++; p *= rng(); } while (p > L && k < 12); return k - 1; }
+function futPlay(teams, h, a, s, r) {
+  const rng = futRng(futHash(`m${C}|${s}|${r}|${h}|${a}`)), T1 = teams[h], T2 = teams[a];
+  const x1 = futXI(T1, r), x2 = futXI(T2, r), s1 = futStr(x1) + 3, s2 = futStr(x2);
+  const g1 = futPois(Math.max(0.2, Math.min(4, 1.35 * Math.exp((s1 - s2) / 16))), rng), g2 = futPois(Math.max(0.15, Math.min(4, 1.1 * Math.exp((s2 - s1) / 16))), rng);
+  const ev = [], who = (xi) => { const w = xi.map(([, p]) => (p.ps === 'FV' ? 5 : p.ps === 'OS' ? 3 : p.ps === 'DF' ? 1 : 0.05) * p.pw); let x = rng() * w.reduce((a, b) => a + b, 0); for (let i = 0; i < xi.length; i++) { x -= w[i]; if (x <= 0) return xi[i][0]; } return xi[0] && xi[0][0]; };
+  const add = (n, side, xi, type) => { for (let i = 0; i < n; i++) { const pid = type === 'g' ? who(xi) : (xi[Math.floor(rng() * xi.length)] || [])[0]; if (pid) ev.push([1 + Math.floor(rng() * 90), side, pid, type]); } };
+  add(g1, 0, x1, 'g'); add(g2, 1, x2, 'g');
+  add(futPois(1.7, rng), 0, x1, 'y'); add(futPois(1.7, rng), 1, x2, 'y');
+  if (rng() < 0.05) add(1, 0, x1, 'r'); if (rng() < 0.05) add(1, 1, x2, 'r');
+  if (rng() < 0.08) add(1, 0, x1, 'i'); if (rng() < 0.08) add(1, 1, x2, 'i');
+  ev.sort((p, q) => p[0] - q[0]);
+  return { h, a, hg: g1, ag: g2, e: ev.map(e => e.join(',')).join(';') };
+}
+const futEv = m => (m.e || '').split(';').filter(Boolean).map(x => { const [mn, sd, pid, ty] = x.split(','); return { mn: +mn, sd: +sd, pid, ty }; });
+function payBig(id, amt) { amt = Math.round(amt); for (let left = amt; left > 0; left -= 1000) { const v = Math.min(1000, left); runTransaction(ref(db, 'players/' + id + '/money'), m => (m || 0) + v).catch(() => { }); } }
+
+async function futTick() {
+  if (!ME || !db || ME.sleep) return;
+  if (!FUTCFG) return;
+  const due = futDue();
+  if (FUTDONE < due && !futTick.busy) {
+    futTick.busy = 1;
+    try {
+      const L = await runTransaction(ref(db, 'fut/lock'), v => (v && v.t > now() - 90000 && v.by !== myId) ? undefined : { by: myId, t: now() }).catch(() => null);
+      if (L && L.committed) {
+        const s = FUTCFG.s, teams = await futTeams(true);
+        let done = (await get(ref(db, 'fut/done/' + s)).catch(() => null))?.val() || 0;
+        for (let r = done; r < due && r < done + 6; r++) {
+          const ms = futFixture(s, r).map(([h, a]) => futPlay(teams, h, a, s, r)), upd = {};
+          await set(ref(db, `fut/res/${s}/${r}`), ms);
+          for (const m of ms) {
+            for (const e of futEv(m)) {
+              const tid = e.sd ? m.a : m.h, p = (teams[tid].pl || {})[e.pid]; if (!p) continue;
+              if (e.ty === 'r') { p.sus = r + 1; upd[`fut/teams/${tid}/pl/${e.pid}/sus`] = r + 1; }
+              if (e.ty === 'i') { const k = r + 1 + Math.floor(Math.random() * 3); p.inj = k; upd[`fut/teams/${tid}/pl/${e.pid}/inj`] = k; }
+              if (e.ty === 'g' && p.u) payBig(p.u, 40);
+            }
+            const ht = teams[m.h]; if (ht && ht.o) payBig(ht.o, 300);          // iç saha bilet geliri
+            for (const tid of [m.h, m.a]) for (const [, p] of futXI(teams[tid], r)) if (p.u) payBig(p.u, 50);   // gerçek futbolculara maç primi
+          }
+          if (Object.keys(upd).length) await update(ref(db), upd).catch(() => { });
+          await set(ref(db, 'fut/done/' + s), r + 1); done = r + 1;
+          if (r === due - 1 && now() - futKicks()[r] < 15 * 60000) say(`⚽ <b>Komşukent Ligi ${r + 1}. hafta</b> maçları başladı! Canlı skorlar ⚽ menüsünde 🏟️`, true, 'ann');
+          if (r === FUT_ROUNDS - 1) await futSeasonEnd(s, teams);
+        }
+        await set(ref(db, 'fut/lock'), null).catch(() => { });
+      }
+    } catch (e) { console.log('fut', e); }
+    futTick.busy = 0;
+  }
+  futLiveTick();
+}
+async function futAllRes(s) { return (await get(ref(db, 'fut/res/' + s)).catch(() => null))?.val() || {}; }
+function futTable(teams, res, upto) {
+  const T = {}; futTeamIds().forEach(id => T[id] = { id, n: (teams[id] || {}).n || id, o: 0, g: 0, b: 0, m: 0, at: 0, ye: 0, p: 0 });
+  for (const [r, ms] of Object.entries(res || {})) {
+    if (upto != null && +r > upto) continue;
+    for (const m of ms || []) {
+      const H = T[m.h], A = T[m.a]; if (!H || !A) continue;
+      H.o++; A.o++; H.at += m.hg; H.ye += m.ag; A.at += m.ag; A.ye += m.hg;
+      if (m.hg > m.ag) { H.g++; A.m++; H.p += 3; } else if (m.hg < m.ag) { A.g++; H.m++; A.p += 3; } else { H.b++; A.b++; H.p++; A.p++; }
+    }
+  }
+  return Object.values(T).sort((a, b) => b.p - a.p || (b.at - b.ye) - (a.at - a.ye) || b.at - a.at);
+}
+function futScorers(teams, res) {
+  const G = {};
+  for (const ms of Object.values(res || {})) for (const m of ms || []) for (const e of futEv(m)) if (e.ty === 'g') {
+    const tid = e.sd ? m.a : m.h, k = tid + '|' + e.pid; G[k] = (G[k] || 0) + 1;
+  }
+  return Object.entries(G).map(([k, g]) => { const [tid, pid] = k.split('|'), p = ((teams[tid] || {}).pl || {})[pid] || {}; return { tid, pid, g, n: p.n || '?', u: p.u, tn: (teams[tid] || {}).n }; }).sort((a, b) => b.g - a.g);
+}
+async function futSeasonEnd(s, teams) {
+  const res = await futAllRes(s), tab = futTable(teams, res), top = futScorers(teams, res)[0];
+  const prize = [20000, 10000, 5000];
+  tab.slice(0, 3).forEach((r, i) => { const t = teams[r.id]; if (t && t.o) payBig(t.o, prize[i]); });
+  if (top && top.u) payBig(top.u, 2000);
+  const ch = tab[0], ct = teams[ch.id] || {};
+  await set(ref(db, 'fut/champ/' + s), { t: ch.id, n: ct.n, o: ct.o || null, on: ct.on || null, p: ch.p, at: now() });
+  // sezon biter: sakatlık/ceza sıfırlanır, oyuncular yaşlanır
+  const upd = {};
+  for (const [tid, t] of Object.entries(teams)) for (const [pid, p] of Object.entries(t.pl || {})) { upd[`fut/teams/${tid}/pl/${pid}/inj`] = null; upd[`fut/teams/${tid}/pl/${pid}/sus`] = null; if (!p.u) upd[`fut/teams/${tid}/pl/${pid}/a`] = (p.a || 25) + 1; }
+  await update(ref(db), upd).catch(() => { });
+  await set(ref(db, 'fut/cfg'), { s: s + 1, st: futNextStart(now() + 3 * FDAY) });
+  say(`🏆 <b>${esc(ct.n)}</b> Komşukent Ligi'nin ${s}. sezon ŞAMPİYONU! ${ct.on ? 'Başkan ' + esc(ct.on) + ' ' : ''}Ülkeler Kupası'na katılacak! ${top ? `⚽ Gol kralı: ${esc(top.n)} (${top.g})` : ''}`, true, 'ann');
+}
+function futMine(teams) {   // benim takımım (sahibi) / oynadığım takım / taraftarı olduğum
+  let own = null, play = null;
+  for (const [tid, t] of Object.entries(teams || {})) { if (t.o === myId) own = tid; for (const [pid, p] of Object.entries(t.pl || {})) if (p.u === myId) play = { tid, pid }; }
+  return { own, play, fan: ME.fan || null };
+}
+async function futLiveTick() {
+  const r = futLiveRound(); if (r < 0 || !FUTCFG) { FUTLIVE.r = -1; return; }
+  if (FUTLIVE.r !== r) { FUTLIVE = { r, res: null, told: {} }; FUTLIVE.res = (await get(ref(db, `fut/res/${FUTCFG.s}/${r}`)).catch(() => null))?.val(); if (FUTLIVE.res) await futTeams(); }
+  if (!FUTLIVE.res || !FUTT) return;
+  const mn = futMin(r), my = futMine(FUTT), mine = new Set([my.own, my.play && my.play.tid, my.fan].filter(Boolean));
+  for (const m of FUTLIVE.res) {
+    if (!mine.has(m.h) && !mine.has(m.a)) continue;
+    for (const e of futEv(m)) {
+      const k = m.h + e.mn + e.pid + e.ty; if (e.mn > mn || FUTLIVE.told[k] || e.ty !== 'g') continue; FUTLIVE.told[k] = 1;
+      const tid = e.sd ? m.a : m.h, p = ((FUTT[tid] || {}).pl || {})[e.pid] || {};
+      const sc = futEv(m).filter(x => x.ty === 'g' && x.mn <= e.mn), a = sc.filter(x => !x.sd).length, b = sc.filter(x => x.sd).length;
+      toast(`⚽ GOOOL! ${e.mn}' ${esc(p.n || '')} (${esc(FUTT[tid].n)}) • ${esc(FUTT[m.h].n)} ${a}-${b} ${esc(FUTT[m.a].n)}`, 6000);
+    }
+  }
+}
+function futListen() {
+  onValue(ref(db, 'fut/cfg'), s => {
+    FUTCFG = s.val();
+    if (!FUTCFG) { setTimeout(() => { if (!FUTCFG) futSeed(); }, 3000 + Math.random() * 4000); return; }
+    if (futListen.un) futListen.un();
+    futListen.un = onValue(ref(db, 'fut/done/' + FUTCFG.s), d => { FUTDONE = d.val() || 0; });
+  });
+  setInterval(futTick, 30000); setTimeout(futTick, 6000);
+}
+
+// ---- menüler
+const posOrd = { KL: 0, DF: 1, OS: 2, FV: 3 };
+function futPlayerRow(p, r) { return `${p.u ? '⭐ ' : ''}<b>${esc(p.n)}</b> • ${p.ps} • ${p.pw}${(p.inj || -1) >= r ? ' 🤕' : ''}${(p.sus || -1) >= r ? ' 🟥' : ''}`; }
+async function futMenu() {
+  if (!db) return;
+  const teams = await futTeams(), my = futMine(teams), s = FUTCFG ? FUTCFG.s : 1, K = futKicks(), d = FUTDONE, live = futLiveRound();
+  const next = K.find(k => k > now());
+  const items = [
+    { label: '📊 Puan durumu', fn: () => futStandings() },
+    { label: '📅 Fikstür & sonuçlar', fn: () => futResults(Math.max(0, Math.min(FUT_ROUNDS - 1, live >= 0 ? live : d - 1 < 0 ? 0 : d - 1))) },
+    { label: '🥇 Gol krallığı', fn: () => futTop() },
+    { label: '🛡 Takımlar', fn: () => futTeamList() },
+    { label: '💸 Transfer pazarı', fn: () => futMarket() },
+    { label: '🏆 Şampiyonlar & Ülkeler Kupası', fn: () => futHonors() },
+  ];
+  if (my.own) items.unshift({ label: `⭐ Takımım: ${esc(teams[my.own].n)}`, cls: 'blue', fn: () => futTeam(my.own) });
+  if (ME.job === 'Futbolcu') items.unshift({ label: my.play ? `👟 Kariyerim: ${esc(teams[my.play.tid].n)}` : '👟 Futbolcu kariyerim (takım bul)', cls: 'blue', fn: () => futCareer() });
+  modal('⚽ Komşukent Ligi', items, `<p>${s}. sezon • ${Math.min(d, FUT_ROUNDS)}/${FUT_ROUNDS} hafta oynandı<br>${live >= 0 ? `🔴 <b>CANLI: ${live + 1}. hafta, ${futMin(live)}. dakika</b>` : next ? `Sıradaki maçlar: <b>${fmtKick(next)}</b>` : 'Sezon bitti, yeni sezon yakında'}</p>
+    <p style="font-size:12px;opacity:.8">Maçlar Cuma, Cumartesi, Pazar, Pazartesi 21:00'de. Takım ${FUT_PRICE.toLocaleString('tr')} 💰. Şampiyon Ülkeler Kupası'na gider.</p>`);
+}
+async function futStandings() {
+  const teams = await futTeams(), res = await futAllRes(FUTCFG ? FUTCFG.s : 1), tab = futTable(teams, res);
+  modal('📊 Puan durumu', [{ label: '⬅ Geri', fn: futMenu }], `<table class="pl" style="font-size:13px;width:100%"><tr><td>#</td><td>Takım</td><td>O</td><td>G</td><td>B</td><td>M</td><td>Av</td><td><b>P</b></td></tr>${tab.map((r, i) => `<tr${teams[r.id] && teams[r.id].o === myId ? ' style="background:#2d4a7a"' : ''}><td>${i + 1}${i === 0 ? '🏆' : ''}</td><td data-tm="${r.id}" style="text-decoration:underline">${esc(r.n)}</td><td>${r.o}</td><td>${r.g}</td><td>${r.b}</td><td>${r.m}</td><td>${r.at - r.ye}</td><td><b>${r.p}</b></td></tr>`).join('')}</table>`);
+  mcard.querySelectorAll('[data-tm]').forEach(e => e.onclick = () => futTeam(e.dataset.tm));
+}
+async function futResults(r) {
+  const teams = await futTeams(), s = FUTCFG ? FUTCFG.s : 1, K = futKicks();
+  const res = r < FUTDONE ? (await get(ref(db, `fut/res/${s}/${r}`)).catch(() => null))?.val() : null, live = futLiveRound() === r, mn = live ? futMin(r) : 90;
+  const fx = futFixture(s, r);
+  const rows = fx.map(([h, a]) => {
+    const m = (res || []).find(x => x.h === h && x.a === a);
+    if (!m) return `<div class="mi" style="display:block">${esc(teams[h].n)} <b>-</b> ${esc(teams[a].n)}</div>`;
+    const ev = futEv(m).filter(e => e.mn <= mn), hg = ev.filter(e => e.ty === 'g' && !e.sd).length, ag = ev.filter(e => e.ty === 'g' && e.sd).length;
+    const det = ev.map(e => { const tid = e.sd ? m.a : m.h, p = (teams[tid].pl || {})[e.pid] || {}; return `${e.mn}' ${{ g: '⚽', y: '🟨', r: '🟥', i: '🤕' }[e.ty]} ${esc(p.n || '')}`; }).join(' • ');
+    return `<div class="mi" style="display:block">${esc(teams[h].n)} <b>${hg} - ${ag}</b> ${esc(teams[a].n)}${live ? ` <span style="color:#ff5252">● ${mn}'</span>` : ''}<br><small style="opacity:.8">${det}</small></div>`;
+  }).join('');
+  modal(`📅 ${r + 1}. hafta`, [
+    ...(r > 0 ? [{ label: '◀ Önceki hafta', fn: () => futResults(r - 1) }] : []),
+    ...(r < FUT_ROUNDS - 1 ? [{ label: 'Sonraki hafta ▶', fn: () => futResults(r + 1) }] : []),
+    { label: '⬅ Geri', fn: futMenu }], `<p>${fmtKick(K[r])}${live ? ' • 🔴 CANLI' : ''}</p>${rows}`);
+}
+async function futTop() {
+  const teams = await futTeams(), top = futScorers(teams, await futAllRes(FUTCFG ? FUTCFG.s : 1)).slice(0, 20);
+  modal('🥇 Gol krallığı', [{ label: '⬅ Geri', fn: futMenu }], top.length ? top.map((x, i) => `<div style="margin:3px 0">${i + 1}. ${x.u ? '⭐ ' : ''}<b>${esc(x.n)}</b> (${esc(x.tn)}) • ${x.g} gol</div>`).join('') : '<p>Henüz gol yok. Maçlar başlayınca burada!</p>');
+}
+async function futTeamList() {
+  const teams = await futTeams();
+  modal('🛡 Takımlar', [...futTeamIds().map(id => { const t = teams[id] || {}; return { label: `<span style="color:${t.c1}">⬤</span> ${esc(t.n)}`, right: t.o ? '👔 ' + esc(t.on || '') : `🏷 SATILIK`, fn: () => futTeam(id) }; }), { label: '⬅ Geri', fn: futMenu }]);
+}
+async function futTeam(tid) {
+  const teams = await futTeams(true), t = teams[tid]; if (!t) return;
+  const my = futMine(teams), mine = t.o === myId, r = FUTDONE, xi = futXI(t, r), str = Math.round(futStr(xi));
+  const pl = Object.entries(t.pl || {}).sort((a, b) => posOrd[a[1].ps] - posOrd[b[1].ps] || b[1].pw - a[1].pw);
+  const items = [];
+  if (!t.o) items.push({ label: `💰 Takımı satın al (${FUT_PRICE.toLocaleString('tr')} 💰)`, cls: 'blue', disabled: !!my.own || ME.money < FUT_PRICE, fn: () => futBuy(tid) });
+  if (mine) {
+    items.push({ label: '⬆ Futbolcu gücü yükselt', cls: 'blue', fn: () => futUpgrade(tid) }, { label: '💸 Futbolcu sat (pazara çıkar)', fn: () => futSellMenu(tid) });
+    const apps = (await get(ref(db, 'fut/apply/' + tid)).catch(() => null))?.val() || {};
+    for (const [uid, a] of Object.entries(apps)) items.push({ label: `✍️ Başvuru: ${esc(a.n)} (${a.ps}, güç ${a.pw})`, cls: 'blue', fn: () => futAccept(tid, uid, a) });
+    pl.filter(([, p]) => p.u).forEach(([pid, p]) => items.push({ label: `👋 ${esc(p.n)} ile yollarını ayır`, fn: () => { if (confirm(esc(p.n) + ' takımdan çıkarılsın mı?')) remove(ref(db, `fut/teams/${tid}/pl/${pid}`)).then(() => { notify(p.u, `⚽ ${t.n} seni kadrodan çıkardı`); futTeam(tid); }); } }));
+  }
+  if (ME.job === 'Futbolcu' && !my.play && !mine) items.push({ label: '✍️ Bu takıma futbolcu olarak başvur', cls: 'blue', fn: () => futApply(tid) });
+  if (ME.fan !== tid) items.push({ label: '📣 Taraftarı ol (gollerinden haberin olur)', fn: () => { ME.fan = tid; update(ref(db, 'players/' + myId), { fan: tid }); toast(`📣 Artık ${t.n} taraftarısın!`); } });
+  items.push({ label: '⬅ Geri', fn: futTeamList });
+  modal(`<span style="color:${t.c1}">⬤</span> ${esc(t.n)}`, items, `<p>${t.o ? `👔 Başkan: <b>${esc(t.on || '')}</b>` : '🏷 Bu takım SATILIK'} • 💪 Takım gücü: <b>${str}</b> • 👥 ${pl.length} oyuncu</p>
+    <div style="max-height:38vh;overflow:auto;font-size:13px">${pl.map(([, p]) => `<div style="margin:2px 0">${futPlayerRow(p, r)} <span style="opacity:.6">• ${p.a || ''} yaş • ${futVal(p).toLocaleString('tr')} 💰</span></div>`).join('')}</div>`);
+}
+async function futBuy(tid) {
+  const teams = await futTeams(true); if (futMine(teams).own) return toast('Zaten bir takımın var');
+  if (ME.money < FUT_PRICE) return toast('Para yetmiyor');
+  const g = document.getElementById.bind(document);
+  modal('💰 Takımını satın al', [{ label: '✅ Satın al', cls: 'blue', fn: async () => {
+    const n = (g('fnm').value || '').trim().replace(/\s+/g, ' ');
+    if (!futNameOk(n)) return toast('Bu isim olmaz 🙅 3-24 harf, gerçek ve ünlü takım isimleri yasak (telif)', 5000);
+    if (Object.values(teams).some(t => t.n && fold(t.n.toLocaleLowerCase('tr')) === fold(n.toLocaleLowerCase('tr')))) return toast('Bu isimde takım var');
+    const r = await runTransaction(ref(db, `fut/teams/${tid}/o`), v => v ? undefined : myId).catch(() => null);
+    if (!r || !r.committed) return toast('Başkası daha önce aldı 😕');
+    if (!spend(FUT_PRICE)) { set(ref(db, `fut/teams/${tid}/o`), null); return; }
+    cityIncome(FUT_PRICE); saveMe();
+    await update(ref(db, `fut/teams/${tid}`), { n, on: ME.name });
+    FUTTT = 0; say(`⚽ <b>${esc(ME.name)}</b> yeni takımını kurdu: <b>${esc(n)}</b>! Komşukent Ligi'ne hoş geldin 🏟️`, true, 'ann');
+    toast('🎉 Takımın hayırlı olsun başkan!', 4000); futTeam(tid);
+  } }], `<p>Takımına bir isim ver (3-24 harf). <b>Gerçek ve ünlü takım isimleri yasak</b> (Galatasaray, Real Madrid gibi), telif sorunu çıkmasın.</p><input id="fnm" maxlength="24" placeholder="ör. Komşu Yıldızları">`);
+}
+async function futUpgrade(tid) {
+  const teams = await futTeams(true), t = teams[tid]; if (!t || t.o !== myId) return;
+  const pl = Object.entries(t.pl || {}).sort((a, b) => posOrd[a[1].ps] - posOrd[b[1].ps] || b[1].pw - a[1].pw);
+  modal('⬆ Güç yükselt', [...pl.map(([pid, p]) => ({ label: `${p.u ? '⭐ ' : ''}${esc(p.n)} • ${p.ps} • ${p.pw}`, right: p.pw >= 99 ? 'MAX' : futCost(p.pw).toLocaleString('tr') + ' 💰', disabled: p.pw >= 99 || ME.money < futCost(p.pw), keep: true, fn: async () => {
+    const c = futCost(p.pw); if (!spend(c)) return;
+    const r = await runTransaction(ref(db, `fut/teams/${tid}/pl/${pid}/pw`), v => v != null && v < 99 ? v + 1 : undefined).catch(() => null);
+    if (!r || !r.committed) { earn(c); return; }
+    cityIncome(c); saveMe(); toast(`⬆ ${p.n} gücü ${r.snapshot.val()} oldu`); FUTTT = 0; futUpgrade(tid);
+  } })), { label: '⬅ Takıma dön', fn: () => futTeam(tid) }], `<p>Her seviye bir öncekinden pahalı. En fazla 99. Para devlet kasasına gider.</p>`);
+}
+async function futSellMenu(tid) {
+  const teams = await futTeams(true), t = teams[tid], pl = Object.entries(t.pl || {}).filter(([, p]) => !p.u);
+  if (Object.keys(t.pl || {}).length <= FUT_MINSQ) return toast(`Kadronda en az ${FUT_MINSQ} oyuncu kalmalı`);
+  modal('💸 Pazara çıkar', [...pl.map(([pid, p]) => ({ label: `${esc(p.n)} • ${p.ps} • ${p.pw}`, right: '≈ ' + futVal(p).toLocaleString('tr') + ' 💰', fn: () => {
+    const pr = Math.round(+prompt(`${p.n} için satış fiyatı (💰)`, futVal(p)) || 0);
+    if (pr < 100 || pr > 500000) return toast('Fiyat 100 - 500.000 arası olmalı');
+    set(ref(db, `fut/mkt/${tid}_${pid}`), { t: tid, p: pid, pr, n: p.n, ps: p.ps, pw: p.pw, a: p.a || 25, tn: t.n, at: now() }).then(() => toast('💸 Pazara çıktı'));
+  } })), { label: '⬅ Takıma dön', fn: () => futTeam(tid) }]);
+}
+async function futMarket() {
+  const teams = await futTeams(true), my = futMine(teams), M = (await get(ref(db, 'fut/mkt')).catch(() => null))?.val() || {};
+  const L = Object.entries(M).filter(([, m]) => m && teams[m.t] && (teams[m.t].pl || {})[m.p]).sort((a, b) => b[1].pw - a[1].pw);
+  modal('💸 Transfer pazarı', [...L.map(([k, m]) => ({ label: `${esc(m.n)} • ${m.ps} • ${m.pw} • ${m.a} yaş`, right: `${m.pr.toLocaleString('tr')} 💰`, disabled: !my.own || m.t === my.own, fn: () => m.t === my.own ? null : futBuyPlayer(k, m) })),
+    ...L.filter(([, m]) => m.t === my.own).map(([k, m]) => ({ label: `❌ İlanı kaldır: ${esc(m.n)}`, fn: () => remove(ref(db, 'fut/mkt/' + k)).then(futMarket) })),
+    { label: '⬅ Geri', fn: futMenu }], my.own ? '<p>Futbolcu almak için dokun. Para satan takımın başkanına gider.</p>' : '<p>Futbolcu alabilmek için önce bir takımın olmalı.</p>');
+}
+async function futBuyPlayer(k, m) {
+  const teams = await futTeams(true), my = futMine(teams); if (!my.own) return;
+  if (Object.keys(teams[my.own].pl || {}).length >= FUT_MAXSQ) return toast(`Kadro en fazla ${FUT_MAXSQ} kişi`);
+  if (ME.money < m.pr) return toast('Para yetmiyor');
+  let got = null; const r = await runTransaction(ref(db, 'fut/mkt/' + k), v => { got = v; return v ? null : undefined; }).catch(() => null);
+  if (!r || !r.committed || !got) return toast('Bu futbolcu satıldı 😕');
+  const p = ((teams[got.t] || {}).pl || {})[got.p]; if (!p) return toast('Futbolcu bulunamadı');
+  if (!spend(got.pr)) return; saveMe();
+  const seller = teams[got.t].o; if (seller) { payBig(seller, got.pr); notify(seller, `💸 ${p.n} ${teams[my.own].n} takımına ${got.pr} 💰 karşılığı satıldı`); } else cityIncome(got.pr);
+  const np = 'p' + Date.now().toString(36);
+  await update(ref(db), { [`fut/teams/${got.t}/pl/${got.p}`]: null, [`fut/teams/${my.own}/pl/${np}`]: Object.assign({}, p, { inj: null, sus: null }) });
+  FUTTT = 0; say(`💸 <b>TRANSFER:</b> ${esc(p.n)} (${p.ps}, ${p.pw}) ${esc(teams[got.t].n)} → <b>${esc(teams[my.own].n)}</b> • ${got.pr.toLocaleString('tr')} 💰`, true);
+  toast('✍️ Transfer tamam!', 4000); futTeam(my.own);
+}
+async function futApply(tid) {
+  const fpw = Math.max(40, Math.min(99, ME.fpw || 50));
+  modal('✍️ Hangi mevkide oynarsın?', Object.entries(FUTPOS).map(([k, n]) => ({ label: n, fn: () => {
+    set(ref(db, `fut/apply/${tid}/${myId}`), { n: ME.name, ps: k, pw: fpw, t: now() }).then(() => { const o = (FUTT[tid] || {}).o; if (o) notify(o, `✍️ ${ME.name} takımına futbolcu olarak başvurdu (${n}, güç ${fpw})`); toast('📨 Başvurun başkana gitti'); });
+  } })), `<p>Gücün: <b>${fpw}</b>. Stadyumda ya da halı sahada antrenman yaparak yükselt.</p>`);
+}
+async function futAccept(tid, uid, a) {
+  const teams = await futTeams(true), t = teams[tid];
+  if (Object.keys(t.pl || {}).length >= FUT_MAXSQ) return toast(`Kadro en fazla ${FUT_MAXSQ} kişi, önce birini sat`);
+  if (Object.values(teams).some(x => Object.values(x.pl || {}).some(p => p.u === uid))) { remove(ref(db, `fut/apply/${tid}/${uid}`)); return toast('Başka takıma girmiş'); }
+  await update(ref(db), { [`fut/teams/${tid}/pl/u${uid.slice(0, 10)}`]: { n: a.n, ps: a.ps, pw: a.pw, a: 20, u: uid }, [`fut/apply/${tid}/${uid}`]: null });
+  notify(uid, `🎉 ${t.n} seni kadrosuna aldı! Artık gerçek futbolcusun ⚽ Her maçta prim, her golde ödül!`);
+  say(`✍️ <b>${esc(a.n)}</b> ${esc(t.n)} ile sözleşme imzaladı! ⚽`, true); FUTTT = 0; futTeam(tid);
+}
+async function futCareer() {
+  const teams = await futTeams(true), my = futMine(teams), fpw = ME.fpw || 50;
+  const cur = my.play ? teams[my.play.tid].pl[my.play.pid] : null;
+  if (cur && cur.pw > fpw) { ME.fpw = cur.pw; update(ref(db, 'players/' + myId), { fpw: cur.pw }); }
+  const items = [];
+  if (my.play) items.push({ label: `🛡 Takımıma git: ${esc(teams[my.play.tid].n)}`, fn: () => futTeam(my.play.tid) }, { label: '🚪 Takımdan ayrıl', fn: () => { if (confirm('Takımdan ayrılmak istediğine emin misin?')) remove(ref(db, `fut/teams/${my.play.tid}/pl/${my.play.pid}`)).then(() => { FUTTT = 0; toast('Takımdan ayrıldın'); }); } });
+  else items.push({ label: '🔎 Takım bul (başvur)', cls: 'blue', fn: futTeamList });
+  items.push({ label: '⬅ Geri', fn: futMenu });
+  modal('👟 Futbolcu kariyerim', items, `<p>Gücün: <b>${Math.max(fpw, cur ? cur.pw : 0)}</b>/99 ${cur ? `• ${FUTPOS[cur.ps]}` : ''}<br>Takımda oynarsan her maç <b>+50 💰</b>, her gol <b>+40 💰</b>. Gol kralı sezon sonu <b>+2.000 💰</b>!<br>Stadyumda ya da halı sahada <b>🏃 Antrenman</b> yap, gücün artsın.</p>`);
+}
+async function futTrain() {
+  if ((ME.ftr || 0) > now()) return toast(`Dinlen biraz, ${Math.ceil((ME.ftr - now()) / 60000)} dk sonra tekrar`);
+  startTask('work', 25000, () => futNearField(), async () => {
+    ME.energy -= 20; ME.ftr = now() + 15 * 60000; stat('fun');
+    const p0 = ME.fpw || 50, ch = p0 < 70 ? 1 : p0 < 85 ? 0.6 : 0.3, up = Math.random() < ch && p0 < 99;
+    ME.fpw = p0 + (up ? 1 : 0); update(ref(db, 'players/' + myId), { fpw: ME.fpw, ftr: ME.ftr });
+    const teams = await futTeams(true), my = futMine(teams);
+    if (up && my.play) runTransaction(ref(db, `fut/teams/${my.play.tid}/pl/${my.play.pid}/pw`), v => v != null && v < 99 ? Math.max(v + 1, ME.fpw) : undefined).catch(() => { });
+    hud(); toast(up ? `💪 Antrenman harika! Gücün ${ME.fpw} oldu` : '🏃 Antrenman tamam, gelişim yavaş ama sürüyor', 4000);
+  }, '🏃 Antrenman');
+}
+async function futHonors() {
+  const ch = (await get(ref(db, 'fut/champ')).catch(() => null))?.val() || {}, cup = (await get(ref(db, 'fut/cup')).catch(() => null))?.val() || {};
+  modal('🏆 Şampiyonlar', [{ label: '⬅ Geri', fn: futMenu }], `<p><b>Komşukent Ligi şampiyonları</b></p>${Object.entries(ch).map(([s, c]) => `<div>🏆 ${s}. sezon: <b>${esc(c.n)}</b>${c.on ? ' (Başkan ' + esc(c.on) + ')' : ''}</div>`).join('') || '<p>İlk sezon devam ediyor.</p>'}
+    <p style="margin-top:10px"><b>🌍 Ülkeler Kupası</b> (3 ülkenin şampiyonları)</p>${Object.values(cup).map(c => `<div>🏆 <b>${esc(c.wn)}</b> (${esc(c.wc)})<br><small>${(c.res || []).map(m => esc(m)).join(' • ')}</small></div>`).join('') || '<p>Sezon sonunda şampiyonlar karşılaşacak!</p>'}`);
+}
+const futNearField = () => ME && (futInStad(ME.x, ME.y) || HSAHA.some(h => inside(h, ME.x, ME.y, 20)));
+function futInStad(x, y) { const tx = x / T, ty = y / T; return Math.abs(tx - STX) < SPX + SGAP - 0.5 && Math.abs(ty - STZ) < SPZ + SGAP - 0.5; }
+function futBlocked(x, y) {
+  const tx = x / T, ty = y / T, dx = Math.abs(tx - STX), dz = Math.abs(ty - STZ), O = SOUT + 1.4;
+  if (dx > SPX + O || dz > SPZ + O) return false;
+  if (dx < SPX + SGAP - 0.3 && dz < SPZ + SGAP - 0.3) return false;      // saha + kenar
+  if (dx < 2.6 && ty < STZ) return false;                                  // kuzey giriş tüneli
+  return true;
+}
+function futActs(L, b, t) {
+  if (!ME) return;
+  const inS = futInStad(ME.x, ME.y), inH = HSAHA.some(h => inside(h, ME.x, ME.y, 20));
+  if (!inS && !inH) return;
+  if (inS) L.push({ label: '⚽ Komşukent Ligi (takımlar, puan durumu, transfer)', cls: 'blue', fn: futMenu });
+  const live = futLiveRound();
+  if (inS && live >= 0) L.push({ label: `🎟 Maçı izle (20 💰, +25⚡) • 🔴 ${futMin(live)}'`, disabled: ME.money < 20 || ME.energy >= 100, fn: () => { if (!spend(20)) return; cityIncome(20); startTask('rest', 30000, () => futInStad(ME.x, ME.y), () => { ME.energy = Math.min(100, ME.energy + 25); stat('fun'); hud(); saveMe(); toast('📣 Tribünler coştu! +25⚡'); }, '🎟 Maç izliyorsun'); } });
+  if (ME.job === 'Futbolcu') L.push({ label: `🏃 Antrenman (-20⚡, güç ${ME.fpw || 50})`, disabled: ME.energy < 20, fn: futTrain });
+  if (inH) L.push({ label: '⚽ Halı saha maçı yap (eğlence, -10⚡)', disabled: ME.energy < 10, fn: () => startTask('rest', 20000, () => HSAHA.some(h => inside(h, ME.x, ME.y, 30)), () => { ME.energy -= 10; stat('fun'); hud(); saveMe(); toast('⚽ Maç bitti! Halı saha efsanesi 😄'); }, '⚽ Halı saha') });
+}
+
+// ---- 3D: stad (videodaki gibi siyah-beyaz kase) + halı sahalar
+const FUT3 = {};
+function futInst(color, list, basic) {
+  if (!list.length) return null;
+  const m = new THREE.InstancedMesh(boxG, basic ? new THREE.MeshBasicMaterial({ color }) : mat(color), list.length), d = new THREE.Object3D(), col = new THREE.Color();
+  list.forEach((b, i) => { d.position.set(b[3], b[4], b[5]); d.rotation.set(0, b[6] || 0, 0); d.scale.set(b[0], b[1], b[2]); d.updateMatrix(); m.setMatrixAt(i, d.matrix); if (b[7]) m.setColorAt(i, col.set(b[7])); });
+  m.instanceMatrix.needsUpdate = true; if (m.instanceColor) m.instanceColor.needsUpdate = true;
+  m.receiveShadow = true; scene.add(m); return m;
+}
+function futRing(d0, d1, y0, y1, seg, colf, gap) {   // kasenin çevresinde parçalı kutular (düz kenar + yuvarlak köşe)
+  const out = [], dm = (d0 + d1) / 2, dw = d1 - d0; let i = 0;
+  const put = (x, z, ux, uz, w) => { if (gap && uz < -0.9 && Math.abs(x - STX) < 2.7) { i++; return; } out.push([w, y1 - y0, dw, x, (y0 + y1) / 2, z, Math.atan2(ux, uz), colf(i++)]); };
+  for (const [x0, z0, x1, z1, ux, uz] of [[STX - SPX, STZ - SPZ - dm, STX + SPX, STZ - SPZ - dm, 0, -1], [STX + SPX + dm, STZ - SPZ, STX + SPX + dm, STZ + SPZ, 1, 0], [STX + SPX, STZ + SPZ + dm, STX - SPX, STZ + SPZ + dm, 0, 1], [STX - SPX - dm, STZ + SPZ, STX - SPX - dm, STZ - SPZ, -1, 0]]) {
+    const Ln = Math.hypot(x1 - x0, z1 - z0), n = Math.max(1, Math.round(Ln / seg));
+    for (let k = 0; k < n; k++) { const f = (k + 0.5) / n; put(x0 + (x1 - x0) * f, z0 + (z1 - z0) * f, ux, uz, Ln / n + 0.03); }
+  }
+  for (const [ox, oz, a0] of [[STX + SPX, STZ - SPZ, -Math.PI / 2], [STX + SPX, STZ + SPZ, 0], [STX - SPX, STZ + SPZ, Math.PI / 2], [STX - SPX, STZ - SPZ, Math.PI]]) {
+    const n = Math.max(2, Math.round(dm * Math.PI / 2 / seg));
+    for (let k = 0; k < n; k++) { const a = a0 + (k + 0.5) / n * Math.PI / 2, ux = Math.cos(a), uz = Math.sin(a); put(ox + ux * dm, oz + uz * dm, ux, uz, 2 * dm * Math.sin(Math.PI / 4 / n) + 0.06); }
+  }
+  return out;
+}
+function futSeats() {
+  const out = [];
+  for (let r = 0; r < SROWS; r++) {
+    const d = SGAP + r * SRD + SRD / 2, y = (r + 1) * SRH; let col = 0;
+    const segs = [[STX - SPX, STZ - SPZ - d, STX + SPX, STZ - SPZ - d, 0, -1], 'A1', [STX + SPX + d, STZ - SPZ, STX + SPX + d, STZ + SPZ, 1, 0], 'A2', [STX + SPX, STZ + SPZ + d, STX - SPX, STZ + SPZ + d, 0, 1], 'A3', [STX - SPX - d, STZ + SPZ, STX - SPX - d, STZ - SPZ, -1, 0], 'A4'];
+    const arcs = { A1: [STX + SPX, STZ - SPZ, -Math.PI / 2], A2: [STX + SPX, STZ + SPZ, 0], A3: [STX - SPX, STZ + SPZ, Math.PI / 2], A4: [STX - SPX, STZ - SPZ, Math.PI] };
+    for (const s of segs) {
+      if (typeof s === 'string') {
+        const [ox, oz, a0] = arcs[s], n = Math.max(1, Math.floor(d * Math.PI / 2 / SSEAT));
+        for (let k = 0; k < n; k++) { const a = a0 + (k + 0.5) / n * Math.PI / 2, ux = Math.cos(a), uz = Math.sin(a); out.push({ x: ox + ux * d, y, z: oz + uz * d, ux, uz, r, col: col++ }); }
+      } else {
+        const [x0, z0, x1, z1, ux, uz] = s, Ln = Math.hypot(x1 - x0, z1 - z0), n = Math.floor(Ln / SSEAT);
+        for (let k = 0; k < n; k++) { const f = (k + 0.5) / n, x = x0 + (x1 - x0) * f, z = z0 + (z1 - z0) * f; if (uz < 0 && Math.abs(x - STX) < 2.4) { col++; continue; } out.push({ x, y, z, ux, uz, r, col: col++ }); }
+      }
+    }
+  }
+  return out;
+}
+function fut3D() {
+  if (FUT3.done || !THREE || !scene || !boxG) return; FUT3.done = 1;
+  try { fut3Dbuild(); } catch (e) { console.log('fut3D', e); FUT3.err = 1; }
+}
+function fut3Dbuild() {
+  // zemin uzatması (haritanın güneyi)
+  const gr = new THREE.Mesh(new THREE.PlaneGeometry(220, 70), mat('#7cc06a')); gr.rotation.x = -Math.PI / 2; gr.position.set(49, -0.01, 150); gr.receiveShadow = true; scene.add(gr);
+  { const z0 = 113.6, z1 = STZ - SPZ - SOUT - 0.9; box(3.2, 0.06, z1 - z0, '#4a4f57', STX, 0.04, (z0 + z1) / 2, null, false); }   // stada yol
+  box(2.4, 0.06, 14, '#4a4f57', 83.5, 0.04, 120.8, null, false);                                                                       // halı sahalara yol
+  const pitch = new THREE.Mesh(new THREE.PlaneGeometry(2 * (SPX + SGAP), 2 * (SPZ + SGAP)), mat('#3a9a46')); pitch.rotation.x = -Math.PI / 2; pitch.position.set(STX, 0.03, STZ); pitch.receiveShadow = true; scene.add(pitch);
+  const strip = []; for (let k = 0; k < 10; k += 2) strip.push([3, 0.02, 2 * SPZ, STX - SPX + k * 3 + 1.5, 0.045, STZ, 0]);
+  futInst('#46ad52', strip, true);
+  const ln = [], W_ = 0.14, L_ = (x0, z0, x1, z1) => ln.push([Math.abs(x1 - x0) + W_, 0.02, Math.abs(z1 - z0) + W_, (x0 + x1) / 2, 0.06, (z0 + z1) / 2, 0]);
+  L_(STX - SPX, STZ - SPZ, STX + SPX, STZ - SPZ); L_(STX - SPX, STZ + SPZ, STX + SPX, STZ + SPZ); L_(STX - SPX, STZ - SPZ, STX - SPX, STZ + SPZ); L_(STX + SPX, STZ - SPZ, STX + SPX, STZ + SPZ); L_(STX, STZ - SPZ, STX, STZ + SPZ);
+  for (const sg of [-1, 1]) { const gx = STX + sg * SPX; L_(gx - sg * 4.5, STZ - 5.5, gx - sg * 4.5, STZ + 5.5); L_(gx, STZ - 5.5, gx - sg * 4.5, STZ - 5.5); L_(gx, STZ + 5.5, gx - sg * 4.5, STZ + 5.5); L_(gx - sg * 1.6, STZ - 2.4, gx - sg * 1.6, STZ + 2.4); L_(gx, STZ - 2.4, gx - sg * 1.6, STZ - 2.4); L_(gx, STZ + 2.4, gx - sg * 1.6, STZ + 2.4); }
+  futInst('#ffffff', ln, true);
+  const cc = new THREE.Mesh(new THREE.RingGeometry(2.6, 2.75, 40), new THREE.MeshBasicMaterial({ color: '#ffffff' })); cc.rotation.x = -Math.PI / 2; cc.position.set(STX, 0.065, STZ); scene.add(cc);
+  for (const sg of [-1, 1]) { const gx = STX + sg * (SPX + 0.15), g = []; g.push([0.14, 2.0, 0.14, gx, 1.0, STZ - 2.2], [0.14, 2.0, 0.14, gx, 1.0, STZ + 2.2], [0.14, 0.14, 4.54, gx, 2.0, STZ]); futInst('#ffffff', g); box(0.04, 1.9, 4.4, '#dddddd', gx + sg * 0.9, 0.95, STZ, null, false); }
+  // LED panolar
+  futInst('#151515', futRing(SGAP - 1.05, SGAP - 0.9, 0, 0.75, 2.2, () => 0, 1));
+  futInst('#3e7bff', futRing(SGAP - 1.08, SGAP - 1.04, 0.2, 0.6, 2.2, () => 0, 1), true);
+  // basamaklar + koltuklar (siyah-beyaz bloklar)
+  const S = futSeats(); FUT3.seats = S;
+  const steps = [], cush = [], back = [];
+  for (const s of S) {
+    const rt = Math.atan2(s.ux, s.uz); steps.push([SSEAT + 0.05, s.y, SRD + 0.04, s.x, s.y / 2, s.z, rt, s.r % 2 ? '#a9a9a9' : '#bdbdbd']);
+    const blk = Math.floor(((Math.atan2(s.z - STZ, s.x - STX) * 180 / Math.PI + 360) % 360) / 15), c = (blk + Math.floor(s.r / 3)) % 2 ? '#f2f2f2' : '#1b1b1b';
+    cush.push([0.8, 0.2, 0.7, s.x, s.y + 0.12, s.z, rt, c]); back.push([0.8, 0.7, 0.1, s.x + s.ux * 0.36, s.y + 0.48, s.z + s.uz * 0.36, rt, c]);
+  }
+  futInst('#ffffff', steps); futInst('#ffffff', cush); futInst('#ffffff', back);
+  const top = SROWS * SRH;
+  futInst('#ffffff', futRing(SOUT + 0.2, SOUT + 1.0, 0, top + 4.2, 1.6, i => i % 2 ? '#141414' : '#f4f4f4', 1));      // şeritli cephe
+  futInst('#141414', [[5.6, 1.6, 0.9, STX, top + 3.4, STZ - SPZ - SOUT - 0.6, 0]]);                                     // giriş kemeri
+  futInst('#e6e6e6', futRing(SGAP + 3 * SRD, SOUT + 1.0, top + 4.2, top + 4.55, 2.6, () => 0));                    // çatı
+  futInst('#111111', futRing(SGAP + 3 * SRD - 0.3, SGAP + 3 * SRD, top + 3.7, top + 4.55, 2.6, () => 0));          // saçak
+  futInst('#fffbe8', futRing(SGAP + 3 * SRD + 0.1, SGAP + 3 * SRD + 0.5, top + 3.95, top + 4.15, 2.6, () => 0), true);
+  // tabela (kuzey cephesi, yola bakar) + skorbord
+  const sg = new THREE.Mesh(new THREE.PlaneGeometry(16, 2.4), new THREE.MeshBasicMaterial({ map: signTex('KOMŞUKENT STADYUMU', '#141414', '#ffffff', 1024, 154) }));
+  sg.rotation.y = Math.PI; sg.position.set(STX, top + 2.6, STZ - SPZ - SOUT - 1.05); scene.add(sg);
+  const sg2 = sg.clone(); sg2.rotation.y = 0; sg2.position.set(STX, top + 2.6, STZ - SPZ - SOUT - 0.95);
+  FUT3.sbTex = signTex('KOMŞUKENT LİGİ', '#0d0d0d', '#ffffff', 1024, 256);
+  const sb = new THREE.Mesh(new THREE.PlaneGeometry(12, 3), new THREE.MeshBasicMaterial({ map: FUT3.sbTex })); sb.position.set(STX, top + 7.5, STZ + SPZ + SOUT - 0.5); sb.rotation.y = Math.PI; scene.add(sb); FUT3.sb = sb;
+  box(12.4, 3.4, 0.4, '#0d0d0d', STX, top + 7.5, STZ + SPZ + SOUT - 0.25); box(0.4, 3, 0.4, '#777', STX - 4, top + 5.3, STZ + SPZ + SOUT - 0.25); box(0.4, 3, 0.4, '#777', STX + 4, top + 5.3, STZ + SPZ + SOUT - 0.25);
+  // ışık kuleleri
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+    const x = STX + sx * (SPX + SOUT * 0.75 + 2.5), z = STZ + sz * (SPZ + SOUT * 0.75 + 2.5);
+    cyl(0.35, 0.45, top + 12, '#9e9e9e', x, (top + 12) / 2, z, null, 8);
+    const l = box(3.2, 2.0, 0.5, '', x, top + 12.8, z, null, false, new THREE.MeshBasicMaterial({ color: '#fffbe0' })); l.rotation.y = Math.atan2(-sx, -sz);
+  }
+  // seyirciler (instanced; maç saatinde dolar)
+  const crowd = S.filter((s, i) => (i * 7) % 10 < 9);
+  const bodyC = ['#1b1b1b', '#f2f2f2', '#1b1b1b', '#f2f2f2', '#c0392b', '#1f4e9e', '#9e9e9e'];
+  FUT3.crowd = futInst('#ffffff', crowd.map((s, i) => [0.6, 0.75, 0.45, s.x, s.y + 0.55, s.z, Math.atan2(s.ux, s.uz), bodyC[(i * 13) % 7]]));
+  FUT3.heads = futInst('#ffffff', crowd.map((s, i) => [0.45, 0.45, 0.45, s.x, s.y + 1.15, s.z, Math.atan2(s.ux, s.uz), ['#f2c9a0', '#d9a066', '#8d5524', '#e0ac69'][(i * 7) % 4]]));
+  FUT3.nCrowd = crowd.length;
+  // sahadaki 22 futbolcu + top (sadece canlı maçta)
+  FUT3.pa = futInst('#c0392b', Array.from({ length: 11 }, () => [0.55, 1.5, 0.4, STX, 0.75, STZ, 0]));
+  FUT3.pb = futInst('#1f4e9e', Array.from({ length: 11 }, () => [0.55, 1.5, 0.4, STX, 0.75, STZ, 0]));
+  FUT3.ball = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), new THREE.MeshLambertMaterial({ color: '#ffffff' })); scene.add(FUT3.ball);
+  // halı sahalar
+  HSAHA.forEach((h, i) => {
+    const cx = h.x + h.w / 2, cz = h.y + h.h / 2;
+    const pl = new THREE.Mesh(new THREE.PlaneGeometry(h.w, h.h), mat('#2f8f3f')); pl.rotation.x = -Math.PI / 2; pl.position.set(cx, 0.03, cz); scene.add(pl);
+    const l2 = []; const LL = (x0, z0, x1, z1) => l2.push([Math.abs(x1 - x0) + 0.1, 0.02, Math.abs(z1 - z0) + 0.1, (x0 + x1) / 2, 0.05, (z0 + z1) / 2, 0]);
+    LL(h.x + 0.6, h.y + 0.6, h.x + h.w - 0.6, h.y + 0.6); LL(h.x + 0.6, h.y + h.h - 0.6, h.x + h.w - 0.6, h.y + h.h - 0.6); LL(h.x + 0.6, h.y + 0.6, h.x + 0.6, h.y + h.h - 0.6); LL(h.x + h.w - 0.6, h.y + 0.6, h.x + h.w - 0.6, h.y + h.h - 0.6); LL(h.x + 0.6, cz, h.x + h.w - 0.6, cz);
+    futInst('#ffffff', l2, true);
+    const f = []; for (let k = 0; k <= h.w; k += 2) { f.push([0.1, 3, 0.1, h.x + k, 1.5, h.y], [0.1, 3, 0.1, h.x + k, 1.5, h.y + h.h]); } for (let k = 0; k <= h.h; k += 2) { f.push([0.1, 3, 0.1, h.x, 1.5, h.y + k], [0.1, 3, 0.1, h.x + h.w, 1.5, h.y + k]); }
+    futInst('#2d3436', f);
+    const net = new THREE.MeshBasicMaterial({ color: '#2d6a4f', transparent: true, opacity: 0.25, side: THREE.DoubleSide });
+    for (const [w, d, x, z, ry] of [[h.w, 0, cx, h.y, 0], [h.w, 0, cx, h.y + h.h, 0], [h.h, 0, h.x, cz, Math.PI / 2], [h.h, 0, h.x + h.w, cz, Math.PI / 2]]) { const n = new THREE.Mesh(new THREE.PlaneGeometry(w, 3), net); n.position.set(x, 1.5, z); n.rotation.y = ry; scene.add(n); }
+    for (const sg2 of [-1, 1]) futInst('#ffffff', [[0.12, 1.4, 0.12, cx - 1.6, 0.7, cz + sg2 * (h.h / 2 - 0.7)], [0.12, 1.4, 0.12, cx + 1.6, 0.7, cz + sg2 * (h.h / 2 - 0.7)], [3.32, 0.12, 0.12, cx, 1.4, cz + sg2 * (h.h / 2 - 0.7)]]);
+    const s = new THREE.Mesh(new THREE.PlaneGeometry(5, 1.1), new THREE.MeshBasicMaterial({ map: signTex(`HALI SAHA ${i + 1}`, '#2d6a4f', '#ffffff') })); s.position.set(cx, 3.6, h.y - 0.05); s.rotation.y = Math.PI; scene.add(s);
+  });
+}
+let FUT_SBKEY = '';
+function futAnim(t) {
+  if (!FUT3.done) { if (scene && boxG) fut3D(); return; }
+  if (FUT3.err || !FUT3.crowd) return;
+  try { futAnim2(t); } catch (e) { console.log('futAnim', e); FUT3.err = 1; }
+}
+function futAnim2(t) {
+  const live = FUTCFG ? futLiveRound() : -1, on = live >= 0;
+  FUT3.crowd.count = FUT3.heads.count = on ? FUT3.nCrowd : Math.floor(FUT3.nCrowd * 0.25);
+  FUT3.pa.visible = FUT3.pb.visible = FUT3.ball.visible = on;
+  if (on) {
+    const d = new THREE.Object3D(), bx = STX + Math.sin(t / 2300) * (SPX - 2) * Math.cos(t / 5100), bz = STZ + Math.sin(t / 1700) * (SPZ - 2);
+    FUT3.ball.position.set(bx, 0.25 + Math.abs(Math.sin(t / 180)) * 0.3, bz);
+    [FUT3.pa, FUT3.pb].forEach((m, k) => {
+      for (let i = 0; i < 11; i++) {
+        const hx = STX + (k ? 1 : -1) * (i === 0 ? SPX - 0.8 : (SPX * (0.15 + (i % 4) * 0.22))), hz = STZ + (((i * 37) % 11) / 10 - 0.5) * 2 * (SPZ - 1.5);
+        const pull = i === 0 ? 0.05 : 0.35, x = hx + (bx - hx) * pull + Math.sin(t / 700 + i * 3 + k) * 0.6, z = hz + (bz - hz) * pull + Math.cos(t / 800 + i * 2) * 0.6;
+        d.position.set(x, 0.75 + Math.abs(Math.sin(t / 150 + i)) * 0.08, z); d.rotation.set(0, Math.atan2(bx - x, bz - z), 0); d.scale.set(0.55, 1.5, 0.4); d.updateMatrix(); m.setMatrixAt(i, d.matrix);
+      }
+      m.instanceMatrix.needsUpdate = true;
+    });
+  }
+  const key = on && FUTLIVE.res && FUTT ? `${live}|${futMin(live)}` : (on ? 'live' : 'idle');
+  if (key !== FUT_SBKEY && FUT3.sb) {
+    FUT_SBKEY = key; let txt = 'KOMŞUKENT LİGİ';
+    if (on && FUTLIVE.res && FUTT) {
+      const mn = futMin(live), top = FUTLIVE.res.map(m => ({ m, s: futStr(futXI(FUTT[m.h], live)) + futStr(futXI(FUTT[m.a], live)) })).sort((a, b) => b.s - a.s)[0].m;
+      const ev = futEv(top).filter(e => e.ty === 'g' && e.mn <= mn);
+      txt = `${(FUTT[top.h].n || '').slice(0, 12)} ${ev.filter(e => !e.sd).length}-${ev.filter(e => e.sd).length} ${(FUTT[top.a].n || '').slice(0, 12)}  ${mn}'`;
+    }
+    const old = FUT3.sb.material.map; FUT3.sb.material.map = signTex(txt, '#0d0d0d', '#ffffff', 1024, 256); FUT3.sb.material.needsUpdate = true; if (old) old.dispose();
+  }
+}
+
+// ---- yönetici: Ülkeler Kupası + lig ayarları
+function futAdminHTML() {
+  return `<h3>⚽ Komşukent Ligi</h3><p style="font-size:12px;opacity:.8;margin:0 0 6px">${FUTCFG ? `${FUTCFG.s}. sezon • ${FUTDONE}/${FUT_ROUNDS} hafta • ilk maç ${fmtKick(FUTCFG.st)}` : 'Lig henüz kurulmadı'}</p>
+  <button id="aFutCup" style="background:#d4ac0d;margin-bottom:6px">🌍 Ülkeler Kupası'nı oynat (3 ülkenin son şampiyonları)</button>
+  <button id="aFutNow" style="background:#2e86de;margin-bottom:6px">⏩ Sezonu bu hafta başlat (sıradaki Cuma)</button>
+  <button id="aFutRs" style="background:#c0392b">♻️ Ligi sıfırla (takımlar yeniden kurulur)</button>`;
+}
+function futAdminWire(el) {
+  const g = id => el.querySelector(id);
+  if (g('#aFutNow')) g('#aFutNow').onclick = () => { if (!FUTCFG) return; const st = futNextStart(now()); set(ref(db, 'fut/cfg'), { s: FUTCFG.s, st }).then(() => alert('✅ İlk maç: ' + fmtKick(st))); };
+  if (g('#aFutRs')) g('#aFutRs').onclick = () => { if (!confirm('Bütün takımlar, sonuçlar ve sahiplikler silinip lig yeniden kurulsun mu?')) return; update(ref(db), { 'fut/teams': null, 'fut/res': null, 'fut/done': null, 'fut/mkt': null, 'fut/apply': null, 'fut/seed': null, 'fut/cfg': null, 'fut/lock': null }).then(() => alert('✅ Sıfırlandı, birkaç saniyede yeniden kurulur')); };
+  if (g('#aFutCup')) g('#aFutCup').onclick = futCup;
+}
+async function futCup() {
+  const P = [];
+  for (const c of Object.keys(COUNTRIES).map(Number)) {
+    let D = null; try { D = await connectCountry(c); } catch (e) { }
+    if (!D) { alert(`${ctryName(c)}'e bağlanılamadı (önce panelden 🔌 bağlan)`); return; }
+    const ch = (await get(ref(D.db, 'fut/champ')).catch(() => null))?.val() || {}, ks = Object.keys(ch).map(Number).sort((a, b) => b - a);
+    if (!ks.length) { alert(`${ctryName(c)}'de henüz şampiyon yok (ilk sezon bitmedi)`); return; }
+    const last = ch[ks[0]], team = (await get(ref(D.db, 'fut/teams/' + last.t)).catch(() => null))?.val();
+    if (!team) { alert(ctryName(c) + ' şampiyon takımı bulunamadı'); return; }
+    P.push({ c, D, t: last.t, team, n: team.n, o: team.o });
+  }
+  if (!confirm(`Ülkeler Kupası: ${P.map(p => `${p.n} (${ctryName(p.c)})`).join(', ')} • oynatılsın mı?`)) return;
+  const pts = P.map(() => 0), gf = P.map(() => 0), res = [], key = 'k' + Date.now().toString(36);
+  for (let i = 0; i < P.length; i++) for (let j = 0; j < P.length; j++) if (i !== j) {
+    const T = { A: P[i].team, B: P[j].team }, m = futPlay(T, 'A', 'B', key, i * 10 + j, 0);
+    res.push(`${P[i].n} ${m.hg}-${m.ag} ${P[j].n}`); gf[i] += m.hg; gf[j] += m.ag;
+    if (m.hg > m.ag) pts[i] += 3; else if (m.hg < m.ag) pts[j] += 3; else { pts[i]++; pts[j]++; }
+  }
+  const w = pts.map((p, i) => [p, gf[i], i]).sort((a, b) => b[0] - a[0] || b[1] - a[1])[0][2], W_ = P[w];
+  const rec = { wn: W_.n, wc: ctryName(W_.c), res, pts: P.map((p, i) => `${p.n}: ${pts[i]} puan`), at: now() };
+  for (const p of P) {
+    await set(ref(p.D.db, 'fut/cup/' + key), rec).catch(() => { });
+    await push(ref(p.D.db, 'wnews'), { h: `🏆 <b>${esc(W_.n)}</b> (${esc(ctryName(W_.c))}) Ülkeler Kupası'nın ŞAMPİYONU! ${res.map(esc).join(' • ')}`, t: now() }).catch(() => { });
+  }
+  if (W_.o) for (let left = 30000; left > 0; left -= 1000) await runTransaction(ref(W_.D.db, 'players/' + W_.o + '/money'), m => (m || 0) + Math.min(1000, left)).catch(() => { });
+  alert(`🏆 Şampiyon: ${W_.n} (${ctryName(W_.c)})\n\n${res.join('\n')}\n\nBaşkana 30.000 💰 ödül gönderildi.`);
+}
+
 // ================= EVENTS =================
 const EV_NAMES = { yangin: '🔥 YANGIN', soygun: '🚨 SOYGUN', festival: '🎉 FESTİVAL' };
 function evStart() { if (EV && !EV.done) { const b = evB(); toast(`${EV_NAMES[EV.type]}${b ? ' — ' + b.n : ''}!`, 5000); } }
@@ -4258,6 +4844,7 @@ async function buildRank() {   // admin only, every 30 min: one full read instea
   await set(ref(db, 'rank'), { t: now(), html }).catch(() => { });
 }
 document.getElementById('bRank').onclick = () => db && rankMenu();
+document.getElementById('bFut').onclick = () => db && ME && futMenu();
 document.getElementById('bWard').onclick = () => ME && wardrobe(null);
 
 // ================= 3D =================
@@ -4659,7 +5246,7 @@ function frame(t) {
     fx = adm.cx; fz = adm.cz;
   } else { const a = t / 9000; fx = WN / 2 + Math.sin(a) * 8; fz = WN / 2 + Math.cos(a) * 8; }
   for (const id in others) { const o = others[id]; if (!o.hasPos) continue; const ox = o.x, oy = o.y, ddx = o.tx - o.x, ddy = o.ty - o.y, dd = Math.hypot(ddx, ddy); if (dd > 600 || !o._sp) { o.x += ddx * 0.09; o.y += ddy * 0.09; } else if (dd > 0.01) { const st = Math.min(dd, o._sp * dt); o.x += ddx / dd * st; o.y += ddy / dd * st; } o._mv = Math.hypot(o.x - ox, o.y - oy) > 0.3; }
-  ecoAnim3D(t); abAnim(t);
+  ecoAnim3D(t); abAnim(t); futAnim(t);
   const dist3 = 15 * zoom; camera3.position.set(fx, dist3 * 1.05, fz + dist3 * 0.95); camera3.lookAt(fx, 0.8, fz);
   sun.position.set(fx + 12, 25, fz + 8); sun.target.position.set(fx, 0, fz);
   // day / night
@@ -4752,6 +5339,7 @@ function adminUI() {
   ${ecoAdminHTML()}
   ${autoCbHTML()}
   ${abAdminHTML()}
+  ${futAdminHTML()}
   <h3>💼 Yönetici kasası: ${Math.floor(AKASA).toLocaleString('tr')} 💰</h3><p style="font-size:12px;opacity:.75;margin:0 0 6px">Senin binalarının (market, fırın, AVM, petshop, veteriner, kuaför…) satış gelirleri burada birikir.</p><div class="row"><input id="aAk" type="number" inputmode="numeric" placeholder="miktar" style="flex:3"><button id="aAkB" style="flex:2">🏛 Cumhurbaşkanlığına aktar</button></div>
   <h3>🏛 Belediye kasası: ${Math.floor(CITY.kasa || 0).toLocaleString('tr')} 💰</h3><div class="row"><input id="aKasa" type="number" inputmode="numeric" placeholder="miktar" style="flex:3"><button id="aKasaB" style="flex:2">➕ Kasaya koy</button></div>
   <h3>🗳 Adaylar (ekle / çıkar)</h3>${Object.entries(elections).filter(([r, e]) => e && e.ends > t && ROLES[r]).map(([r, e]) => `<div style="font-size:13px;margin:6px 0"><b>${ROLES[r].n}</b> (${Object.keys(e.cands || {}).length} aday)</div>${Object.entries(e.cands || {}).map(([cid, c]) => `<div class="row"><button class="pl" style="flex:4">${c.c ? flagHtml(c, 13) : ''}${esc(c.name)} • ${c.votes || 0} oy</button><button style="flex:1;background:#c0392b" data-rmc="${r}|${cid}">✖</button></div>`).join('')}<div class="row"><input id="aC_${r}" placeholder="oyuncu adı" autocapitalize="off" style="flex:3"><button data-addc="${r}" style="flex:1">➕</button></div>`).join('') || '<p>Açık seçim yok. Yukarıdan seçim başlat.</p>'}
@@ -4763,7 +5351,7 @@ function adminUI() {
   <h3>🛡 Moderatörler</h3>${Object.entries(mods).map(([id, m]) => `<div class="row"><button class="pl" style="flex:4">${esc(m.name || id)}</button><button style="flex:1;background:#c0392b" data-unmod="${id}">✖</button></div>`).join('') || '<p style="font-size:13px">Henüz yok. Oyuncu listesinde ⚙️ ile ekle.</p>'}
   <h3>🚩 Cevapsız şikayetler</h3><p style="font-size:12px;opacity:.8">Suç şikayetleri Savcıya, sohbet şikayetleri moderatörlere gider. Burada sadece kimsenin bakmadıkları var (24 saat sonra kendiliğinden düşer).</p>${Object.entries(reports).filter(([, r]) => r && r.st !== 'kapandi' && r.t > t - 864e5).reverse().map(([k, r]) => `<div style="font-size:12px;margin:4px 0">💬 ${esc(r.byName)} → <b>${esc(r.targetName)}</b>: ${esc(r.reason)}</div><div class="row"><button data-f="${r.target}">Git</button><button data-delrep="${k}" style="background:#7f8c8d">Kapat</button></div>`).join('')}${openCrimes().reverse().map(([k, c]) => `<div style="font-size:12px;margin:4px 0">📂 ${esc(c.byName)} → <b>${esc(c.targetName)}</b>: ${esc(c.reason)} • ${ST[c.st] || ''}</div><div class="row"><button data-f="${c.target}">Git</button><button data-delcr="${k}" style="background:#7f8c8d">Kapat</button></div>`).join('') || ''}${!Object.values(reports).some(r => r && r.st !== 'kapandi' && r.t > t - 864e5) && !openCrimes().length ? '<p style="font-size:13px">Cevapsız şikayet yok 👍</p>' : ''}
   <h3>📋 Moderatör işlemleri</h3>${Object.values(modlog).reverse().map(m => `<div style="font-size:12px;margin:3px 0">${new Date(m.t).toLocaleTimeString('tr', { hour: '2-digit', minute: '2-digit' })} ${esc(m.by)}: ${esc(m.act)} → ${esc(m.target)}</div>`).join('') || '<p style="font-size:13px">Kayıt yok</p>'}`;
-  adminCountryWire(adminEl); ecoAdminWire(adminEl); autoCbWire(adminEl); abAdminWire(adminEl);
+  adminCountryWire(adminEl); ecoAdminWire(adminEl); autoCbWire(adminEl); abAdminWire(adminEl); futAdminWire(adminEl);
   adminEl.querySelector('#aKickAll').onclick = kickAll;
   adminEl.querySelector('#aKickOld').onclick = kickOld;
   adminEl.querySelector('#aAkB').onclick = async () => { const v = Math.round(+adminEl.querySelector('#aAk').value || 0); if (v <= 0) return; try { const r = await runTransaction(ref(db, 'akasa'), k => (k || 0) >= v ? (k || 0) - v : undefined); if (!r.committed) return alert('❌ Yönetici kasasında o kadar para yok'); await runTransaction(ref(db, 'city/cbk'), k => (k || 0) + v); cityLog('Yönetici kasasından Cumhurbaşkanlığına', v); say(`🏛 Cumhurbaşkanlığı kasasına <b>${v.toLocaleString('tr')} 💰</b> aktarıldı!`, true, 'ann'); alert('✅ Aktarıldı'); adminUI(); } catch (e) { alert('❌ ' + e.message); } };
