@@ -172,7 +172,7 @@ const COUNTRIES = {
 let FULL1 = true; try { FULL1 = localStorage.getItem('kk_full1') !== '0'; } catch (e) { }   // Komşukent dolu mu: yönetici panelden açar/kapatır (pub/full1)
 const C = (() => { let c = 0; try { const u = +new URLSearchParams(location.search).get('c'), st = +localStorage.getItem('kk_c'), known = !!(localStorage.getItem('kk_me') || localStorage.getItem('kk_id')); c = u || (known ? st : 0) || (FULL1 ? 2 + Math.floor(Math.random() * 2) : 1); } catch (e) { c = 1; } if (!COUNTRIES[c] || !COUNTRIES[c].cfg) c = 1; try { localStorage.setItem('kk_c', String(c)); } catch (e) { } return c; })();
 const FB = {};
-const APP_V = '2026112211';
+const APP_V = '2026112212';
 let CAP = 0;   // bump on every upload (yyyymmddNN)
 const ADMIN = location.hash === '#yonetim';
 let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off, orderByChild, equalTo;
@@ -5482,10 +5482,12 @@ function kk10Tick() {
 setInterval(kk10Tick, 1000);
 function kkAdminHTML() {
   return `<h3>🎣 Balık turnuvası • ⛅ Hava</h3><p style="font-size:12px;opacity:.8;margin:0 0 6px">Hava: ${WXN[wxT()]}${FT && FT.e > now() ? ' • turnuva sürüyor' : ''}</p>
+  <button id="aMoney" style="background:#27ae60;margin-bottom:6px">💰 Test parası: hesabıma +1.000.000</button>
   <button id="aFishT" style="background:#2e86de;margin-bottom:6px">🏆 10 dakikalık balık turnuvası başlat</button>
   <div style="display:flex;gap:6px"><button data-wx="gunes" style="flex:1">☀️ Güneş</button><button data-wx="yagmur" style="flex:1;background:#5d6d7e">🌧 Yağmur</button><button data-wx="firtina" style="flex:1;background:#34495e">⛈ Fırtına</button></div>`;
 }
 function kkAdminWire(el) {
+  const mb = el.querySelector('#aMoney'); if (mb) mb.onclick = () => runTransaction(ref(db, 'players/' + myId + '/money'), m => (m || 0) + 1000000).then(() => alert('✅ 1.000.000 💰 eklendi')).catch(e => alert('❌ ' + e.message));
   const b = el.querySelector('#aFishT'); if (b) b.onclick = () => set(ref(db, 'fishtour'), { s: now(), e: now() + 600000 }).then(() => { say('🏆🎣 <b>BALIK TURNUVASI BAŞLADI!</b> 10 dakika içinde en çok kilo balık tutan kazanır: 🥇1500 🥈750 🥉300 💰 Falez, iskele ve kayıklara!', true, 'ann'); alert('✅ Başladı'); }).catch(e => alert('❌ ' + e.message));
   el.querySelectorAll('[data-wx]').forEach(x => x.onclick = () => { const t = x.dataset.wx; set(ref(db, 'weather'), { t, until: now() + 20 * 60000 }).then(() => { say(t === 'gunes' ? '☀️ Hava açtı!' : t === 'yagmur' ? '🌧 Yağmur başladı!' : '⛈ FIRTINA! Denize açılmak yasak', true, 'ann'); alert('✅ ' + WXN[t]); }).catch(e => alert('❌ ' + e.message)); });
 }
@@ -5524,7 +5526,7 @@ function kkPerson(m, p, t, x, z) {
   } else m.g.position.y += ey;
   if (m.sezM && !(p.sun > N)) m.sezM.visible = false;
   if (m.glassM && !(p.sun > N)) m.glassM.visible = false;
-  if (m.paraM) m.paraM.visible = paraOn(p);
+  if (m.paraM && !paraOn(p)) { if (m.paraM.parent) m.paraM.parent.remove(m.paraM); m.paraM = null; }   // inince paraşütü tamamen kaldır
   if (m.boatM && !(p.boat > N)) m.boatM.visible = false;
   if (m.car) m.car.position.y = ey;
   // kafe masasında sipariş
