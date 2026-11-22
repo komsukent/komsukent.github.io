@@ -172,7 +172,7 @@ const COUNTRIES = {
 let FULL1 = true; try { FULL1 = localStorage.getItem('kk_full1') !== '0'; } catch (e) { }   // Komşukent dolu mu: yönetici panelden açar/kapatır (pub/full1)
 const C = (() => { let c = 0; try { const u = +new URLSearchParams(location.search).get('c'), st = +localStorage.getItem('kk_c'), known = !!(localStorage.getItem('kk_me') || localStorage.getItem('kk_id')); c = u || (known ? st : 0) || (FULL1 ? 2 + Math.floor(Math.random() * 2) : 1); } catch (e) { c = 1; } if (!COUNTRIES[c] || !COUNTRIES[c].cfg) c = 1; try { localStorage.setItem('kk_c', String(c)); } catch (e) { } return c; })();
 const FB = {};
-const APP_V = '2026112210';
+const APP_V = '2026112211';
 let CAP = 0;   // bump on every upload (yyyymmddNN)
 const ADMIN = location.hash === '#yonetim';
 let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off, orderByChild, equalTo;
@@ -5325,7 +5325,7 @@ function aqMenu() {
 }
 // ---------- YAMAÇ PARAŞÜTÜ ----------
 const PARA_MS = 22000, PARA = [[113.5, 158.6, 3.8], [128, 171, 10], [136, 150, 7], [118.6, 166.5, 0.05]];
-const paraOn = p => p && p.para && now() < p.para + PARA_MS;
+const paraOn = p => !!(p && p.para && now() < p.para + PARA_MS);
 function paraPos(k) { const u = 1 - k, w = [u * u * u, 3 * u * u * k, 3 * u * k * k, k * k * k]; return [0, 1, 2].map(i => PARA.reduce((a, P, j) => a + P[i] * w[j], 0)); }
 const paraSpot = () => onFalez() && ME.x / T > 114.8 && ME.y / T > 155.5;
 function paraGo() {
