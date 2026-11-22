@@ -172,7 +172,7 @@ const COUNTRIES = {
 let FULL1 = true; try { FULL1 = localStorage.getItem('kk_full1') !== '0'; } catch (e) { }   // Komşukent dolu mu: yönetici panelden açar/kapatır (pub/full1)
 const C = (() => { let c = 0; try { const u = +new URLSearchParams(location.search).get('c'), st = +localStorage.getItem('kk_c'), known = !!(localStorage.getItem('kk_me') || localStorage.getItem('kk_id')); c = u || (known ? st : 0) || (FULL1 ? 2 + Math.floor(Math.random() * 2) : 1); } catch (e) { c = 1; } if (!COUNTRIES[c] || !COUNTRIES[c].cfg) c = 1; try { localStorage.setItem('kk_c', String(c)); } catch (e) { } return c; })();
 const FB = {};
-const APP_V = '2026112212';
+const APP_V = '2026112213';
 let CAP = 0;   // bump on every upload (yyyymmddNN)
 const ADMIN = location.hash === '#yonetim';
 let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off, orderByChild, equalTo;
@@ -4851,20 +4851,34 @@ function kkSit(i) {
 }
 function kkStand() { if (!ME || (ME.sit == null && !ME.trib)) return; ME.sit = null; ME.trib = null; ME.cupT = 0; pub({ sit: null, trib: null, cup: null, cupT: null }); }
 function myOrder() { return Object.entries(CAFE).find(([, o]) => o && o.u === myId && o.st !== 'x'); }
-function cafeMenu() {
-  const mo = myOrder();
-  modal('📋 Falez Kafe menüsü', Object.entries(KMENU).map(([k, f]) => ({
-    label: `${f.e} ${f.n} (+${f.en}⚡)${f.st ? ` • stok ${CSTOCK}` : ''}`, right: f.p + ' 💰', disabled: !!mo || ME.money < f.p || (f.st && CSTOCK < 1),
-    fn: () => cafeOrder(k),
-  })), `<p>${mo ? `⏳ Siparişin yolda: <b>${KMENU[mo[1].k].n}</b>${mo[1].g ? ' (garson getiriyor)' : ''}` : 'Siparişini garson masana getirir. Garson yoksa 40 sn sonra kendin alırsın.'}<br>🐟 Balık ekmek, balıkçıların sattığı taze balıkla yapılır.</p>`);
+const myOrders = () => Object.entries(CAFE).filter(([, o]) => o && o.u === myId && o.st !== 'd');
+function kafeGuests() {   // kafede oturan / salondaki diğer oyuncular
+  return Object.entries(others).filter(([id, o]) => o && o.name && o.hasPos && (o.inside === 'kafe' || (o.sit != null && KSEATS[o.sit]))).map(([id, o]) => [id, o.name]);
 }
-async function cafeOrder(k) {
+function cafeMenu(to) {
+  const mo = myOrders(), who = to ? to[1] : null;
+  const items = Object.entries(KMENU).map(([k, f]) => ({
+    label: `${f.e} ${f.n} (+${f.en}⚡)${f.st ? ` • stok ${CSTOCK}` : ''}`, right: f.p + ' 💰', keep: true, disabled: ME.money < f.p || (f.st && CSTOCK < 1),
+    fn: () => cafeOrder(k, to),
+  }));
+  if (!to) { const G = kafeGuests(); if (G.length) items.push({ label: `🎁 Birine ısmarla (${G.length} kişi kafede)`, cls: 'blue', fn: () => modal('🎁 Kime ısmarlayacaksın?', G.map(g => ({ label: '👤 ' + esc(g[1]), fn: () => cafeMenu(g) })), '<p>Kafede oturanlar ve salondakiler.</p>') }); }
+  else items.push({ label: '⬅ Kendime sipariş', fn: () => cafeMenu() });
+  modal(to ? `🎁 ${esc(who)}'e ısmarla` : '📋 Falez Kafe menüsü', items,
+    `<p>${to ? `Seçtiğin şey garsonla <b>${esc(who)}</b>'in masasına gider, parası senden.` : mo.length ? `⏳ Yoldaki siparişlerin: <b>${mo.map(([, o]) => (KMENU[o.k] || {}).e).join(' ')}</b>` : 'İstediğin kadar sipariş ver, garson masana getirir. Garson yoksa 40 sn sonra kendin alırsın.'}<br>🐟 Balık ekmek, balıkçıların sattığı taze balıkla yapılır.</p>`);
+}
+async function cafeOrder(k, to) {
   const f = KMENU[k]; if (!inKafe()) return toast('Önce bir masaya otur ya da salona gir');
-  if (myOrder()) return toast('Önce siparişin gelsin 🙂');
+  const uid = to ? to[0] : myId;
+  if (Object.values(CAFE).filter(o => o && o.by === myId || (o && o.u === myId && !o.by)).length >= 8) return toast('Önce bekleyen siparişlerin gelsin 🙂 (en fazla 8)');
   if (f.st) { const r = await runTransaction(ref(db, 'cafe/stock'), s => (s || 0) >= 1 ? s - 1 : undefined).catch(() => null); if (!r || !r.committed) return toast('🐟 Balık kalmadı! Balıkçılar balık satınca gelir'); }
   if (!spend(f.p)) return; saveMe(); cityIncome(Math.round(f.p * 0.6));
-  await push(ref(db, 'cafe/orders'), { u: myId, n: ME.name, k, s: ME.sit != null ? ME.sit : -1, t: now(), st: 'w' }).catch(() => { });
-  closeModal(); toast(`📝 ${f.e} ${f.n} sipariş edildi. Garson geliyor!`);
+  const o = to ? (others[uid] || {}) : ME;
+  const v = { u: uid, n: to ? to[1] : ME.name, k, s: o.sit != null ? o.sit : -1, t: now(), st: 'w' };
+  if (to) Object.assign(v, { by: myId, bn: ME.name });
+  await push(ref(db, 'cafe/orders'), v).catch(() => { });
+  if (to) { notify(uid, `🎁 ${ME.name} sana ${f.e} ${f.n} ısmarladı! Garson getiriyor`); toast(`🎁 ${esc(to[1])}'e ${f.e} ${f.n} ısmarladın!`); }
+  else toast(`📝 ${f.e} ${f.n} sipariş edildi. Garson geliyor!`);
+  cafeMenu(to);
 }
 function cafeTick() {
   const t = now();
@@ -4873,7 +4887,8 @@ function cafeTick() {
     if (o.u === myId && o.st === 'd') {
       remove(ref(db, 'cafe/orders/' + oid)).catch(() => { }); CAFE[oid] = null;
       const f = KMENU[o.k] || KMENU.cay; ME.energy = Math.min(100, ME.energy + f.en); hud(); ME.cup = o.k; ME.cupT = t + 90000; pub({ cup: o.k, cupT: ME.cupT });
-      if (o.g && o.g !== myId) { const tip = 2 + Math.floor(Math.random() * 7); if (ME.money >= tip) { ME.money -= tip; payTo(o.g, tip); } toast(`${f.e} ${f.n} geldi! Afiyet olsun 😋 Garsona ${tip} 💰 bahşiş bıraktın`, 4000); }
+      if (o.by && o.by !== myId) toast(`🎁 ${esc(o.bn || '')}'in ısmarladığı ${f.e} ${f.n} geldi! Afiyet olsun 😋`, 4500);
+      else if (o.g && o.g !== myId) { const tip = 2 + Math.floor(Math.random() * 7); if (ME.money >= tip) { ME.money -= tip; payTo(o.g, tip); } toast(`${f.e} ${f.n} geldi! Afiyet olsun 😋 Garsona ${tip} 💰 bahşiş bıraktın`, 4000); }
       else toast(`${f.e} ${f.n} hazır, aldın! Afiyet olsun 😋`, 3500);
       saveMe();
     } else if (o.u === myId && o.st === 'w' && t - o.t > 40000) runTransaction(ref(db, 'cafe/orders/' + oid + '/st'), s => s === 'w' ? 'd' : undefined).catch(() => { });
@@ -5130,7 +5145,7 @@ function kkActs(L, b, t) {
     if (s && s.g) L.push({ label: '📋 Kafeden sipariş ver', fn: cafeMenu });
     L.push({ label: '🧍 Kalk', fn: kkStand });
   }
-  const mo = myOrder(); if (mo) L.push({ label: `⏳ Siparişin: ${KMENU[mo[1].k].e} ${KMENU[mo[1].k].n}${mo[1].g ? ' • garson getiriyor' : ''}`, cls: 'gray', dyn: 1, disabled: true });
+  const mo = myOrders(); if (mo.length) L.push({ label: `⏳ Siparişlerin: ${mo.map(([, o]) => (KMENU[o.k] || {}).e).join(' ')}${mo.some(([, o]) => o.g) ? ' • garson getiriyor' : ''}`, cls: 'gray', dyn: 1, disabled: true });
   if (b && b.id === 'balikci') L.push({ label: '🎣 Barınak: olta • yem • kayık • balık sat', cls: 'blue', fn: () => balMenu().catch(() => { }) });
   if (b && b.id === 'kafe') {
     if (ME.inside === 'kafe' && !b.jobs.includes(ME.job)) { L.push({ label: '📋 Menü • sipariş ver', cls: 'blue', fn: cafeMenu }, { label: '🚪 Salondan çık', cls: 'gray', fn: () => goInside(null) }); }
@@ -5145,7 +5160,7 @@ function kkActs(L, b, t) {
   }
   if (['Garson', 'Barista', 'Aşçı'].includes(ME.job) && nearKafe()) {
     const W = Object.entries(CAFE).filter(([, o]) => o && o.st === 'w' && o.u !== myId).sort((a, b) => a[1].t - b[1].t).slice(0, 4);
-    if (ME.job === 'Garson') W.forEach(([oid, o]) => L.push({ label: `🧾 Sipariş: ${esc(o.n)} • ${KMENU[o.k] ? KMENU[o.k].e + ' ' + KMENU[o.k].n : ''}${o.s >= 0 ? ` (masa ${(KSEATS[o.s] || {}).tb + 1 || 'bank'})` : ' (salon)'}`, cls: 'blue', fn: () => garsonTake(oid) }));
+    if (ME.job === 'Garson') W.forEach(([oid, o]) => L.push({ label: `🧾 Sipariş: ${esc(o.n)}${o.by ? ` (🎁 ${esc(o.bn || '')} ısmarladı)` : ''} • ${KMENU[o.k] ? KMENU[o.k].e + ' ' + KMENU[o.k].n : ''}${o.s >= 0 ? ` (masa ${(KSEATS[o.s] || {}).tb + 1 || 'bank'})` : ' (salon)'}`, cls: 'blue', fn: () => garsonTake(oid) }));
     else if (W.length) L.push({ label: `🧾 Bekleyen sipariş: ${W.length} (garson götürür)`, cls: 'gray', disabled: true });
   }
   // mülk pazarı
