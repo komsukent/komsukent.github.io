@@ -172,7 +172,7 @@ const COUNTRIES = {
 let FULL1 = true; try { FULL1 = localStorage.getItem('kk_full1') !== '0'; } catch (e) { }   // Komşukent dolu mu: yönetici panelden açar/kapatır (pub/full1)
 const C = (() => { let c = 0; try { const u = +new URLSearchParams(location.search).get('c'), st = +localStorage.getItem('kk_c'), known = !!(localStorage.getItem('kk_me') || localStorage.getItem('kk_id')); c = u || (known ? st : 0) || (FULL1 ? 2 + Math.floor(Math.random() * 2) : 1); } catch (e) { c = 1; } if (!COUNTRIES[c] || !COUNTRIES[c].cfg) c = 1; try { localStorage.setItem('kk_c', String(c)); } catch (e) { } return c; })();
 const FB = {};
-const APP_V = '2026112208';
+const APP_V = '2026112209';
 let CAP = 0;   // bump on every upload (yyyymmddNN)
 const ADMIN = location.hash === '#yonetim';
 let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off, orderByChild, equalTo;
@@ -221,7 +221,13 @@ const BUILD = [
   { id: 'fabrika', n: 'Fabrika', jobs: ['Fabrika İşçisi'], c: '#aeb6bf', r: '#2c3e50', x: 100, y: 51, w: 10, h: 7, H: 4.8 },
   { id: 'liman', n: 'Liman', jobs: ['Liman İşçisi'], c: '#2f6f8f', r: '#f39c12', x: 100.5, y: 63, w: 7, h: 6, H: 3.6 },
   { id: 'cankurtaran', n: 'Cankurtaran', jobs: ['Cankurtaran'], c: '#e74c3c', r: '#ffffff', x: 116, y: 88, w: 2.6, h: 2.6, H: 3.6 },
+  { id: 'balikci', n: 'Balıkçı Barınağı', jobs: ['Balıkçı', 'Kayıkçı', 'Dalgıç'], c: '#e8f1f8', r: '#1f6fb2', x: 115.3, y: 109.3, w: 4.6, h: 4, H: 3 },
+  { id: 'kafe', n: 'Falez Kafe', jobs: ['Garson', 'Barista', 'Aşçı'], c: '#fff4e0', r: '#c0392b', x: 106, y: 145, w: 8, h: 6, H: 3.4, yo: 3 },
+  { id: 'kulup', n: 'Kulüp Binası', jobs: ['Teknik Direktör', 'Antrenör', 'Hakem', 'Spiker', 'Fizyoterapist', 'Stadyum Görevlisi'], c: '#f5f5f5', r: '#111111', x: 70, y: 151, w: 10, h: 6, H: 4 },
 ].map(b => Object.assign({ w: 6, h: 6, H: 3.4 }, b));
+[['belediye', ['Zabıta', 'Sekreter', 'Müteahhit']], ['hastane', ['Ambulans Şoförü', 'Fizyoterapist']], ['okul', ['Servis Şoförü']], ['sanayi', ['Boyacı', 'Müteahhit']], ['cami', ['Müezzin']],
+ ['maden', ['Maden Mühendisi']], ['cumhur', ['Danışman', 'Sekreter']], ['fabrika', ['Mühendis', 'Forklift Operatörü']], ['liman', ['Kaptan', 'Gümrükçü']], ['avm', ['Barista']]]
+  .forEach(([id, j]) => { const b = BUILD.find(x => x.id === id); if (b) j.forEach(x => b.jobs.includes(x) || b.jobs.push(x)); });
 const BMAP = Object.fromEntries(BUILD.map(b => [b.id, b]));
 const ROLES = {
   baskan: { n: 'Belediye Başkanı', b: 'belediye' }, muhtar: { n: 'Muhtar', b: 'belediye' },
@@ -1047,7 +1053,7 @@ setInterval(() => { const b = document.getElementById('bPl'); if (myId && (IS_AD
 
 // ================= GEOMETRY HELPERS =================
 function inside(r, x, y, pad = 0) { return x > r.x * T - pad && x < (r.x + r.w) * T + pad && y > r.y * T - pad && y < (r.y + r.h) * T + pad; }
-function blocked(x, y) { return ecoBlocked(x, y) || BUILD.some(b => !b.open && inside(b, x, y)) || inside(STAGE, x, y) || PLOTS.some(p => plots[p.k] && inside(p, x, y, -12)) || futBlocked(x, y); }
+function blocked(x, y) { return ecoBlocked(x, y) || BUILD.some(b => !b.open && inside(b, x, y)) || inside(STAGE, x, y) || PLOTS.some(p => plots[p.k] && inside(p, x, y, -12)) || futBlocked(x, y) || kkBlocked(x, y); }
 const nearB = (b, pad = 30) => ME && inside(b, ME.x, ME.y, pad);
 const nearPlot = (p, pad = 14) => ME && inside(p, ME.x, ME.y, pad);
 function nearOthers(r) { return Object.entries(others).filter(([id, o]) => o.hasPos && o.name && live(o) && dist(o, ME) < r); }
@@ -1117,10 +1123,10 @@ function computeActs() {
     if (!own) {
       L.push({ label: `🏗 Arsa: ev ${HOUSE_PRICE} / dükkan ${shopPrice()} 💰`, fn: () => plotMenu(p) });
     } else if (own.id === myId) {
-      if (own.type === 'ev') L.push({ label: '😴 Evinde dinlen (⚡ dolsun)', disabled: ME.energy >= 100, fn: () => startTask('rest', REST_MS, () => nearPlot(p, 30), () => { ME.energy = 100; hud(); saveMe(); toast('😴 Dinlendin, enerji full!'); }, '😴 Dinleniyor') });
+      if (own.type === 'ev' || own.type === 'apt') L.push({ label: '😴 Evinde dinlen (⚡ dolsun)', disabled: ME.energy >= 100, fn: () => startTask('rest', REST_MS, () => nearPlot(p, 30), () => { ME.energy = 100; hud(); saveMe(); toast('😴 Dinlendin, enerji full!'); }, '😴 Dinleniyor') });
       else if (own.closed > t) L.push({ label: `🔥 Dükkanın yandı! Onarımda (${Math.ceil((own.closed - t) / 60000)} dk)`, cls: 'gray', dyn: 1 }, { label: `🔨 Hemen onart (${REPAIR_P} 💰)`, disabled: ME.money < REPAIR_P, fn: () => repairShop(p.k) });
       else L.push({ label: `💰 Fiyatını belirle (şu an ${shopP(own)} 💰)`, fn: () => priceMenu(p.k) }, { label: `🧾 Dükkanında çalış (+50 💰, -${SHIFT_E}⚡)`, disabled: ME.energy < SHIFT_E, fn: () => startTask('work', SHIFT_MS, () => nearPlot(p, 40), () => { ME.energy -= SHIFT_E; stat('worked'); earn(50, '🧾 Dükkan kapandı, kasa dolu!'); }, '🧾 Dükkanda') });
-    } else if (own.type !== 'ev') {
+    } else if (own.type !== 'ev' && own.type !== 'apt') {
       if (own.closed > t) L.push({ label: `🔥 ${own.shop} yandı, onarımda`, cls: 'gray' });
       else if (own.shopType === 'Butik') L.push({ label: `👗 ${own.shop}'den alışveriş`, fn: () => wardrobe(own) });
       else L.push({ label: `${SHOPTYPES[own.shopType] || '🛍'} ${own.shop}: ye-iç (${shopP(own)} 💰, +30⚡)`, disabled: ME.money < shopP(own) || ME.energy >= 100, fn: () => buyAtShop(p.k) });
@@ -1135,7 +1141,7 @@ function computeActs() {
   }
   if (ME.job === 'Taksici' && !b) L.push({ label: '🚕 Müşterilerin sana binebilir', cls: 'gray' });
   newJobActs(L, b, p, near, t);
-  ecoActs(L, b, t); abActs(L, b, t); futActs(L, b, t);
+  ecoActs(L, b, t); abActs(L, b, t); futActs(L, b, t); kkActs(L, b, t);
   // thief / con man
   if ((ME.job === 'Hırsız' && isNight()) || ME.job === 'Dolandırıcı') {
     const blk = stealBlock();
@@ -1214,6 +1220,7 @@ function plotMenu(p) {
   modal('🏗 Satılık arsa', [
     { label: '🏠 Ev yap', right: HOUSE_PRICE + ' 💰', disabled: ME.home || ME.money < HOUSE_PRICE, fn: () => buyPlot(p, 'ev') },
     { label: `🏪 ${myShops() ? (myShops() + 1) + '. dükkanını aç' : 'Dükkan aç'}`, right: shopPrice() + ' 💰', disabled: ME.money < shopPrice(), fn: () => shopNameMenu(p) },
+    ...(ME.job === 'Müteahhit' ? [{ label: '🏢 Apartman dik (4 daire, müteahhit)', right: APT_PRICE + ' 💰', disabled: ME.money < APT_PRICE, fn: () => kkAptBuild(p) }] : []),
   ], `<p>${ME.home ? 'Zaten bir evin var. ' : ''}${myShops() ? `${myShops()} dükkanın var, her yeni dükkan bir öncekinin 2 katı.` : ''} Paran: ${Math.floor(ME.money)} 💰</p>`);
 }
 function shopNameMenu(p) {
@@ -1805,7 +1812,7 @@ async function jobPicker(change) {
   const on = (await get(ref(db, 'online')).catch(() => null))?.val() || {};
   const cnt = j => Object.entries(on).filter(([id, v]) => id !== myId && v && v.job === j).length;
   const sab = (sabika[myId] || 0) >= 3;
-  const items = JOBS.filter(j => j !== ME.job && (!AB_JOBS.includes(j) || abJobOpen(j))).map(j => { const c = cnt(j), q = QUOTA[j] || QDEF, nos = sab && SAB_JOBS.includes(j); return {
+  const items = JOBS.filter(j => j !== ME.job && (!AB_JOBS.includes(j) || abJobOpen(j) || BMAP.kulup.jobs.includes(j))).map(j => { const c = cnt(j), q = QUOTA[j] || QDEF, nos = sab && SAB_JOBS.includes(j); return {
     e: JOB_E[j] || '💼', n: j, r: nos ? '📁 sabıkalı' : c >= q ? 'dolu' : `${c}/${q}`, off: nos || c >= q || ME.money < cost, stay: false, fn: () => {
       if (cost && !spend(cost)) return;
       const old = ME.job; ME.job = j; ME.jobDay = today; if (old !== 'İşsiz') { if (ME.jobChanged) ME.jx = Math.max(0, (ME.jx || 0) - 1); else ME.jobChanged = 1; } pub({ job: j }); update(ref(db, 'players/' + myId), { job: j, jobDay: today, jobChanged: ME.jobChanged || 0, jx: ME.jx || 0, jxv: ME.jxv || 0 }); saveMe(); hud(); closeModal();
@@ -3381,9 +3388,9 @@ const XBLK = [
 ];
 const onPier = (x, y) => inside(PIER, x, y);
 const inWater = (x, y) => x > SEA_X * T && !onPier(x, y);
-function ecoBlocked(x, y) { return XBLK.some(r => inside(r, x, y)) || (inWater(x, y) && !(ME && (ME.swimOk || ME.job === 'Cankurtaran'))); }
-const nearShore = () => ME && !inWater(ME.x, ME.y) && ME.x > (SEA_X - 2) * T && !onPier(ME.x, ME.y);
-const onBeach = () => ME && ME.x > BEACH_X * T && ME.x < SEA_X * T;
+function ecoBlocked(x, y) { return XBLK.some(r => inside(r, x, y)) || (inWater(x, y) && !(ME && (ME.swimOk || ME.boat > now() || ME.job === 'Cankurtaran'))); }
+const nearShore = () => ME && !inWater(ME.x, ME.y) && ME.x > (SEA_X - 2) * T && !onPier(ME.x, ME.y) && elevAt(ME.x / T, ME.y / T) < 0.5 && !(ME.boat > now());
+const onBeach = () => ME && ME.x > BEACH_X * T && ME.x < SEA_X * T && elevAt(ME.x / T, ME.y / T) < 0.5;
 
 function cbkAdd(v) { if (v > 0) runTransaction(ref(db, 'city/cbk'), x => (x || 0) + v).catch(() => { }); }
 function gdpAdd(v) { if (v > 0) runTransaction(ref(db, 'city/gdp'), x => (x || 0) + Math.round(v)).catch(() => { }); }
@@ -3608,6 +3615,7 @@ async function rescue(id) {
 }
 function ecoFrame() {
   if (!ME) return;
+  if (ME.boat > now()) { if (ME.sw) { ME.sw = 0; pub({ sw: null }); } return; }
   const w = inWater(ME.x, ME.y);
   if (w && !ME.sw) { ME.sw = 1; ME.swimOk = 1; if (ME.drive) { ME.drive = null; pub({ drive: null }); } pub({ sw: 1 }); }
   else if (!w && ME.sw) { ME.sw = 0; ME.swimOk = 0; pub({ sw: null }); }
@@ -4253,8 +4261,11 @@ function futStr(xi) {
 function futPois(l, rng) { let k = 0, p = 1; const L = Math.exp(-l); do { k++; p *= rng(); } while (p > L && k < 12); return k - 1; }
 function futPlay(teams, h, a, s, r) {
   const rng = futRng(futHash(`m${C}|${s}|${r}|${h}|${a}`)), T1 = teams[h], T2 = teams[a];
-  const x1 = futXI(T1, r), x2 = futXI(T2, r), s1 = futStr(x1) + 3, s2 = futStr(x2);
-  const g1 = futPois(Math.max(0.2, Math.min(4, 1.35 * Math.exp((s1 - s2) / 16))), rng), g2 = futPois(Math.max(0.15, Math.min(4, 1.1 * Math.exp((s2 - s1) / 16))), rng);
+  const x1 = futXI(T1, r), x2 = futXI(T2, r), tac = t => (t && t.td && t.td.u) ? (t.td.tac || 'n') : '', c1 = tac(T1), c2 = tac(T2);
+  let s1 = futStr(x1) + 3 + (c1 ? 1 : 0) + (rng() - 0.5) * 14, s2 = futStr(x2) + (c2 ? 1 : 0) + (rng() - 0.5) * 14;   // günlük form: her maç farklı
+  if (rng() < 0.07) { if (s1 < s2) s1 += 15; else s2 += 15; }                                                            // sürpriz günü: zayıf takım coşar
+  const tm = (c, own) => c === 'h' ? (own ? 1.08 : 1.05) : c === 'd' ? (own ? 0.92 : 0.88) : 1;                       // TD taktiği: küçük etki
+  const g1 = futPois(Math.max(0.2, Math.min(4, 1.35 * Math.exp((s1 - s2) / 30) * tm(c1, 1) * tm(c2, 0))), rng), g2 = futPois(Math.max(0.15, Math.min(4, 1.1 * Math.exp((s2 - s1) / 30) * tm(c2, 1) * tm(c1, 0))), rng);
   const ev = [], who = (xi) => { const w = xi.map(([, p]) => (p.ps === 'FV' ? 5 : p.ps === 'OS' ? 3 : p.ps === 'DF' ? 1 : 0.05) * p.pw); let x = rng() * w.reduce((a, b) => a + b, 0); for (let i = 0; i < xi.length; i++) { x -= w[i]; if (x <= 0) return xi[i][0]; } return xi[0] && xi[0][0]; };
   const add = (n, side, xi, type) => { for (let i = 0; i < n; i++) { const pid = type === 'g' ? who(xi) : (xi[Math.floor(rng() * xi.length)] || [])[0]; if (pid) ev.push([1 + Math.floor(rng() * 90), side, pid, type]); } };
   add(g1, 0, x1, 'g'); add(g2, 1, x2, 'g');
@@ -4288,7 +4299,8 @@ async function futTick() {
               if (e.ty === 'i') { const k = r + 1 + Math.floor(Math.random() * 3); p.inj = k; upd[`fut/teams/${tid}/pl/${e.pid}/inj`] = k; }
               if (e.ty === 'g' && p.u) payBig(p.u, 40);
             }
-            const ht = teams[m.h]; if (ht && ht.o) payBig(ht.o, 300);          // iç saha bilet geliri
+            const ht = teams[m.h]; if (ht && ht.o) payBig(ht.o, 300);
+            for (const tid of [m.h, m.a]) { const td = teams[tid] && teams[tid].td; if (td && td.u) payBig(td.u, 60); }   // TD maaşı          // iç saha bilet geliri
             for (const tid of [m.h, m.a]) for (const [, p] of futXI(teams[tid], r)) if (p.u) payBig(p.u, 50);   // gerçek futbolculara maç primi
           }
           if (Object.keys(upd).length) await update(ref(db), upd).catch(() => { });
@@ -4429,6 +4441,7 @@ async function futTeam(tid) {
     for (const [uid, a] of Object.entries(apps)) items.push({ label: `✍️ Başvuru: ${esc(a.n)} (${a.ps}, güç ${a.pw})`, cls: 'blue', fn: () => futAccept(tid, uid, a) });
     pl.filter(([, p]) => p.u).forEach(([pid, p]) => items.push({ label: `👋 ${esc(p.n)} ile yollarını ayır`, fn: () => { if (confirm(esc(p.n) + ' takımdan çıkarılsın mı?')) remove(ref(db, `fut/teams/${tid}/pl/${pid}`)).then(() => { notify(p.u, `⚽ ${t.n} seni kadrodan çıkardı`); futTeam(tid); }); } }));
   }
+  kkFutTeamItems(items, tid, t, mine);
   if (ME && ME.job === 'Futbolcu' && !my.play && !mine) items.push({ label: '✍️ Bu takıma futbolcu olarak başvur', cls: 'blue', fn: () => futApply(tid) });
   if (ME && ME.fan !== tid) items.push({ label: '📣 Taraftarı ol (gollerinden haberin olur)', fn: () => { ME.fan = tid; update(ref(db, 'players/' + myId), { fan: tid }); toast(`📣 Artık ${t.n} taraftarısın!`); } });
   items.push({ label: '⬅ Geri', fn: futTeamList });
@@ -4741,6 +4754,527 @@ async function futCup() {
   alert(`🏆 Şampiyon: ${W_.n} (${ctryName(W_.c)})\n\n${res.join('\n')}\n\nBaşkana 30.000 💰 ödül gönderildi.`);
 }
 
+// ================= FALEZ • BALIKÇILIK • FALEZ KAFE • MÜLK PAZARI • KULÜP =================
+const FZ = { x1: 104, x2: 121, z0: 118, z1: 128, z2: 160, H: 3 };
+function elevAt(tx, tz) { if (tx < FZ.x1 - 0.2 || tx > FZ.x2 + 0.2 || tz < FZ.z0 || tz > FZ.z2 + 0.2) return 0; return tz >= FZ.z1 ? FZ.H : FZ.H * (tz - FZ.z0) / (FZ.z1 - FZ.z0); }
+function kkBlocked(x, y) {
+  const tx = x / T, ty = y / T;
+  if (ME && ME.boat > now()) return tx < SEA_X + 0.7 || onPier(x, y);
+  if (ty > FZ.z0 && ty < FZ.z2 + 0.3 && ((tx > FZ.x1 - 0.45 && tx < FZ.x1 + 0.15) || (tx > FZ.x2 - 0.3 && tx < FZ.x2 + 0.6))) return true;
+  if (tx > FZ.x1 - 0.45 && tx < FZ.x2 + 0.6 && ty > FZ.z2 - 0.3 && ty < FZ.z2 + 0.35) return true;
+  return false;
+}
+const onFalez = () => ME && elevAt(ME.x / T, ME.y / T) > 2.5;
+// oturma yerleri: 6 masa x 4 sandalye (kafe terası) + 6 bank x 2 (oturma bahçesi, denize bakar)
+const KSEATS = (() => {
+  const S = [];
+  for (let i = 0; i < 6; i++) { const cx = 107.4 + (i % 3) * 2.6, cz = 153.6 + Math.floor(i / 3) * 2.8; [[-0.72, 0, Math.PI / 2], [0.72, 0, -Math.PI / 2], [0, -0.72, 0], [0, 0.72, Math.PI]].forEach(([dx, dz, r]) => S.push({ x: cx + dx, z: cz + dz, r, tb: i })); }
+  for (let j = 0; j < 6; j++) { const z = 142.6 + j * 2.7; S.push({ x: 119.3, z: z - 0.45, r: Math.PI / 2, g: 1 }, { x: 119.3, z: z + 0.45, r: Math.PI / 2, g: 1 }); }
+  return S;
+})();
+const KTABLES = Array.from({ length: 6 }, (_, i) => ({ x: 107.4 + (i % 3) * 2.6, z: 153.6 + Math.floor(i / 3) * 2.8 }));
+Object.assign(JOBPAY, { Mühendis: 60, 'Maden Mühendisi': 60, Kaptan: 55, Gümrükçü: 50, 'Teknik Direktör': 55, Hakem: 50, Spiker: 45, Fizyoterapist: 50, Müteahhit: 50, Barista: 40, Garson: 35, Balıkçı: 40, Kayıkçı: 40, Dalgıç: 45, Zabıta: 45, Danışman: 55, Sekreter: 40 });
+Object.assign(JOB_E, { Garson: '🧑‍🍳', Barista: '☕', Balıkçı: '🎣', Kayıkçı: '🚣', Dalgıç: '🤿', 'Teknik Direktör': '📋', Antrenör: '🏃', Hakem: '🟨', Spiker: '🎙', Fizyoterapist: '🩹', 'Stadyum Görevlisi': '🏟', Müteahhit: '🏗', Mühendis: '👷', 'Maden Mühendisi': '⛏', 'Forklift Operatörü': '🚜', Kaptan: '⚓', Gümrükçü: '🛃', Zabıta: '🧢', Sekreter: '🗂', Danışman: '🧠', Müezzin: '🕌', 'Ambulans Şoförü': '🚑', 'Servis Şoförü': '🚌', Boyacı: '🎨' });
+Object.assign(OFFICE, { kafe: '☕ Falez Kafe • kapalı salon', balikci: '🎣 Balıkçı Barınağı', kulup: '🏟 Kulüp Binası' });
+
+// ---------- BALIKÇILIK ----------
+const FISH = {
+  hamsi: { n: 'Hamsi', e: '🐟', p: 8, w: 30, kg: 0.03 }, istavrit: { n: 'İstavrit', e: '🐟', p: 12, w: 22, kg: 0.12 }, sardalya: { n: 'Sardalya', e: '🐟', p: 15, w: 16, kg: 0.1 },
+  cipura: { n: 'Çipura', e: '🐠', p: 40, w: 10, kg: 0.5 }, levrek: { n: 'Levrek', e: '🐠', p: 50, w: 9, kg: 0.8 }, palamut: { n: 'Palamut', e: '🐟', p: 70, w: 6, kg: 1.5 },
+  lufer: { n: 'Lüfer', e: '🐠', p: 120, w: 4, kg: 2 }, kalkan: { n: 'Kalkan', e: '🐡', p: 250, w: 1.6, kg: 4, r: 1 }, orkinos: { n: 'Orkinos', e: '🦈', p: 600, w: 0.6, kg: 40, r: 1, boat: 1 },
+  altin: { n: 'ALTIN BALIK', e: '✨🐠', p: 2500, w: 0.08, kg: 1, r: 1 }, ayakkabi: { n: 'Eski ayakkabı', e: '👟', p: 0, w: 6, kg: 0.6 },
+};
+function fishRoll(o, spot, rnd = Math.random) {
+  const mult = 1 + (o >= 2 ? 0.6 : 0) + (spot === 'falez' ? 0.3 : spot === 'boat' ? 1 : 0);
+  const L = Object.entries(FISH).filter(([, f]) => !f.boat || spot === 'boat').map(([k, f]) => [k, f.r || f.p >= 70 ? f.w * mult : k === 'ayakkabi' && o >= 2 ? f.w * 0.5 : f.w]);
+  let x = rnd() * L.reduce((a, [, w]) => a + w, 0); for (const [k, w] of L) { x -= w; if (x <= 0) return k; } return 'hamsi';
+}
+const kkWeek = () => Math.floor((now() + 3 * 864e5) / (7 * 864e5));
+function fishSpot() {
+  if (!ME) return null; if (ME.boat > now()) return 'boat';
+  const tx = ME.x / T, ty = ME.y / T;
+  if (tx > 119.4 && ty > FZ.z1 + 0.3 && ty < 141.6) return 'falez';
+  if (onPier(ME.x, ME.y) && tx > 127) return 'iskele';
+  return null;
+}
+function balSave() { if (ME && ME.bal) update(ref(db, 'players/' + myId), { bal: ME.bal }).catch(() => { }); }
+function fishGo() {
+  const B = ME.bal, spot = fishSpot();
+  if (!B.o) return toast('🎣 Önce Balıkçı Barınağı\'ndan olta al (sahilde, falezin kuzeyinde)');
+  if (!(B.y > 0)) return toast('🪱 Yemin bitti! Barınaktan yem al');
+  if (ME.energy < 3) return toast('Çok yorgunsun 😴');
+  const ms = B.o >= 2 ? 5500 : 8000; ME.fish = now() + ms; pub({ fish: ME.fish });
+  startTask('fish', ms, () => fishSpot() === spot, () => {
+    ME.fish = 0; pub({ fish: null }); B.y--; ME.energy -= 3; hud();
+    const k = fishRoll(B.o, spot), f = FISH[k];
+    if (k === 'ayakkabi') { toast('👟 Oltaya eski bir ayakkabı takıldı 😂 Denizi temizledin!', 4000); balSave(); saveMe(); return; }
+    const kg = Math.round(f.kg * (0.6 + Math.random() * 0.9) * 100) / 100;
+    B.c = B.c || {}; B.c[k] = (B.c[k] || 0) + 1; stat('fish');
+    toast(`${f.e} <b>${f.n}</b> tuttun! ${kg} kg • değeri ${f.p} 💰`, 4000);
+    if (k === 'altin') say(`✨🐠 <b>${esc(ME.name)}</b> efsanevi <b>ALTIN BALIK</b>'ı tuttu! (${spot === 'boat' ? 'kayıktan' : spot === 'falez' ? 'falezden' : 'iskeleden'})`, true, 'ann');
+    else if (f.r) say(`${f.e} <b>${esc(ME.name)}</b> ${kg} kg'lık bir <b>${f.n}</b> yakaladı!`, true);
+    const wk = kkWeek();
+    runTransaction(ref(db, 'fishrec/' + wk), r => (!r || !(r.kg >= kg)) ? Object.assign(r || {}, { u: myId, n: ME.name, f: k, kg }) : undefined)
+      .then(res => { if (res && res.committed && f.p >= 40) toast(`🏆 Haftanın en büyük balığı artık senin! (${kg} kg ${f.n})`, 4000); }).catch(() => { });
+    balSave(); saveMe();
+  }, spot === 'boat' ? '🚣🎣 Kayıktan olta' : '🎣 Olta denizde');
+}
+async function fishWeekPrize() {
+  const wk = kkWeek() - 1;
+  const r = await runTransaction(ref(db, 'fishrec/' + wk), v => (v && v.u && !v.paid) ? Object.assign(v, { paid: myId }) : undefined).catch(() => null);
+  if (r && r.committed) { const v = r.snapshot.val(); payBig(v.u, 1000); notify(v.u, `🏆 Haftanın en büyük balığı ödülü! (${v.kg} kg ${(FISH[v.f] || {}).n || ''})`); say(`🏆🎣 Haftanın balık kralı <b>${esc(v.n)}</b>! ${v.kg} kg ${(FISH[v.f] || {}).n || ''} ile <b>1000 💰</b> kazandı`, true, 'ann'); }
+}
+async function balMenu() {
+  const B = ME.bal, c = B.c || {}, n = Object.values(c).reduce((a, b) => a + b, 0);
+  const bonus = ME.job === 'Balıkçı' ? 1.25 : 1, val = Math.round(Object.entries(c).reduce((a, [k, v]) => a + (FISH[k] ? FISH[k].p * v : 0), 0) * bonus);
+  const rec = (await get(ref(db, 'fishrec/' + kkWeek())).catch(() => null))?.val();
+  const boatOn = ME.boat > now();
+  modal('🎣 Balıkçı Barınağı', [
+    { label: `🐟 Balıkları sat (${n} balık)`, right: val + ' 💰', disabled: !n, fn: () => {
+      ME.bal.c = {}; earn(val, `🐟 ${n} balık sattın${bonus > 1 ? ' (balıkçı primi %25)' : ''}`); balSave(); stat('fishsold', n);
+      runTransaction(ref(db, 'cafe/stock'), s => Math.min(60, (s || 0) + n)).catch(() => { }); balMenu();
+    } },
+    { label: `🎣 Olta${B.o >= 1 ? ' ✅' : ''}`, right: B.o >= 1 ? 'var' : '150 💰', disabled: B.o >= 1, fn: () => { if (!spend(150)) return; B.o = Math.max(1, B.o || 0); B.y = (B.y || 0) + 5; balSave(); saveMe(); cityIncome(150); toast('🎣 Olta aldın! Yanında 5 yem hediye 🪱'); balMenu(); } },
+    { label: `🎣✨ Pro olta (hızlı, nadir balık şansı)${B.o >= 2 ? ' ✅' : ''}`, right: B.o >= 2 ? 'var' : '900 💰', disabled: B.o >= 2, fn: () => { if (!spend(900)) return; B.o = 2; balSave(); saveMe(); cityIncome(900); toast('✨ Pro olta senin! Büyük balıklar seni bekliyor'); balMenu(); } },
+    { label: `🪱 Yem x10 (şu an ${B.y || 0})`, right: '40 💰', fn: () => { if (!spend(40)) return; B.y = (B.y || 0) + 10; balSave(); saveMe(); cityIncome(40); balMenu(); } },
+    { label: '🚣 Kayık kirala (60 sn açık deniz, 2x nadir balık)', right: '60 💰', disabled: boatOn || ME.drive, fn: () => { if (!spend(60)) return; cityIncome(40); payJob(['Kayıkçı'], 20, `🚣 ${ME.name} kayık kiraladı`); boatStart(60000); closeModal(); } },
+    { label: '📖 Balık rehberi', fn: () => modal('📖 Balık rehberi', Object.values(FISH).map(f => ({ label: `${f.e} ${f.n}`, right: f.p ? f.p + ' 💰' : '—', disabled: true })), '<p>Falezden atınca ve pro oltayla nadir balık şansın artar. Orkinos sadece kayıktan çıkar. Sattığın balıklar Falez Kafe\'de balık ekmek olur 🥖</p>') },
+  ], `<p>🏆 Haftanın en büyük balığı: ${rec ? `<b>${esc(rec.n)}</b> • ${rec.kg} kg ${(FISH[rec.f] || {}).n || ''}` : 'henüz yok, ilk sen ol!'}<br>Hafta sonunda rekor sahibine <b>1000 💰</b>.<br>🎣 Balık tutma yerleri: falezin doğu ucu, iskelenin ucu ve kayık.</p>`);
+}
+function boatStart(ms) {
+  if (ME.drive) { ME.drive = null; pub({ drive: null }); }
+  ME.boat = now() + ms; ME.sw = 0; ME.x = (SEA_X + 2.6) * T; ME.y = Math.max(ME.y, 104 * T); if (ME.y > 116 * T) ME.y = 112 * T;
+  pub({ boat: ME.boat, sw: null }); sendPos(true); toast('🚣 Kayıkla açıldın! Joystick ile kürek çek, 🎣 Olta at', 4000);
+}
+function boatEnd(msg) {
+  ME.boat = 0; let ty = ME.y / T; if (ty > FZ.z0 - 1) ty = 113; ME.x = (SEA_X - 1.2) * T; ME.y = ty * T;
+  pub({ boat: null, fish: null }); sendPos(true); if (msg) toast(msg);
+}
+
+// ---------- FALEZ KAFE ----------
+const KMENU = {
+  cay: { n: 'Çay', e: '🍵', p: 5, en: 6 }, kahve: { n: 'Türk kahvesi', e: '☕', p: 12, en: 10 }, limonata: { n: 'Limonata', e: '🍋', p: 10, en: 9 }, salep: { n: 'Salep', e: '🥛', p: 12, en: 10 },
+  tost: { n: 'Kaşarlı tost', e: '🥪', p: 20, en: 18 }, balik: { n: 'Balık ekmek', e: '🐟', p: 35, en: 32, st: 1 }, waffle: { n: 'Waffle', e: '🧇', p: 30, en: 26 }, dondurma: { n: 'Dondurma', e: '🍨', p: 15, en: 12 },
+};
+let CAFE = {}, CSTOCK = 0;
+const inKafe = () => ME && (ME.inside === 'kafe' || ME.sit != null);
+const nearKafe = () => ME && (ME.inside === 'kafe' || inside(BMAP.kafe, ME.x, ME.y, 9 * T));
+function seatFree(i) { return !Object.entries(others).some(([id, o]) => o && o.sit === i && o.hasPos) && !(ME && ME.sit === i); }
+function kkSit(i) {
+  const s = KSEATS[i]; if (!s) return;
+  if (ME.drive) { ME.drive = null; pub({ drive: null }); }
+  ME.sit = i; ME.x = s.x * T; ME.y = s.z * T; target = null; pub({ sit: i }); sendPos(true);
+  toast(s.g ? '🌅 Banka oturdun, deniz manzarası enerjini yavaşça dolduruyor' : '🪑 Masaya oturdun! 📋 Menüden sipariş ver, garson getirsin', 3500);
+}
+function kkStand() { if (!ME || ME.sit == null) return; ME.sit = null; pub({ sit: null }); }
+function myOrder() { return Object.entries(CAFE).find(([, o]) => o && o.u === myId && o.st !== 'x'); }
+function cafeMenu() {
+  const mo = myOrder();
+  modal('📋 Falez Kafe menüsü', Object.entries(KMENU).map(([k, f]) => ({
+    label: `${f.e} ${f.n} (+${f.en}⚡)${f.st ? ` • stok ${CSTOCK}` : ''}`, right: f.p + ' 💰', disabled: !!mo || ME.money < f.p || (f.st && CSTOCK < 1),
+    fn: () => cafeOrder(k),
+  })), `<p>${mo ? `⏳ Siparişin yolda: <b>${KMENU[mo[1].k].n}</b>${mo[1].g ? ' (garson getiriyor)' : ''}` : 'Siparişini garson masana getirir. Garson yoksa 40 sn sonra kendin alırsın.'}<br>🐟 Balık ekmek, balıkçıların sattığı taze balıkla yapılır.</p>`);
+}
+async function cafeOrder(k) {
+  const f = KMENU[k]; if (!inKafe()) return toast('Önce bir masaya otur ya da salona gir');
+  if (myOrder()) return toast('Önce siparişin gelsin 🙂');
+  if (f.st) { const r = await runTransaction(ref(db, 'cafe/stock'), s => (s || 0) >= 1 ? s - 1 : undefined).catch(() => null); if (!r || !r.committed) return toast('🐟 Balık kalmadı! Balıkçılar balık satınca gelir'); }
+  if (!spend(f.p)) return; saveMe(); cityIncome(Math.round(f.p * 0.6));
+  await push(ref(db, 'cafe/orders'), { u: myId, n: ME.name, k, s: ME.sit != null ? ME.sit : -1, t: now(), st: 'w' }).catch(() => { });
+  closeModal(); toast(`📝 ${f.e} ${f.n} sipariş edildi. Garson geliyor!`);
+}
+function cafeTick() {
+  const t = now();
+  for (const [oid, o] of Object.entries(CAFE)) {
+    if (!o) continue;
+    if (o.u === myId && o.st === 'd') {
+      remove(ref(db, 'cafe/orders/' + oid)).catch(() => { }); CAFE[oid] = null;
+      const f = KMENU[o.k] || KMENU.cay; ME.energy = Math.min(100, ME.energy + f.en); hud();
+      if (o.g && o.g !== myId) { const tip = 2 + Math.floor(Math.random() * 7); if (ME.money >= tip) { ME.money -= tip; payTo(o.g, tip); } toast(`${f.e} ${f.n} geldi! Afiyet olsun 😋 Garsona ${tip} 💰 bahşiş bıraktın`, 4000); }
+      else toast(`${f.e} ${f.n} hazır, aldın! Afiyet olsun 😋`, 3500);
+      saveMe();
+    } else if (o.u === myId && o.st === 'w' && t - o.t > 40000) runTransaction(ref(db, 'cafe/orders/' + oid + '/st'), s => s === 'w' ? 'd' : undefined).catch(() => { });
+    else if (t - (o.t || 0) > 15 * 60000) remove(ref(db, 'cafe/orders/' + oid)).catch(() => { });
+  }
+}
+async function garsonTake(oid) {
+  const o = CAFE[oid]; if (!o) return;
+  const r = await runTransaction(ref(db, 'cafe/orders/' + oid), v => v && v.st === 'w' ? Object.assign(v, { st: 'g', g: myId }) : undefined).catch(() => null);
+  if (!r || !r.committed) return toast('Bu siparişi başka garson aldı');
+  const f = KMENU[o.k] || KMENU.cay;
+  startTask('work', 6000, nearKafe, () => {
+    update(ref(db, 'cafe/orders/' + oid), { st: 'd' }).catch(() => { }); stat('worked');
+    earn(12, `🍽 ${f.e} ${f.n} ${o.n}'a servis edildi`); notify(o.u, `🍽 Garson ${ME.name} siparişini getirdi`);
+  }, `🍽 ${f.n} götürülüyor`);
+}
+
+// ---------- MÜLK PAZARI (satın alma • takas • kat karşılığı • daire) ----------
+const KAT_COST = 8000, APT_PRICE = 12000;
+const MK_LBL = { sat: '💰 Satın alma', takas: '🔁 Takas', kat: '🏗 Kat karşılığı', daire: '🏢 Daire alma' };
+let MULKIN = {}, MULKOUT = {}, APT = {};
+function mulkListen() {
+  if (!myId || !db || mulkListen.on) return; mulkListen.on = 1;
+  onValue(ref(db, 'mulk/' + myId), d => { MULKIN = d.val() || {}; });
+  onValue(ref(db, 'mulkOut/' + myId), d => { MULKOUT = d.val() || {}; mulkOutTick(); });
+  onValue(ref(db, 'apt'), d => { APT = d.val() || {}; });
+  onValue(ref(db, 'cafe/orders'), d => { CAFE = d.val() || {}; cafeTick(); });
+  onValue(ref(db, 'cafe/stock'), d => { CSTOCK = d.val() || 0; });
+}
+const plotName = o => o ? (o.type === 'ev' ? '🏡 ev' : o.type === 'apt' ? '🏢 apartman' : `${SHOPTYPES[o.shopType] || '🏪'} ${o.shop || 'dükkan'}`) : 'arsa';
+const myPlotList = () => PLOTS.filter(p => plots[p.k] && plots[p.k].id === myId);
+function kkFixMine() {
+  if (!ME) return; let ch = 0;
+  const mine = myPlotList();
+  if (ME.home && !(plots[ME.home] && plots[ME.home].id === myId) && !aptMine(ME.home)) { ME.home = null; ch = 1; }
+  if (!ME.home) { const h = mine.find(p => ['ev', 'apt'].includes(plots[p.k].type)) || PLOTS.find(p => aptMine(p.k)); if (h) { ME.home = h.k; ch = 1; } }
+  if (ME.shop && !(plots[ME.shop] && plots[ME.shop].id === myId)) { const s = mine.find(p => !['ev', 'apt'].includes(plots[p.k].type)); ME.shop = s ? s.k : null; ch = 1; }
+  if (ch) saveMe();
+}
+const aptMine = k => Object.values(APT[k] || {}).some(f => f && f.id === myId);
+function mulkOfferMenu(p) {
+  const own = plots[p.k]; if (!own) return;
+  const items = [];
+  if (own.type === 'apt') {
+    for (const d of ['d1', 'd2', 'd3', 'd4']) { const f = (APT[p.k] || {})[d]; if (f && f.id !== myId) items.push({ label: `🏢 ${d.slice(1)}. daire • sahibi ${esc(f.n || '?')}`, right: 'teklif ver', fn: () => priceAsk(`🏢 ${d.slice(1)}. daire için teklifin`, 3000, v => mulkSend({ type: 'daire', k: p.k, d, price: v, to: f.id, tn: f.n })) }); }
+  } else {
+    items.push({ label: `💰 Satın almak için para teklif et`, fn: () => priceAsk(`💰 ${esc(own.name)}'in ${plotName(own)} için teklifin`, own.type === 'ev' ? 3000 : 5000, v => mulkSend({ type: 'sat', k: p.k, price: v })) });
+    const mine = myPlotList().filter(q => q.k !== p.k && plots[q.k].type !== 'apt');
+    if (mine.length) items.push({ label: `🔁 Kendi mülkünle takas teklif et`, fn: () => modal('🔁 Hangi mülkünü vereceksin?', mine.map(q => ({ label: plotName(plots[q.k]), right: q.k, fn: () => priceAsk('🔁 Üstüne para eklemek ister misin? (0 olabilir)', 0, v => mulkSend({ type: 'takas', k: p.k, myK: q.k, add: v }), true) }))) });
+    if (own.type === 'ev') items.push({ label: `🏗 Kat karşılığı apartman teklif et (müteahhit)`, right: KAT_COST + ' 💰', disabled: ME.job !== 'Müteahhit' || ME.money < KAT_COST, fn: () => { if (confirm(`${own.name}'in evinin yerine 4 daireli apartman yapacaksın.\n• İnşaat masrafı ${KAT_COST} 💰 senden\n• 2 daire arsa sahibine, 2 daire sana\nTeklif gönderilsin mi?`)) mulkSend({ type: 'kat', k: p.k }); } });
+  }
+  modal(`🏘 ${esc(own.name)}'in mülkü`, items, `<p>${plotName(own)} • Teklifi kabul ederse mülk sana geçer. Kabul etmezse ya da 24 saat içinde cevap vermezse paran otomatik iade edilir.${own.type === 'ev' ? '<br>🏗 Müteahhitler evin yerine kat karşılığı apartman yapabilir.' : ''}</p>`);
+}
+function priceAsk(title, def, cb, zeroOk) {
+  modal(title, [{ label: '📨 Teklifi gönder', cls: 'blue', fn: () => { const v = Math.round(+document.getElementById('kkpr').value || 0); if (v < (zeroOk ? 0 : 100) || v > 500000) return toast('Geçerli bir tutar yaz'); if (v > ME.money) return toast('O kadar paran yok 😅'); cb(v); } }],
+    `<input id="kkpr" type="number" inputmode="numeric" value="${def}" min="0"><p>Paran: ${Math.floor(ME.money)} 💰 • Para teklif anında emanete alınır.</p>`);
+}
+async function mulkSend(o) {
+  const own = plots[o.k];
+  const to = o.to || (own && own.id), tn = o.tn || (own && own.name);
+  if (!to || to === myId) return toast('Bu mülk zaten senin');
+  if (Object.values(MULKOUT).some(x => x && x.k === o.k && x.d === o.d && x.st === 'w')) return toast('Bu mülk için zaten bekleyen bir teklifin var');
+  const esc_ = o.type === 'kat' ? KAT_COST : o.type === 'takas' ? (o.add || 0) : o.price;
+  if (esc_ > 0 && !spend(esc_)) return; saveMe();
+  const oid = push(ref(db, 'mulkOut/' + myId)).key;
+  const v = Object.assign({ by: myId, bn: ME.name, bc: ME.color || '#888', to, tn: tn || '', tc: (own && own.color) || '#888', t: now(), esc: esc_ }, o);
+  try { await set(ref(db, `mulkOut/${myId}/${oid}`), Object.assign({ st: 'w' }, v)); await set(ref(db, `mulk/${to}/${oid}`), v); }
+  catch (e) { ME.money += esc_; saveMe(); return toast('❌ Teklif gönderilemedi'); }
+  notify(to, `🏘 ${ME.name} sana ${MK_LBL[o.type]} teklifi gönderdi${o.price ? ` (${o.price} 💰)` : ''}! 📬 Mülk tekliflerine bak`);
+  closeModal(); toast('📨 Teklif gönderildi! Cevap gelmezse 24 saatte paran iade.', 4000);
+}
+function mulkDesc(o, inc) {
+  const who = inc ? esc(o.bn) : esc(o.tn || '?');
+  if (o.type === 'sat') return `💰 ${who} • ${plotName(plots[o.k])} için ${o.price} 💰`;
+  if (o.type === 'daire') return `🏢 ${who} • ${o.d.slice(1)}. daire için ${o.price} 💰`;
+  if (o.type === 'takas') return `🔁 ${who} • ${inc ? 'senin ' + plotName(plots[o.k]) + ' ↔ onun ' + plotName(plots[o.myK]) : 'onun ' + plotName(plots[o.k]) + ' ↔ senin ' + plotName(plots[o.myK])}${o.add ? ` + ${o.add} 💰` : ''}`;
+  return `🏗 ${who} • kat karşılığı apartman (2 daire ${inc ? 'sana' : 'ona'}, 2 daire ${inc ? 'müteahhide' : 'sana'})`;
+}
+function mulkMenu() {
+  const items = [];
+  for (const [oid, o] of Object.entries(MULKIN)) if (o) items.push({ label: mulkDesc(o, 1), cls: 'blue', fn: () => modal(MK_LBL[o.type] + ' teklifi', [
+    { label: '✅ Kabul et', cls: 'blue', fn: () => mulkAccept(oid) }, { label: '❌ Reddet', cls: 'red', fn: () => mulkReject(oid) }], `<p>${mulkDesc(o, 1)}</p>`) });
+  for (const [oid, o] of Object.entries(MULKOUT)) if (o && o.st === 'w') items.push({ label: '⏳ ' + mulkDesc(o, 0), right: 'iptal', fn: () => mulkCancel(oid) });
+  modal('📬 Mülk teklifleri', items, items.length ? '<p>Mavi olanlar sana gelen teklifler. ⏳ olanlar senin gönderdiklerin.</p>' : '<p>Şu an teklif yok. Başkasının evinin ya da dükkanının yanına gidip teklif verebilirsin.</p>');
+}
+async function mulkAccept(oid) {
+  const o = MULKIN[oid]; if (!o) return; closeModal();
+  const lk = await runTransaction(ref(db, `mulkOut/${o.by}/${oid}/st`), s => s === 'w' ? 'acc' : undefined).catch(() => null);
+  if (!lk || !lk.committed) { remove(ref(db, `mulk/${myId}/${oid}`)).catch(() => { }); return toast('Bu teklif artık geçerli değil'); }
+  const own = plots[o.k];
+  try {
+    if (o.type === 'daire') {
+      const f = (APT[o.k] || {})[o.d]; if (!f || f.id !== myId) throw 0;
+      await set(ref(db, `apt/${o.k}/${o.d}`), { id: o.by, n: o.bn });
+    } else {
+      if (!own || own.id !== myId) throw 0;
+      if (o.type === 'takas' && !(plots[o.myK] && plots[o.myK].id === o.by)) throw 0;
+      if (o.type === 'kat') {
+        if (own.type !== 'ev') throw 0;
+        await update(ref(db, 'apt/' + o.k), { d1: { id: myId, n: ME.name }, d2: { id: myId, n: ME.name }, d3: { id: o.by, n: o.bn }, d4: { id: o.by, n: o.bn } });
+        const nv = { id: myId, name: ME.name, color: own.color || ME.color, type: 'apt', fl: ME.name };
+        await set(ref(db, 'plots2/' + o.k), nv); plots[o.k] = nv;
+      } else {
+        const nv = Object.assign({}, own, { id: o.by, name: o.bn, color: o.bc }); delete nv.closed; delete nv.code;
+        await set(ref(db, 'plots2/' + o.k), nv); plots[o.k] = nv;
+      }
+    }
+  } catch (e) { await update(ref(db, `mulkOut/${o.by}/${oid}`), { st: 'rej' }).catch(() => { }); remove(ref(db, `mulk/${myId}/${oid}`)).catch(() => { }); return toast('❌ Olmadı: mülk artık uygun değil, teklif iptal edildi'); }
+  await update(ref(db, `mulkOut/${o.by}/${oid}`), { st: 'ok' }).catch(() => { }); await remove(ref(db, `mulk/${myId}/${oid}`)).catch(() => { });
+  refreshPlots(); kkFixMine(); notify(o.by, `🤝 ${ME.name} ${MK_LBL[o.type]} teklifini KABUL etti!`);
+  if (o.type === 'kat') say(`🏗 <b>${esc(o.bn)}</b> müteahhit oldu: <b>${esc(ME.name)}</b>'in evinin yerine kat karşılığı apartman dikiliyor! 🏢`, true);
+  else say(`🤝 <b>${esc(o.bn)}</b>, <b>${esc(ME.name)}</b>'den ${o.type === 'takas' ? 'takasla' : o.type === 'daire' ? 'daire' : ''} mülk aldı! 🏘`, true);
+  toast('🤝 Anlaşma tamam!' + (o.esc && o.type !== 'kat' ? ` ${o.esc} 💰 hesabına geçecek` : ''), 4000);
+}
+async function mulkReject(oid) {
+  const o = MULKIN[oid]; closeModal(); if (!o) return;
+  await runTransaction(ref(db, `mulkOut/${o.by}/${oid}/st`), s => s === 'w' ? 'rej' : undefined).catch(() => { });
+  remove(ref(db, `mulk/${myId}/${oid}`)).catch(() => { }); notify(o.by, `🙅 ${ME.name} mülk teklifini reddetti, paran iade edildi`); toast('Teklifi reddettin');
+}
+async function mulkCancel(oid) {
+  const r = await runTransaction(ref(db, `mulkOut/${myId}/${oid}/st`), s => s === 'w' ? 'rej' : undefined).catch(() => null);
+  closeModal(); if (r && r.committed) { const o = MULKOUT[oid]; if (o) remove(ref(db, `mulk/${o.to}/${oid}`)).catch(() => { }); toast('Teklifini geri çektin'); }
+}
+async function mulkOutTick() {
+  if (!ME || mulkOutTick.busy) return; mulkOutTick.busy = 1;
+  try {
+    for (const [oid, o] of Object.entries(MULKOUT)) {
+      if (!o) continue;
+      if (o.st === 'w' && now() - o.t > 24 * 3600000) { const r = await runTransaction(ref(db, `mulkOut/${myId}/${oid}/st`), s => s === 'w' ? 'rej' : undefined).catch(() => null); if (r && r.committed) remove(ref(db, `mulk/${o.to}/${oid}`)).catch(() => { }); continue; }
+      if (o.st !== 'ok' && o.st !== 'rej') continue;
+      const r = await runTransaction(ref(db, `mulkOut/${myId}/${oid}`), v => v && v.st === o.st ? Object.assign(v, { st: 'end' }) : undefined).catch(() => null);
+      if (!r || !r.committed) continue;
+      if (o.st === 'rej') { if (o.esc > 0) earn(o.esc, `↩️ Mülk teklifin sonuçlanmadı, emanet iade`); }
+      else if (o.type === 'sat' || o.type === 'daire') { payBig(o.to, o.esc); toast(`🏘 Tebrikler! Yeni mülkün hayırlı olsun 🎉`, 4000); }
+      else if (o.type === 'kat') { cityIncome(o.esc); payJob(['İnşaatçı'], 100, `🏗 ${ME.name}'in apartman inşaatında çalıştın`); toast('🏢 Apartman dikildi! 2 daire senin, satabilirsin', 4500); stat('apt'); }
+      else if (o.type === 'takas') {
+        const mk = plots[o.myK];
+        if (mk && mk.id === myId) { const nv = Object.assign({}, mk, { id: o.to, name: o.tn, color: o.tc }); delete nv.closed; await set(ref(db, 'plots2/' + o.myK), nv).catch(() => { }); plots[o.myK] = nv; if (o.esc > 0) payBig(o.to, o.esc); toast('🔁 Takas tamamlandı!', 3500); }
+        else { const kk = plots[o.k]; if (kk && kk.id === myId) { await set(ref(db, 'plots2/' + o.k), Object.assign({}, kk, { id: o.to, name: o.tn, color: o.tc })).catch(() => { }); } if (o.esc > 0) earn(o.esc, '↩️ Takas bozuldu, iade'); }
+      }
+      remove(ref(db, `mulkOut/${myId}/${oid}`)).catch(() => { });
+      refreshPlots(); kkFixMine();
+    }
+  } finally { mulkOutTick.busy = 0; }
+}
+async function kkAptBuild(p) {
+  if (ME.job !== 'Müteahhit') return toast('Apartmanı sadece müteahhitler dikebilir');
+  if (ME.money < APT_PRICE) return toast('Para yetmiyor');
+  const val = { id: myId, name: ME.name, color: ME.color, type: 'apt', fl: ME.name };
+  await update(ref(db, 'apt/' + p.k), { d1: { id: myId, n: ME.name }, d2: { id: myId, n: ME.name }, d3: { id: myId, n: ME.name }, d4: { id: myId, n: ME.name } }).catch(() => { });
+  const res = await runTransaction(ref(db, 'plots2/' + p.k), cur => cur ? undefined : val);
+  if (!res.committed) return toast('Biri senden önce aldı 😬');
+  plots[p.k] = val; refreshPlots(); ME.money -= APT_PRICE; hud(); saveMe(); kkFixMine(); closeModal(); stat('apt');
+  payJob(['İnşaatçı'], 100, `🏗 ${ME.name}'in apartmanını inşa ettin`); payJob(['Emlakçı'], 200, `🏢 ${ME.name} apartman dikti, komisyonun`);
+  say(`🏢 Müteahhit <b>${esc(ME.name)}</b> 4 daireli apartman dikti! Daireler satışta 🏷`, true);
+}
+function kkApt(own, p, g, cxP, czP) {
+  box(p.w, 0.06, p.h, '#bdbdbd', cxP, 0.03, czP, g, false);
+  const H = 5.4; box(2.7, H, 2.5, '#f1e4cc', cxP, H / 2, czP - 0.1, g);
+  for (let f = 1; f < 4; f++) box(2.8, 0.12, 2.6, own.color || '#c0392b', cxP, f * 1.35, czP - 0.1, g, false);
+  box(2.95, 0.3, 2.75, own.color || '#c0392b', cxP, H + 0.15, czP - 0.1, g);
+  for (let f = 0; f < 4; f++) for (const dx of [-0.75, 0.75]) if (!(f === 0 && dx < 0)) box(0.55, 0.55, 0.05, '', cxP + dx, 0.75 + f * 1.35, czP + 1.17, g, false, winMat);
+  box(0.6, 1.0, 0.05, '#5a3d2b', cxP - 0.75, 0.5, czP + 1.17, g, false);
+  const L = makeLabel(); L.innerHTML = `<span class="nm${own.id === myId ? ' me' : ''}">🏢 ${esc(own.fl || own.name)} Apt.</span>`; L._p = [cxP, H + 1, czP]; return L;
+}
+
+// ---------- KULÜP & FUTBOL MESLEKLERİ ----------
+const kkTD = teams => Object.entries(teams || {}).find(([, t]) => t && t.td && t.td.u === myId);
+const TACN = { h: '⚔️ Hücum', n: '⚖️ Dengeli', d: '🛡 Savunma' };
+function kkFutTeamItems(items, tid, t, mine) {
+  if (!ME) return;
+  const mytd = kkTD(FUTT);
+  if (t.td && t.td.u) items.push({ label: `📋 Teknik direktör: ${esc(t.td.n)} • ${TACN[t.td.tac || 'n']}`, disabled: true });
+  if (mine && t.tdReq && !(t.td && t.td.u)) items.push({ label: `✅ TD başvurusu: ${esc(t.tdReq.n)} – kabul et`, cls: 'blue', fn: () => update(ref(db, 'fut/teams/' + tid), { td: { u: t.tdReq.u, n: t.tdReq.n, tac: 'n' }, tdReq: null }).then(() => { notify(t.tdReq.u, `📋 ${t.n} seni teknik direktör yaptı!`); toast('📋 Yeni TD göreve başladı'); futTeam(tid); }) });
+  if (mine && t.td && t.td.u && t.td.u !== myId) items.push({ label: `👋 Teknik direktörü gönder`, fn: () => { if (confirm('TD ile yollar ayrılsın mı?')) update(ref(db, 'fut/teams/' + tid), { td: null }).then(() => { notify(t.td.u, `📋 ${t.n} ile yollarınız ayrıldı`); futTeam(tid); }); } });
+  if (ME.job === 'Teknik Direktör' && !mytd && !(t.td && t.td.u)) {
+    if (!t.o) items.push({ label: '📋 Bu takımın teknik direktörü ol', cls: 'blue', fn: () => runTransaction(ref(db, 'fut/teams/' + tid + '/td'), v => v && v.u ? undefined : { u: myId, n: ME.name, tac: 'n' }).then(r => { if (r.committed) { say(`📋 <b>${esc(ME.name)}</b>, <b>${esc(t.n)}</b>'ın yeni teknik direktörü!`, true); futTeam(tid); } else toast('Başkası kaptı'); }) });
+    else items.push({ label: '✍️ Teknik direktör olarak başvur', cls: 'blue', fn: () => update(ref(db, 'fut/teams/' + tid), { tdReq: { u: myId, n: ME.name } }).then(() => { notify(t.o, `📋 ${ME.name} takımına TD olmak istiyor`); toast('📨 Başvurun takım sahibine gitti'); }) });
+  }
+  if (t.td && t.td.u === myId) {
+    for (const k of ['h', 'n', 'd']) items.push({ label: `${TACN[k]} taktik${(t.td.tac || 'n') === k ? ' ✅' : ''}`, fn: () => update(ref(db, `fut/teams/${tid}/td`), { tac: k }).then(() => { toast('🧠 Taktik: ' + TACN[k]); futTeam(tid); }) });
+    items.push({ label: '🚪 TD görevinden istifa et', fn: () => { if (confirm('İstifa edilsin mi?')) update(ref(db, 'fut/teams/' + tid), { td: null }).then(() => futTeam(tid)); } });
+  }
+}
+const nearHali = () => ME && HSAHA.some(h => inside(h, ME.x, ME.y, 20));
+async function kkTrainMenu() {
+  const teams = await futTeams(true), day = new Date(now() + TRH).toISOString().slice(0, 10), mytd = kkTD(teams);
+  const L = Object.entries(teams).filter(([tid]) => ME.job === 'Antrenör' || (mytd && mytd[0] === tid));
+  modal('🏃 Takım antrenmanı', L.map(([tid, t]) => ({ label: `${esc(t.n)}`, right: t.tr === day ? 'bugün çalıştı ✅' : '30 sn', disabled: t.tr === day || ME.energy < 15, fn: () => {
+    closeModal();
+    startTask('work', 30000, nearHali, async () => {
+      const r = await runTransaction(ref(db, `fut/teams/${tid}/tr`), v => v === day ? undefined : day).catch(() => null);
+      if (!r || !r.committed) return toast('Bu takım bugün zaten çalıştı');
+      const bots = Object.entries(t.pl || {}).filter(([, p]) => !p.u && p.pw < 82).sort(() => Math.random() - 0.5).slice(0, 3), upd = {};
+      bots.forEach(([pid, p]) => upd[`fut/teams/${tid}/pl/${pid}/pw`] = p.pw + 1);
+      if (bots.length) await update(ref(db), upd).catch(() => { });
+      ME.energy -= 15; stat('worked'); earn(45, `🏃 ${t.n} antrenmanı bitti! ${bots.map(([, p]) => p.n).join(', ')} +1 güç`);
+      say(`🏃 <b>${esc(ME.name)}</b>, <b>${esc(t.n)}</b> takımını halı sahada çalıştırdı 💪`, true);
+    }, '🏃 Antrenman');
+  } })), '<p>Her takım günde 1 kez antrenman yapabilir: 3 futbolcu +1 güç kazanır. Antrenörler her takımı, teknik direktör kendi takımını çalıştırır.</p>');
+}
+async function kkFizyoMenu() {
+  const teams = await futTeams(true), r = FUTDONE, L = [];
+  for (const [tid, t] of Object.entries(teams)) for (const [pid, p] of Object.entries(t.pl || {})) if ((p.inj || -1) >= r) L.push([tid, t, pid, p]);
+  modal('🩹 Sakat futbolcular', L.slice(0, 40).map(([tid, t, pid, p]) => ({ label: `🤕 ${esc(p.n)} • ${esc(t.n)}`, right: `${p.inj - r + 1} hafta`, disabled: (ME.fzT || 0) > now(), fn: () => {
+    closeModal();
+    startTask('work', 15000, () => nearB(BMAP.kulup, 4 * T) || futInStad(ME.x, ME.y), () => {
+      update(ref(db, `fut/teams/${tid}/pl/${pid}`), { inj: null }).catch(() => { }); ME.fzT = now() + 5 * 60000;
+      stat('worked'); earn(45, `🩹 ${p.n} tedavi edildi, maçlara dönebilir`); if (p.u) notify(p.u, `🩹 Fizyoterapist ${ME.name} sakatlığını iyileştirdi!`);
+    }, '🩹 Tedavi');
+  } })), L.length ? '<p>Tedavi edilen futbolcu bir sonraki maçta oynayabilir. 5 dakikada bir tedavi.</p>' : '<p>Şu an sakat futbolcu yok 💪</p>');
+}
+function kkLiveLine(r) {
+  try {
+    const res = FUTLIVE.r === r ? FUTLIVE.res : null, mn = futMin(r);
+    if (!res || !res.length) return null;
+    const m = res[Math.floor(Math.random() * res.length)], ev = futEv(m).filter(e => e.ty === 'g' && e.mn <= mn);
+    const hg = ev.filter(e => !e.sd).length, ag = ev.filter(e => e.sd).length, n = id => ((FUTT || {})[id] || {}).n || id;
+    return `${mn}' ${n(m.h)} ${hg}-${ag} ${n(m.a)}`;
+  } catch (e) { return null; }
+}
+function kkFutJobActs(L) {
+  let r = -1; try { r = FUTCFG ? futLiveRound() : -1; } catch (e) { }
+  const atStad = futInStad(ME.x, ME.y) || nearB(BMAP.kulup, 4 * T);
+  if (ME.job === 'Fizyoterapist' && atStad) L.push({ label: '🩹 Sakat futbolcuları tedavi et', cls: 'blue', fn: () => kkFizyoMenu().catch(() => { }) });
+  if ((ME.job === 'Antrenör' || ME.job === 'Teknik Direktör') && nearHali()) L.push({ label: '🏃 Takım antrenmanı yaptır', cls: 'blue', fn: () => kkTrainMenu().catch(() => { }) });
+  if (ME.job === 'Teknik Direktör' && atStad) L.push({ label: '📋 Takımım / taktik', fn: () => { const m = kkTD(FUTT); if (m) futTeam(m[0]); else { toast('Henüz takımın yok: ⚽ menüsünden bir takıma başvur'); futTeamList(); } } });
+  if ((ME.job === 'Hakem' || ME.job === 'Spiker') && atStad) {
+    const key = (FUTCFG ? FUTCFG.s : 0) + '_' + r, done = ME.job === 'Hakem' ? ME.hkm === key : ME.spk === key;
+    if (r < 0) L.push({ label: `${ME.job === 'Hakem' ? '🟨 Maç yönetmek' : '🎙 Canlı yayın'} için maç saatini bekle (21:00)`, cls: 'gray', disabled: true });
+    else if (!done) L.push({ label: ME.job === 'Hakem' ? '🟨 Haftanın maçını yönet (+60 💰)' : '🎙 Canlı yayın yap (+50 💰)', cls: 'blue', disabled: ME.energy < 10, fn: () => startTask('work', ME.job === 'Hakem' ? 40000 : 25000, () => futInStad(ME.x, ME.y) || nearB(BMAP.kulup, 4 * T), () => {
+      ME.energy -= 10; stat('worked');
+      if (ME.job === 'Hakem') { ME.hkm = key; earn(60, '🟨 Maçı yönettin, düdük çaldı!'); }
+      else { ME.spk = key; earn(50, '🎙 Yayın bitti!'); const ln = kkLiveLine(r); say(`🎙 <b>Spiker ${esc(ME.name)}</b>: ${ln ? `"${esc(ln)}! Tribünler ayakta!"` : '"Komşukent Ligi\'nde heyecan dorukta!"'}`, true); }
+    }, ME.job === 'Hakem' ? '🟨 Maç yönetiliyor' : '🎙 Canlı yayında') });
+  }
+}
+
+// ---------- AKSİYONLAR ----------
+function kkActs(L, b, t) {
+  if (!ME || !ME.bal) return;
+  if (ME.boat > t) {
+    L.push({ label: `🚣 Kayıkta • ${Math.ceil((ME.boat - t) / 1000)} sn`, cls: 'gray', dyn: 1, disabled: true });
+    L.push({ label: `🎣 Olta at (yem ${ME.bal.y || 0})`, cls: 'blue', fn: fishGo });
+    if (ME.job === 'Dalgıç') L.push({ label: '🤿 Dal • hazine ara', disabled: ME.energy < 8, fn: () => startTask('work', 15000, () => ME.boat > now(), () => { ME.energy -= 8; stat('worked'); const x = Math.random(), v = x < 0.03 ? 400 : 15 + Math.floor(Math.random() * 100); earn(v, v >= 400 ? '💎 Batık gemiden SANDIK çıkardın!' : '🤿 Dipten değerli şeyler topladın'); if (v >= 400) say(`💎 Dalgıç <b>${esc(ME.name)}</b> batık bir sandık buldu!`, true); }, '🤿 Dalış') });
+    L.push({ label: '🏖 Kıyıya dön', fn: () => boatEnd('🏖 Kıyıya döndün') });
+    return;
+  }
+  if (ME.sit != null) {
+    const s = KSEATS[ME.sit];
+    if (s && !s.g) L.push({ label: '📋 Menü • sipariş ver', cls: 'blue', fn: cafeMenu });
+    else L.push({ label: '🌅 Manzaranın tadını çıkarıyorsun (+⚡)', cls: 'gray', disabled: true });
+    if (s && s.g) L.push({ label: '📋 Kafeden sipariş ver', fn: cafeMenu });
+    L.push({ label: '🧍 Kalk', fn: kkStand });
+  }
+  const mo = myOrder(); if (mo) L.push({ label: `⏳ Siparişin: ${KMENU[mo[1].k].e} ${KMENU[mo[1].k].n}${mo[1].g ? ' • garson getiriyor' : ''}`, cls: 'gray', dyn: 1, disabled: true });
+  if (b && b.id === 'balikci') L.push({ label: '🎣 Barınak: olta • yem • kayık • balık sat', cls: 'blue', fn: () => balMenu().catch(() => { }) });
+  if (b && b.id === 'kafe') {
+    if (ME.inside === 'kafe' && !b.jobs.includes(ME.job)) { L.push({ label: '📋 Menü • sipariş ver', cls: 'blue', fn: cafeMenu }, { label: '🚪 Salondan çık', cls: 'gray', fn: () => goInside(null) }); }
+    else if (!ME.inside && !b.jobs.includes(ME.job)) L.push({ label: '☕ Kapalı salona gir', cls: 'blue', fn: () => goInside('kafe') });
+  }
+  if (b && b.id === 'kulup' && !b.jobs.includes(ME.job)) L.push({ label: '🏟 Kulüp: ⚽ lig, takımlar, transfer', fn: () => futMenu().catch(() => { }) });
+  if (fishSpot() && ME.sit == null) L.push({ label: `🎣 Olta at${ME.bal.o ? ` (yem ${ME.bal.y || 0})` : ''}`, cls: 'blue', fn: fishGo });
+  if (ME.sit == null && onFalez() && !ME.drive) {
+    const tx = ME.x / T, tz = ME.y / T; let best = -1, bd = 1.5;
+    KSEATS.forEach((s, i) => { const d = Math.hypot(s.x - tx, s.z - tz); if (d < bd && seatFree(i)) { bd = d; best = i; } });
+    if (best >= 0) L.push({ label: KSEATS[best].g ? '🪑 Banka otur (deniz manzarası)' : '🪑 Masaya otur', cls: 'blue', fn: () => kkSit(best) });
+  }
+  if (['Garson', 'Barista', 'Aşçı'].includes(ME.job) && nearKafe()) {
+    const W = Object.entries(CAFE).filter(([, o]) => o && o.st === 'w' && o.u !== myId).sort((a, b) => a[1].t - b[1].t).slice(0, 4);
+    if (ME.job === 'Garson') W.forEach(([oid, o]) => L.push({ label: `🧾 Sipariş: ${esc(o.n)} • ${KMENU[o.k] ? KMENU[o.k].e + ' ' + KMENU[o.k].n : ''}${o.s >= 0 ? ` (masa ${(KSEATS[o.s] || {}).tb + 1 || 'bank'})` : ' (salon)'}`, cls: 'blue', fn: () => garsonTake(oid) }));
+    else if (W.length) L.push({ label: `🧾 Bekleyen sipariş: ${W.length} (garson götürür)`, cls: 'gray', disabled: true });
+  }
+  // mülk pazarı
+  const p = PLOTS.find(p => nearPlot(p)), own = p && plots[p.k];
+  if (own && own.id !== myId) L.push({ label: `🏘 ${esc(own.name)}'in mülküne teklif ver`, fn: () => mulkOfferMenu(p) });
+  if (own && own.type === 'apt' && own.id !== myId && aptMine(p.k)) L.push({ label: '😴 Dairende dinlen (⚡ dolsun)', disabled: ME.energy >= 100, fn: () => startTask('rest', REST_MS, () => nearPlot(p, 30), () => { ME.energy = 100; hud(); saveMe(); toast('😴 Dinlendin, enerji full!'); }, '😴 Dinleniyor') });
+  if (own && own.type === 'apt') { const fl = APT[p.k] || {}; L.push({ label: `🏢 Daireler: ${['d1', 'd2', 'd3', 'd4'].map(d => fl[d] ? (fl[d].id === myId ? '⭐' : esc(fl[d].n || '?')) : '-').join(' • ')}`, cls: 'gray', disabled: true }); }
+  const nIn = Object.values(MULKIN).filter(Boolean).length, nOut = Object.values(MULKOUT).filter(o => o && o.st === 'w').length;
+  if (nIn || nOut) L.push({ label: `📬 Mülk teklifleri${nIn ? ` (${nIn} yeni)` : ''}`, cls: nIn ? 'blue' : '', fn: mulkMenu });
+  kkFutJobActs(L);
+}
+async function kkInit() {
+  if (!ME || kkInit.done) return; kkInit.done = 1;
+  ME.bal = { o: 0, y: 0, c: {} }; ME.sit = null; ME.boat = 0;
+  const v = (await get(ref(db, 'players/' + myId + '/bal')).catch(() => null))?.val();
+  if (v) ME.bal = { o: v.o || 0, y: v.y || 0, c: v.c || {} };
+  pub({ sit: null, boat: null, fish: null });
+  mulkListen(); fishWeekPrize().catch(() => { });
+}
+function kkTick() {
+  if (!ME || !db) return;
+  if (!kkInit.done) { kkInit().catch(() => { }); return; }
+  const t = now();
+  if (ME.boat && ME.boat <= t) boatEnd('⏱ Kayık süren doldu, kıyıya döndün');
+  if (ME.sit != null) { const s = KSEATS[ME.sit]; if (!s || Math.hypot(s.x * T - ME.x, s.z * T - ME.y) > T) kkStand(); else if (s.g && (kkTick.n = (kkTick.n || 0) + 1) % 4 === 0 && ME.energy < 100) { ME.energy = Math.min(100, ME.energy + 1); hud(); } }
+  if ((kkTick.f = (kkTick.f || 0) + 1) % 10 === 0) { kkFixMine(); cafeTick(); }
+}
+setInterval(kkTick, 1000);
+
+// ---------- 3D ----------
+function kkBoatMesh(c = '#8e5a2b') {
+  const g = new THREE.Group();
+  box(0.95, 0.35, 2.3, c, 0, 0.17, 0, g); box(0.75, 0.08, 2.0, '#d9b48a', 0, 0.34, 0, g, false); box(0.8, 0.08, 0.3, '#5d3a1a', 0, 0.42, -0.3, g, false);
+  const k = box(0.06, 0.06, 1.6, '#c49a6c', 0.55, 0.5, 0.1, g, false); k.rotation.y = 0.4; return g;
+}
+function kkPerson(m, p, t, x, z) {
+  let ey = elevAt(x, z);
+  if (p.sit != null && KSEATS[p.sit]) {
+    const s = KSEATS[p.sit]; m.g.position.set(s.x, ey + (s.g ? -0.2 : -0.28), s.z); m.g.rotation.y = s.r;
+    m.legL.rotation.x = m.legR.rotation.x = -1.45; m.armL.rotation.x = m.armR.rotation.x = s.g ? 0 : -0.6; ey += -0.25;
+  } else if (p.boat > now()) {
+    if (!m.boatM) { m.boatM = kkBoatMesh(p.color || '#8e5a2b'); scene.add(m.boatM); }
+    const bob = Math.sin(t / 480) * 0.06; m.boatM.visible = true; m.boatM.position.set(x, -0.05 + bob, z); if (m.ry !== undefined) m.boatM.rotation.y = m.ry;
+    m.g.position.y = 0.12 + bob; m.legL.rotation.x = m.legR.rotation.x = -1.4;
+    const row = p._mv ? Math.sin(t / 260) * 0.7 : 0; m.armL.rotation.x = -1 + row; m.armR.rotation.x = -1 + row;
+  } else m.g.position.y += ey;
+  if (m.boatM && !(p.boat > now())) m.boatM.visible = false;
+  if (m.car) m.car.position.y = ey;
+  const fishing = (p.fish || 0) > now();
+  if (fishing && !m.rodM) { m.rodM = new THREE.Group(); const r = box(0.05, 0.05, 2.0, '#3b2a1e', 0.38, 1.25, 0.85, m.rodM, false); r.rotation.x = -0.55; const ln = box(0.015, 1.6, 0.015, '#eeeeee', 0.38, 0.95, 1.75, m.rodM, false); ln.rotation.x = 0.25; m.g.add(m.rodM); }
+  if (m.rodM) { m.rodM.visible = fishing; if (fishing) { m.armR.rotation.x = -1.1 + Math.sin(t / 400) * 0.05; } }
+  m._ey = ey;
+}
+const KK3 = { fish: [] };
+function kk3D() {
+  const G = new THREE.Group(); scene.add(G);
+  const rock = '#a8845a', rock2 = '#8d6b45', cx = (FZ.x1 + FZ.x2) / 2, w = FZ.x2 - FZ.x1, len = FZ.z2 - FZ.z1, H = FZ.H;
+  box(w, H, len, rock, cx, H / 2, FZ.z1 + len / 2, G);
+  for (let i = 0; i < 5; i++) box(0.12, 0.25, len, rock2, FZ.x2 + 0.02, 0.4 + i * 0.55, FZ.z1 + len / 2, G, false);
+  for (let i = 0; i < 5; i++) box(w, 0.25, 0.12, rock2, cx, 0.4 + i * 0.55, FZ.z2 + 0.02, G, false);
+  box(w, 0.1, len, '#7dbb5a', cx, H + 0.03, FZ.z1 + len / 2, G, false);
+  // rampa (kuzeyden yukarı çıkan yol)
+  const rl = Math.hypot(FZ.z1 - FZ.z0, H), ang = Math.atan2(H, FZ.z1 - FZ.z0);
+  const ramp = box(w, 0.3, rl + 0.2, '#c9b38a', cx, H / 2 - 0.05, (FZ.z0 + FZ.z1) / 2, G); ramp.rotation.x = -ang;
+  for (let i = 0; i < 5; i++) { const z = FZ.z0 + i * 2 + 1, h = H * (i * 2 + 1) / (FZ.z1 - FZ.z0) - 0.2; if (h > 0.05) box(w, h, 2, rock, cx, h / 2, z, G, false); }
+  // korkuluk (doğu ve güney kenarı)
+  for (let z = FZ.z0 + 0.5; z <= FZ.z2; z += 2) box(0.1, 0.8, 0.1, '#ffffff', FZ.x2 - 0.15, elevAt(FZ.x2 - 0.2, z) + 0.4, z, G, false);
+  box(0.08, 0.08, len, '#ffffff', FZ.x2 - 0.15, H + 0.78, FZ.z1 + len / 2, G, false);
+  box(w, 0.08, 0.08, '#ffffff', cx, H + 0.78, FZ.z2 - 0.15, G, false);
+  const sg = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 0.9), new THREE.MeshBasicMaterial({ map: signTex('🌊 FALEZ', '#1f6fb2', '#ffffff') }));
+  sg.position.set(FZ.x1 + 3, 2.2, FZ.z0 - 0.4); G.add(sg); box(0.12, 2.2, 0.12, '#6d4c2f', FZ.x1 + 1.2, 1.1, FZ.z0 - 0.45, G, false); box(0.12, 2.2, 0.12, '#6d4c2f', FZ.x1 + 4.8, 1.1, FZ.z0 - 0.45, G, false);
+  // kafe terası
+  box(9, 0.08, 6.2, '#c8a27a', 110, H + 0.08, 155, G, false);
+  KTABLES.forEach((tb, i) => {
+    box(0.9, 0.06, 0.9, '#ffffff', tb.x, H + 0.78, tb.z, G); box(0.1, 0.7, 0.1, '#555', tb.x, H + 0.43, tb.z, G, false);
+    box(0.06, 1.9, 0.06, '#dddddd', tb.x, H + 1.1, tb.z, G, false);
+    const um = new THREE.Mesh(new THREE.ConeGeometry(1.25, 0.55, 8), mat(i % 2 ? '#e74c3c' : '#f5f5f5')); um.position.set(tb.x, H + 2.15, tb.z); um.castShadow = true; G.add(um);
+  });
+  KSEATS.forEach(s => {
+    if (s.g) return;
+    box(0.5, 0.06, 0.5, '#6d4c2f', s.x, H + 0.5, s.z, G, false);
+    box(0.06, 0.45, 0.06, '#444', s.x, H + 0.28, s.z, G, false);
+    box(0.5, 0.5, 0.06, '#6d4c2f', s.x - Math.sin(s.r) * 0.25, H + 0.78, s.z - Math.cos(s.r) * 0.25, G, false).rotation.y = s.r;
+  });
+  // oturma bahçesi: banklar, çiçekler, ağaçlar
+  for (let j = 0; j < 6; j++) {
+    const z = 142.6 + j * 2.7;
+    box(0.5, 0.08, 1.8, '#8e5a2b', 119.3, H + 0.48, z, G); box(0.08, 0.5, 1.8, '#8e5a2b', 119.0, H + 0.8, z, G, false);
+    box(0.08, 0.45, 0.08, '#333', 119.3, H + 0.23, z - 0.8, G, false); box(0.08, 0.45, 0.08, '#333', 119.3, H + 0.23, z + 0.8, G, false);
+    box(0.7, 0.3, 0.7, '#6d4c2f', 117.4, H + 0.15, z + 1.35, G, false); box(0.6, 0.25, 0.6, ['#ff6fb5', '#f1c40f', '#e74c3c', '#9b59b6'][j % 4], 117.4, H + 0.42, z + 1.35, G, false);
+  }
+  for (const [tx, tz] of [[106, 130], [109, 133], [114, 131], [105.5, 139], [113, 141], [117, 129.5]]) {
+    box(0.25, 1.4, 0.25, '#6d4c2f', tx, H + 0.7, tz, G); const c = new THREE.Mesh(new THREE.SphereGeometry(1, 8, 6), mat('#3f8f3a')); c.position.set(tx, H + 1.9, tz); c.castShadow = true; G.add(c);
+  }
+  const fs = new THREE.Mesh(new THREE.PlaneGeometry(3, 0.75), new THREE.MeshBasicMaterial({ map: signTex('🎣 Balık tutma yeri', '#ffffff', '#1f6fb2') }));
+  fs.position.set(118.6, H + 1.6, 134.5); fs.rotation.y = -Math.PI / 2; G.add(fs); box(0.1, 1.6, 0.1, '#6d4c2f', 118.65, H + 0.8, 134.5, G, false);
+  // barınak önündeki kayıklar ve iskele
+  box(3.2, 0.15, 1.2, '#8e5a2b', SEA_X + 1.4, 0.25, 111.5, G);
+  [[SEA_X + 2.6, 110.2, '#2e86de'], [SEA_X + 2.8, 113, '#e67e22']].forEach(([x, z, c]) => { const b = kkBoatMesh(c); b.position.set(x, -0.05, z); b.rotation.y = Math.PI / 2; G.add(b); KK3.fish.push({ boat: b, z }); });
+  // zıplayan balıklar
+  for (let i = 0; i < 6; i++) { const f = box(0.18, 0.18, 0.5, i % 3 ? '#b0c4de' : '#f39c12', 0, -2, 0, G, false); KK3.fish.push({ m: f, x: 123 + Math.random() * 12, z: 120 + Math.random() * 40, ph: Math.random() * 10, sp: 2.5 + Math.random() * 2 }); }
+}
+function kkAnim(t) {
+  if (!kkAnim.done) { if (typeof scene !== 'undefined' && scene && boxG) { kkAnim.done = 1; try { kk3D(); } catch (e) { console.error('kk3D', e); } } return; }
+  const s = t / 1000;
+  for (const f of KK3.fish) {
+    if (f.boat) { f.boat.position.y = -0.05 + Math.sin(s * 1.3 + f.z) * 0.05; continue; }
+    const c = ((s + f.ph) % f.sp) / f.sp;
+    if (c < 0.22) { const k = c / 0.22; f.m.position.set(f.x + k * 1.4, Math.sin(k * Math.PI) * 1.1 - 0.15, f.z); f.m.rotation.x = (k - 0.5) * 2.2; f.m.rotation.y = Math.PI / 2; }
+    else { f.m.position.y = -2; if (c > 0.95) { f.x = 123 + Math.random() * 12; f.z = 120 + Math.random() * 40; } }
+  }
+}
+
 // ================= EVENTS =================
 const EV_NAMES = { yangin: '🔥 YANGIN', soygun: '🚨 SOYGUN', festival: '🎉 FESTİVAL' };
 function evStart() { if (EV && !EV.done) { const b = evB(); toast(`${EV_NAMES[EV.type]}${b ? ' — ' + b.n : ''}!`, 5000); } }
@@ -4948,7 +5482,7 @@ async function init3D() {
   winMats.push(winMat);
   BUILD.forEach(b => {
     const cxB = b.x + b.w / 2, czB = b.y + b.h / 2, H = b.H;
-    const bg = new THREE.Group(); scene.add(bg); const box = (w, h, d, c, x, y, z, p, cast, m) => boxIn(w, h, d, c, x, y, z, bg, cast, m);
+    const bg = new THREE.Group(); scene.add(bg); bg.position.y = b.yo || 0; const box = (w, h, d, c, x, y, z, p, cast, m) => boxIn(w, h, d, c, x, y, z, bg, cast, m);
     if (ecoDeco(b, bg, box, 0)) return;
     if (b.open) { buildStage(bg, box); return; }
     box(b.w - 0.2, H, b.h - 0.2, b.c, cxB, H / 2, czB);
@@ -5078,6 +5612,7 @@ function refreshPlots() {
       box(0.5, 0.9, 0.05, '#5a3d2b', cxP, 0.45, czP + 0.92, g, false);
       box(0.5, 0.45, 0.05, '', cxP - 0.75, 1.0, czP + 0.92, g, false, winMat); box(0.5, 0.45, 0.05, '', cxP + 0.75, 1.0, czP + 0.92, g, false, winMat);
       label = makeLabel(); label.innerHTML = `<span class="nm${own.id === myId ? ' me' : ''}">🏡 ${esc(own.name)}</span>`; label._p = [cxP, 3.3, czP];
+    } else if (own.type === 'apt') { label = kkApt(own, p, g, cxP, czP);
     } else {
       box(p.w, 0.06, p.h, '#c9c9c9', cxP, 0.03, czP, g, false);
       box(2.7, 2.0, 2.2, '#fbf6ec', cxP, 1.0, czP - 0.15, g);
@@ -5162,6 +5697,7 @@ function syncPerson(id, p, me, t) {
   m.g.position.y = onBike ? 0.45 : p._mv ? Math.abs(Math.sin(t / 110)) * 0.06 : 0;
   m.g.rotation.z = 0; const dm = danceMode(me ? myId : id, p); if (dm) { if (dm === 2) m.g.position.y += 0.62; danceAnim(m, dm, t, (String(id).charCodeAt(1) || 0) % 4); }
   swimAnim(m, p, t);
+  kkPerson(m, p, t, x, z);
   syncPet(m, p, t);
   const r = me ? myRole() : roleOf(id), wanted = p.wanted > now(), jailed = p.jail > now();
   const cls = jailed ? 'jail' : wanted ? 'bad' : r ? 'role' : me ? 'me' : '';
@@ -5170,7 +5706,7 @@ function syncPerson(id, p, me, t) {
   const bub = p.msg && performance.now() - (p.msgAt || 0) < 6000 ? `<div class="bb">${esc(p.msg)}</div>` : '';
   const html = riding ? '' : `${bub}<div style="text-align:center"><span class="nm ${cls}" data-pid="${me ? '@me' : id}">${flagHtml(parties[PARTYOF[me ? myId : id]], 11)}${mods[me ? myId : id] ? '🛡 ' : ''}${tag}${esc(p.name || '')}</span></div><div class="jb">${esc(cbx ? 'Cumhurbaşkanı' : r ? ROLES[r].n : (headTitle(me ? myId : id, p.job) || jobTitle(p.job, me ? ME.kd : p.kd)))}${wanted ? ' • ARANIYOR' : ''}</div>`;
   if (m.label._h !== html) { m.label.innerHTML = html; m.label._h = html; }
-  if (html) placeLabel(m.label, x, isTaxi ? 1.9 : 2.2, z); else m.label.style.display = 'none';
+  if (html) placeLabel(m.label, x, (isTaxi ? 1.9 : 2.2) + (m._ey || 0), z); else m.label.style.display = 'none';
   m.seen = true;
 }
 function renderEvent(t) {
@@ -5231,7 +5767,8 @@ function frame(t) {
     else if (!(ME.jail > now()) && !ME.inside && !(ME.dr > now())) {
       const [jx, jy, jm] = inputVec();
       if (jm > 0.08) {
-        const sp = (ME.job === 'Taksici' ? 0.32 : ME.drive && ME.veh[ME.drive] ? VEH[ME.veh[ME.drive].t].sp : ME.sick ? 0.12 : 0.18) * dt * jm * (cityOn('road') ? 1.15 : 1) * (ME.sw ? (ME.job === 'Cankurtaran' ? 0.8 : 0.55) : 1);
+        if (ME.sit != null) kkStand();
+        const sp = (ME.job === 'Taksici' ? 0.32 : ME.drive && ME.veh[ME.drive] ? VEH[ME.veh[ME.drive].t].sp : ME.sick ? 0.12 : 0.18) * dt * jm * (cityOn('road') ? 1.15 : 1) * (ME.sw ? (ME.job === 'Cankurtaran' ? 0.8 : 0.55) : 1) * (ME.boat > now() ? 0.9 : 1);
         const nx = Math.max(10, Math.min(XMAX, ME.x + jx * sp)), ny = Math.max(10, Math.min(YMAX, ME.y + jy * sp));
         if (blocked(ME.x, ME.y) || !blocked(nx, ny)) { ME.x = nx; ME.y = ny; ME._mv = true; }
         else if (!blocked(nx, ME.y)) { ME.x = nx; ME._mv = true; }
@@ -5249,7 +5786,7 @@ function frame(t) {
     fx = adm.cx; fz = adm.cz;
   } else { const a = t / 9000; fx = WN / 2 + Math.sin(a) * 8; fz = WN / 2 + Math.cos(a) * 8; }
   for (const id in others) { const o = others[id]; if (!o.hasPos) continue; const ox = o.x, oy = o.y, ddx = o.tx - o.x, ddy = o.ty - o.y, dd = Math.hypot(ddx, ddy); if (dd > 600 || !o._sp) { o.x += ddx * 0.09; o.y += ddy * 0.09; } else if (dd > 0.01) { const st = Math.min(dd, o._sp * dt); o.x += ddx / dd * st; o.y += ddy / dd * st; } o._mv = Math.hypot(o.x - ox, o.y - oy) > 0.3; }
-  ecoAnim3D(t); abAnim(t); futAnim(t);
+  ecoAnim3D(t); abAnim(t); futAnim(t); kkAnim(t);
   const dist3 = 15 * zoom; camera3.position.set(fx, dist3 * 1.05, fz + dist3 * 0.95); camera3.lookAt(fx, 0.8, fz);
   sun.position.set(fx + 12, 25, fz + 8); sun.target.position.set(fx, 0, fz);
   // day / night
