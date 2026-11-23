@@ -172,7 +172,7 @@ const COUNTRIES = {
 let FULL1 = true; try { FULL1 = localStorage.getItem('kk_full1') !== '0'; } catch (e) { }   // Komşukent dolu mu: yönetici panelden açar/kapatır (pub/full1)
 const C = (() => { let c = 0; try { const u = +new URLSearchParams(location.search).get('c'), st = +localStorage.getItem('kk_c'), known = !!(localStorage.getItem('kk_me') || localStorage.getItem('kk_id')); c = u || (known ? st : 0) || (FULL1 ? 2 + Math.floor(Math.random() * 2) : 1); } catch (e) { c = 1; } if (!COUNTRIES[c] || !COUNTRIES[c].cfg) c = 1; try { localStorage.setItem('kk_c', String(c)); } catch (e) { } return c; })();
 const FB = {};
-const APP_V = '2026112213';
+const APP_V = '2026112214';
 let CAP = 0;   // bump on every upload (yyyymmddNN)
 const ADMIN = location.hash === '#yonetim';
 let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off, orderByChild, equalTo;
@@ -354,7 +354,7 @@ async function enter2(mode) {
     const isAdm = (await get(ref(db, 'admins/' + myId))).val() === true;
     const U = auth.currentUser, isG = !U.isAnonymous;
     if (!isAdm) { const cap = (await get(ref(db, 'config/cap')).catch(() => null))?.val() || 0; if (cap) { const on = (await get(ref(db, 'online')).catch(() => null))?.val() || {}; if (Object.keys(on).filter(k => k !== myId).length >= cap) throw { message: `🚦 Şehir şu an dolu (${cap} kişi). 2-3 dakika sonra tekrar dene, uyuyanlar çıktıkça yer açılıyor 🙏` }; } }
-    if (!isAdm && !devCheck(myId)) { try { if (U.isAnonymous) await AU.signOut(auth); } catch (e) { } throw { message: '📵 Bu telefonda en fazla 2 hesap açılabilir. Daha önce girdiğin hesapla gir (aynı isimle misafir ya da aynı Google hesabı).' }; }
+    if (!isAdm && !isG && !devCheck(myId)) { /* sınır sadece misafir hesaplara, Google hesabı her zaman girer */ try { if (U.isAnonymous) await AU.signOut(auth); } catch (e) { } throw { message: '📵 Bu telefonda en fazla 2 hesap açılabilir. Daha önce girdiğin hesapla gir (aynı isimle misafir ya da aynı Google hesabı).' }; }
     const keyOf = n => fold(n.toLocaleLowerCase('tr')).replace(/[.\s]/g, '_');
     const bad = n => RESERVED.some(r => keyOf(n).replace(/_/g, '').includes(r));
     if (isG && !isAdm) {   // Google players use their Google name
