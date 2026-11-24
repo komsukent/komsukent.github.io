@@ -172,7 +172,7 @@ const COUNTRIES = {
 let FULL1 = true; try { FULL1 = localStorage.getItem('kk_full1') !== '0'; } catch (e) { }   // Komşukent dolu mu: yönetici panelden açar/kapatır (pub/full1)
 const C = (() => { let c = 0; try { const u = +new URLSearchParams(location.search).get('c'), st = +localStorage.getItem('kk_c'), known = !!(localStorage.getItem('kk_me') || localStorage.getItem('kk_id')); c = u || (known ? st : 0) || (FULL1 ? 2 + Math.floor(Math.random() * 2) : 1); } catch (e) { c = 1; } if (!COUNTRIES[c] || !COUNTRIES[c].cfg) c = 1; try { localStorage.setItem('kk_c', String(c)); } catch (e) { } return c; })();
 const FB = {};
-const APP_V = '2026112214';
+const APP_V = '2026112215';
 let CAP = 0;   // bump on every upload (yyyymmddNN)
 const ADMIN = location.hash === '#yonetim';
 let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off, orderByChild, equalTo;
@@ -722,6 +722,7 @@ function profileMenu(id, nameHint) {
     else if (freqs[id]) items.push({ label: '✅ Arkadaşlık isteğini kabul et', fn: () => acceptFriend(id) });
     else items.push({ label: '➕ Arkadaş ekle', fn: () => addFriend(id, o.name) });
     items.push({ label: '🔄 Takas teklif et', fn: () => takasForm(id, o.name) });
+    items.push(...kkKomsuItems(id, o.name));
     if (canAssign()) items.push({ label: '🧾 Görev ver', fn: () => gorevForm(id, o.name) });
   }
   if (opp) items.push({ label: `${flagHtml(opp)}${esc(opp.name)} partisine bak`, fn: () => partyInfo(PARTYOF[id]) });
@@ -5172,6 +5173,7 @@ function kkActs(L, b, t) {
   if (nIn || nOut) L.push({ label: `📬 Mülk teklifleri${nIn ? ` (${nIn} yeni)` : ''}`, cls: nIn ? 'blue' : '', fn: mulkMenu });
   kkFutJobActs(L);
   kk10Acts(L, b, t);
+  kk11Acts(L, b);
 }
 async function kkInit() {
   if (!ME || kkInit.done) return; kkInit.done = 1;
@@ -5626,6 +5628,116 @@ function kkSky(nk) {
   scene.background.lerp(KGREY.c || (KGREY.c = new THREE.Color('#566573')), k * 0.65); scene.fog.color.copy(scene.background);
   if (w === 'firtina') { if (Math.random() < 0.004) KFLASH = performance.now() + 140; if (performance.now() < KFLASH) { hemi.intensity += 2.2; scene.background.set('#dfe9ff'); } }
 }
+
+// ================= v11: KOMŞU OL • KOMŞU SOKAĞI =================
+let KOMSU = {}, KREQ = {}, SOKAK = {};
+const KOMSU_MAX = 3, SOKAK_COST = 1000, MOVE_COST = 300;
+const plotBlk = k => { const p = PMAP[k]; return p ? Math.floor(p.x / BLK) + '_' + Math.floor(p.y / BLK) : null; };
+const homeOf = id => id === myId ? (ME && ME.home && PMAP[ME.home] ? PMAP[ME.home] : null) : PLOTS.find(p => plots[p.k] && plots[p.k].id === id && ['ev', 'apt'].includes(plots[p.k].type)) || null;
+function komsuListen() {
+  if (komsuListen.on || !db || !myId) return; komsuListen.on = 1;
+  onValue(ref(db, 'komsu/' + myId), d => { KOMSU = d.val() || {}; });
+  onValue(ref(db, 'komsuReq/' + myId), d => { const v = d.val() || {}; for (const id in v) if (!KREQ[id]) toast(`🤝 ${esc(v[id].n)} sana komşuluk teklif etti! Profiline dokun ya da evinin yanında "🤝 Komşuluk istekleri"`, 5000); KREQ = v; });
+  onValue(ref(db, 'sokak'), d => { SOKAK = d.val() || {}; sokakLabels(); });
+}
+function kkKomsuItems(id, name) {
+  if (!ME) return [];
+  if (KOMSU[id]) return [{ label: '🏡 Komşumun yanına taşın', cls: 'blue', fn: () => komsuMove(id, name) }, { label: '💔 Komşuluğu bitir', fn: () => komsuRemove(id, name) }];
+  if (KREQ[id]) return [{ label: '🤝 Komşuluk teklifini kabul et', cls: 'blue', fn: () => komsuAccept(id, name) }];
+  return [{ label: '🤝 Komşu ol', disabled: Object.keys(KOMSU).length >= KOMSU_MAX, fn: () => komsuAsk(id, name) }];
+}
+async function komsuAsk(id, name) {
+  if (Object.keys(KOMSU).length >= KOMSU_MAX) return toast(`En fazla ${KOMSU_MAX} komşun olabilir`);
+  await set(ref(db, `komsuReq/${id}/${myId}`), { n: ME.name, t: now() }).catch(() => { });
+  notify(id, `🤝 ${ME.name} seninle komşu olmak istiyor! Profiline dokun, kabul et, evleriniz yan yana olsun`);
+  closeModal(); toast(`🤝 ${esc(name)}'e komşuluk teklifi gitti`);
+}
+async function komsuAccept(id, name) {
+  if (Object.keys(KOMSU).length >= KOMSU_MAX) return toast(`En fazla ${KOMSU_MAX} komşun olabilir`);
+  const theirs = (await get(ref(db, 'komsu/' + id)).catch(() => null))?.val() || {};
+  if (Object.keys(theirs).length >= KOMSU_MAX) { remove(ref(db, `komsuReq/${myId}/${id}`)); return toast(`${esc(name)}'in komşu kontenjanı dolmuş`); }
+  await update(ref(db), { [`komsu/${myId}/${id}`]: { n: name }, [`komsu/${id}/${myId}`]: { n: ME.name }, [`komsuReq/${myId}/${id}`]: null }).catch(() => { });
+  notify(id, `🤝 ${ME.name} komşuluk teklifini kabul etti! Artık yan yana oturabilirsiniz 🏡`);
+  say(`🤝 <b>${esc(ME.name)}</b> ve <b>${esc(name)}</b> artık komşu!`, true);
+  closeModal(); toast('🤝 Artık komşusunuz! "Komşumun yanına taşın" ile yan yana ev al');
+}
+async function komsuRemove(id, name) {
+  if (!confirm(`${name} ile komşuluk bitsin mi?`)) return;
+  await update(ref(db), { [`komsu/${myId}/${id}`]: null, [`komsu/${id}/${myId}`]: null }).catch(() => { });
+  closeModal(); toast('Komşuluk bitti');
+}
+async function komsuMove(id, name) {
+  const hp = homeOf(id);
+  if (!hp) { const mh = homeOf(myId); return toast(mh ? `${esc(name)}'in henüz evi yok. Ona söyle, senin yanına taşınsın 🏡` : `${esc(name)}'in henüz evi yok. Biriniz ev alınca diğeri yanına taşınabilir`); }
+  const mine = homeOf(myId);
+  if (mine && plotBlk(mine.k) === plotBlk(hp.k)) return toast('Zaten aynı sokaktasınız 🤝');
+  const old = ME.home && plots[ME.home];
+  const moving = old && old.id === myId && old.type === 'ev';
+  if (moving && (KIRA[ME.home] || EMLAK[ME.home])) return toast('Evin kirada ya da satışta, önce ilanı kaldır');
+  const price = moving ? MOVE_COST : Math.round(HOUSE_PRICE * 0.75);
+  if (ME.money < price) return toast(`Para yetmiyor, ${price} 💰 lazım`);
+  const free = PLOTS.filter(p => !plots[p.k]).sort((a, b) => Math.hypot(a.x - hp.x, a.y - hp.y) - Math.hypot(b.x - hp.x, b.y - hp.y));
+  if (!free.length || Math.hypot(free[0].x - hp.x, free[0].y - hp.y) > 30) return toast('Komşunun yakınında boş arsa kalmadı 😕');
+  if (!confirm(`${name}'in evinin yanına ${moving ? 'taşınacaksın' : 'ev alacaksın'}.\n${moving ? 'Taşınma ücreti' : 'Komşu indirimli ev'}: ${price} 💰\nDevam?`)) return;
+  const val = moving ? Object.assign({}, old) : { id: myId, name: ME.name, color: ME.color, type: 'ev' };
+  for (const p of free.slice(0, 4)) {
+    const res = await runTransaction(ref(db, 'plots2/' + p.k), cur => cur ? undefined : val).catch(() => null);
+    if (!res || !res.committed) continue;
+    plots[p.k] = val;
+    if (moving) { const ok = ME.home; await set(ref(db, 'plots2/' + ok), null).catch(() => { }); delete plots[ok]; }
+    ME.home = p.k; ME.money -= price; hud(); saveMe(); refreshPlots(); cityIncome(price); closeModal();
+    if (!moving) payJob(['İnşaatçı'], 60, `🏗 ${ME.name}'in evini inşa ettin`);
+    payJob(['Nakliyeci'], 40, `🚚 ${ME.name}'in eşyalarını taşıdın`);
+    notify(id, `🏡 ${ME.name} evinin yanına taşındı! Artık yan yanasınız 🤝`);
+    say(`🏡🤝 <b>${esc(ME.name)}</b>, komşusu <b>${esc(name)}</b>'in yanına taşındı!`, true);
+    toast('🏡 Yeni evin hayırlı olsun! Komşunla yan yanasın 🤝', 4500); stat('komsu');
+    return;
+  }
+  toast('Arsalar kapıldı, tekrar dene');
+}
+function komsuMenu() {
+  const items = [];
+  for (const [id, r] of Object.entries(KREQ)) items.push({ label: `🤝 ${esc(r.n)} komşu olmak istiyor`, right: 'kabul', cls: 'blue', fn: () => komsuAccept(id, r.n) }, { label: `❌ ${esc(r.n)} teklifini reddet`, fn: () => { remove(ref(db, `komsuReq/${myId}/${id}`)); closeModal(); } });
+  for (const [id, r] of Object.entries(KOMSU)) { const hp = homeOf(id), mh = homeOf(myId); items.push({ label: `🏡 ${esc(r.n)}${hp && mh && plotBlk(hp.k) === plotBlk(mh.k) ? ' • aynı sokakta ✅' : hp ? '' : ' • evi yok'}`, fn: () => profileMenu(id, r.n) }); }
+  const blk = ME.home && plotBlk(ME.home), same = blk ? Object.keys(KOMSU).filter(id => { const h = homeOf(id); return h && plotBlk(h.k) === blk; }).length : 0, st = blk && SOKAK[blk];
+  if (blk && !st) items.push({ label: `🪧 Sokağa adını ver ("${esc(ME.name)} Sokağı")`, right: SOKAK_COST + ' 💰', disabled: same < 2 || ME.money < SOKAK_COST, fn: sokakName });
+  modal('🤝 Komşularım', items, `<p>${Object.keys(KOMSU).length}/${KOMSU_MAX} komşu. Birinin profiline dokun → <b>🤝 Komşu ol</b>. Kabul edince <b>yanına taşın</b>: ev %25 indirimli, evin varsa taşınma ${MOVE_COST} 💰.<br>🪧 2 komşun senin sokağına taşınınca sokağa adını verebilirsin.${st ? `<br>Sokağın: <b>${esc(st.n)}</b>` : ''}</p>`);
+}
+async function sokakName() {
+  const blk = plotBlk(ME.home); if (!blk || !spend(SOKAK_COST)) return;
+  const nm = ME.name + ' Sokağı';
+  const r = await runTransaction(ref(db, 'sokak/' + blk), v => v ? undefined : { n: nm, u: myId, t: now() }).catch(() => null);
+  if (!r || !r.committed) { ME.money += SOKAK_COST; hud(); return toast('Bu sokağın zaten bir adı var'); }
+  saveMe(); cityIncome(SOKAK_COST); closeModal();
+  Object.keys(KOMSU).forEach(id => notify(id, `🪧 Sokağınızın adı artık "${nm}"!`));
+  say(`🪧 Şehirde yeni bir sokak: <b>${esc(nm)}</b>! 🤝`, true, 'ann');
+}
+const SOKL = {};
+function sokakLabels() {
+  if (typeof labelsEl === 'undefined' || !labelsEl) return;
+  for (const [b, v] of Object.entries(SOKAK)) {
+    if (!v) continue; if (!SOKL[b]) SOKL[b] = makeLabel();
+    SOKL[b].innerHTML = `<span class="nm" style="background:#e67e22;color:#fff">🪧 ${esc(v.n)}</span>`;
+  }
+  for (const b in SOKL) if (!SOKAK[b]) { SOKL[b].remove(); delete SOKL[b]; }
+}
+function sokakAnim() {
+  if (typeof camera3 === 'undefined' || !camera3) return;
+  const cx = camera3.position.x, cz = camera3.position.z;
+  for (const [b, L] of Object.entries(SOKL)) {
+    const [bx, by] = b.split('_').map(Number), x = bx * BLK + RW + 5, z = by * BLK + RW + 5;
+    if (Math.hypot(x - cx, z - cz) < 70) placeLabel(L, x, 4.5, z); else if (L.style.display !== 'none') L.style.display = 'none';
+  }
+}
+function kk11Acts(L, b) {
+  if (!ME) return;
+  const n = Object.keys(KREQ).length;
+  if (n) L.push({ label: `🤝 Komşuluk istekleri (${n})`, cls: 'blue', fn: komsuMenu });
+  const p = PLOTS.find(p => nearPlot(p)), own = p && plots[p.k];
+  if (own && own.id === myId && ['ev', 'apt'].includes(own.type)) L.push({ label: `🤝 Komşularım (${Object.keys(KOMSU).length}/${KOMSU_MAX})`, fn: komsuMenu });
+  if (own && own.id !== myId && own.id && !KOMSU[own.id] && Object.keys(KOMSU).length < KOMSU_MAX) L.push({ label: `🤝 ${esc(own.name)} ile komşu ol`, fn: () => komsuAsk(own.id, own.name) });
+}
+setInterval(() => { if (ME && db && myId) komsuListen(); }, 1500);
 
 // ================= EVENTS =================
 const EV_NAMES = { yangin: '🔥 YANGIN', soygun: '🚨 SOYGUN', festival: '🎉 FESTİVAL' };
@@ -6138,7 +6250,7 @@ function frame(t) {
     fx = adm.cx; fz = adm.cz;
   } else { const a = t / 9000; fx = WN / 2 + Math.sin(a) * 8; fz = WN / 2 + Math.cos(a) * 8; }
   for (const id in others) { const o = others[id]; if (!o.hasPos) continue; const ox = o.x, oy = o.y, ddx = o.tx - o.x, ddy = o.ty - o.y, dd = Math.hypot(ddx, ddy); if (dd > 600 || !o._sp) { o.x += ddx * 0.09; o.y += ddy * 0.09; } else if (dd > 0.01) { const st = Math.min(dd, o._sp * dt); o.x += ddx / dd * st; o.y += ddy / dd * st; } o._mv = Math.hypot(o.x - ox, o.y - oy) > 0.3; }
-  ecoAnim3D(t); abAnim(t); futAnim(t); kkAnim(t); kk10Anim(t);
+  ecoAnim3D(t); abAnim(t); futAnim(t); kkAnim(t); kk10Anim(t); sokakAnim();
   const dist3 = 15 * zoom; camera3.position.set(fx, dist3 * 1.05, fz + dist3 * 0.95); camera3.lookAt(fx, 0.8, fz);
   sun.position.set(fx + 12, 25, fz + 8); sun.target.position.set(fx, 0, fz);
   // day / night
