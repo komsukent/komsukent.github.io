@@ -172,7 +172,7 @@ const COUNTRIES = {
 let FULL1 = true; try { FULL1 = localStorage.getItem('kk_full1') !== '0'; } catch (e) { }   // Komşukent dolu mu: yönetici panelden açar/kapatır (pub/full1)
 const C = (() => { let c = 0; try { const u = +new URLSearchParams(location.search).get('c'), st = +localStorage.getItem('kk_c'), known = !!(localStorage.getItem('kk_me') || localStorage.getItem('kk_id')); c = u || (known ? st : 0) || (FULL1 ? 2 + Math.floor(Math.random() * 2) : 1); } catch (e) { c = 1; } if (!COUNTRIES[c] || !COUNTRIES[c].cfg) c = 1; try { localStorage.setItem('kk_c', String(c)); } catch (e) { } return c; })();
 const FB = {};
-const APP_V = '2026112215';
+const APP_V = '2026112216';
 let CAP = 0;   // bump on every upload (yyyymmddNN)
 const ADMIN = location.hash === '#yonetim';
 let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off, orderByChild, equalTo;
@@ -601,6 +601,12 @@ setInterval(() => {
 }, 30000);
 function stat(k, v = 1) { try { dqStat(k, v); } catch (e) { console.log('dq', e); } const m = MK(); ME.m = ME.m || {}; ME.m[m] = ME.m[m] || {}; ME.m[m][k] = (ME.m[m][k] || 0) + v; if (k === 'worked') seniorSave(); warPoint(k); }
 function earn(a, why) { ME.money += a; stat('earned', a); hud(); saveMe(); if (why) toast(why + ` +${a} 💰`); }
+// Firebase işlemi: yol yerelde önbellekte yokken ilk çağrı null görür; null'da hemen vazgeçmek yerine sunucudaki gerçek değeri bekle
+async function TX(r, fn) {
+  let first = true, ran = false;
+  const res = await runTransaction(r, v => { if (v === null && first) { first = false; return null; } ran = true; return fn(v); });
+  return ran ? res : runTransaction(r, fn);
+}
 function payTo(id, amount) { if (amount > 0) runTransaction(ref(db, 'players/' + id + '/money'), m => (m || 0) + amount); }
 function notify(id, m, extra = {}) { push(ref(db, 'notify/' + id), Object.assign({ m }, extra)); }
 function say(html, global, k = 'sys') { if (global && db) push(ref(db, 'log'), { h: html, k, t: serverTimestamp() }).catch(() => { }); else addLog(null, { h: html, k }); }
@@ -4458,7 +4464,7 @@ async function futBuy(tid) {
     const n = (g('fnm').value || '').trim().replace(/\s+/g, ' ');
     if (!futNameOk(n)) return toast('Bu isim olmaz 🙅 3-24 harf, gerçek ve ünlü takım isimleri yasak (telif)', 5000);
     if (Object.values(teams).some(t => t.n && fold(t.n.toLocaleLowerCase('tr')) === fold(n.toLocaleLowerCase('tr')))) return toast('Bu isimde takım var');
-    const r = await runTransaction(ref(db, `fut/teams/${tid}/o`), v => v ? undefined : myId).catch(() => null);
+    const r = await TX(ref(db, `fut/teams/${tid}/o`), v => v ? undefined : myId).catch(() => null);
     if (!r || !r.committed) return toast('Başkası daha önce aldı 😕');
     if (!spend(FUT_PRICE)) { set(ref(db, `fut/teams/${tid}/o`), null); return; }
     cityIncome(FUT_PRICE); saveMe();
@@ -4472,7 +4478,7 @@ async function futUpgrade(tid) {
   const pl = Object.entries(t.pl || {}).sort((a, b) => posOrd[a[1].ps] - posOrd[b[1].ps] || b[1].pw - a[1].pw);
   modal('⬆ Güç yükselt', [...pl.map(([pid, p]) => ({ label: `${p.u ? '⭐ ' : ''}${esc(p.n)} • ${p.ps} • ${p.pw}`, right: p.pw >= 99 ? 'MAX' : futCost(p.pw).toLocaleString('tr') + ' 💰', disabled: p.pw >= 99 || ME.money < futCost(p.pw), keep: true, fn: async () => {
     const c = futCost(p.pw); if (!spend(c)) return;
-    const r = await runTransaction(ref(db, `fut/teams/${tid}/pl/${pid}/pw`), v => v != null && v < 99 ? v + 1 : undefined).catch(() => null);
+    const r = await TX(ref(db, `fut/teams/${tid}/pl/${pid}/pw`), v => v != null && v < 99 ? v + 1 : undefined).catch(() => null);
     if (!r || !r.committed) { earn(c); return; }
     cityIncome(c); saveMe(); toast(`⬆ ${p.n} gücü ${r.snapshot.val()} oldu`); FUTTT = 0; futUpgrade(tid);
   } })), { label: '⬅ Takıma dön', fn: () => futTeam(tid) }], `<p>Her seviye bir öncekinden pahalı. En fazla 99. Para devlet kasasına gider.</p>`);
@@ -4497,7 +4503,7 @@ async function futBuyPlayer(k, m) {
   const teams = await futTeams(true), my = futMine(teams); if (!my.own) return;
   if (Object.keys(teams[my.own].pl || {}).length >= FUT_MAXSQ) return toast(`Kadro en fazla ${FUT_MAXSQ} kişi`);
   if (ME.money < m.pr) return toast('Para yetmiyor');
-  let got = null; const r = await runTransaction(ref(db, 'fut/mkt/' + k), v => { got = v; return v ? null : undefined; }).catch(() => null);
+  let got = null; const r = await TX(ref(db, 'fut/mkt/' + k), v => { got = v; return v ? null : undefined; }).catch(() => null);
   if (!r || !r.committed || !got) return toast('Bu futbolcu satıldı 😕');
   const p = ((teams[got.t] || {}).pl || {})[got.p]; if (!p) return toast('Futbolcu bulunamadı');
   if (!spend(got.pr)) return; saveMe();
@@ -4538,7 +4544,7 @@ async function futTrain() {
     const p0 = ME.fpw || 50, ch = p0 < 70 ? 1 : p0 < 85 ? 0.6 : 0.3, up = Math.random() < ch && p0 < 99;
     ME.fpw = p0 + (up ? 1 : 0); update(ref(db, 'players/' + myId), { fpw: ME.fpw, ftr: ME.ftr });
     const teams = await futTeams(true), my = futMine(teams);
-    if (up && my.play) runTransaction(ref(db, `fut/teams/${my.play.tid}/pl/${my.play.pid}/pw`), v => v != null && v < 99 ? Math.max(v + 1, ME.fpw) : undefined).catch(() => { });
+    if (up && my.play) TX(ref(db, `fut/teams/${my.play.tid}/pl/${my.play.pid}/pw`), v => v != null && v < 99 ? Math.max(v + 1, ME.fpw) : undefined).catch(() => { });
     hud(); toast(up ? `💪 Antrenman harika! Gücün ${ME.fpw} oldu` : '🏃 Antrenman tamam, gelişim yavaş ama sürüyor', 4000);
   }, '🏃 Antrenman');
 }
@@ -4803,7 +4809,7 @@ function fishSpot() {
 function balSave() { if (ME && ME.bal) update(ref(db, 'players/' + myId), { bal: ME.bal }).catch(() => { }); }
 async function fishWeekPrize() {
   const wk = kkWeek() - 1;
-  const r = await runTransaction(ref(db, 'fishrec/' + wk), v => (v && v.u && !v.paid) ? Object.assign(v, { paid: myId }) : undefined).catch(() => null);
+  const r = await TX(ref(db, 'fishrec/' + wk), v => (v && v.u && !v.paid) ? Object.assign(v, { paid: myId }) : undefined).catch(() => null);
   if (r && r.committed) { const v = r.snapshot.val(); payBig(v.u, 1000); notify(v.u, `🏆 Haftanın en büyük balığı ödülü! (${v.kg} kg ${(FISH[v.f] || {}).n || ''})`); say(`🏆🎣 Haftanın balık kralı <b>${esc(v.n)}</b>! ${v.kg} kg ${(FISH[v.f] || {}).n || ''} ile <b>1000 💰</b> kazandı`, true, 'ann'); }
 }
 async function balMenu() {
@@ -4977,7 +4983,7 @@ function mulkMenu() {
 }
 async function mulkAccept(oid) {
   const o = MULKIN[oid]; if (!o) return; closeModal();
-  const lk = await runTransaction(ref(db, `mulkOut/${o.by}/${oid}/st`), s => s === 'w' ? 'acc' : undefined).catch(() => null);
+  const lk = await TX(ref(db, `mulkOut/${o.by}/${oid}/st`), s => s === 'w' ? 'acc' : undefined).catch(() => null);
   if (!lk || !lk.committed) { remove(ref(db, `mulk/${myId}/${oid}`)).catch(() => { }); return toast('Bu teklif artık geçerli değil'); }
   const own = plots[o.k];
   try {
@@ -5006,7 +5012,7 @@ async function mulkAccept(oid) {
 }
 async function mulkReject(oid) {
   const o = MULKIN[oid]; closeModal(); if (!o) return;
-  await runTransaction(ref(db, `mulkOut/${o.by}/${oid}/st`), s => s === 'w' ? 'rej' : undefined).catch(() => { });
+  await TX(ref(db, `mulkOut/${o.by}/${oid}/st`), s => s === 'w' ? 'rej' : undefined).catch(() => { });
   remove(ref(db, `mulk/${myId}/${oid}`)).catch(() => { }); notify(o.by, `🙅 ${ME.name} mülk teklifini reddetti, paran iade edildi`); toast('Teklifi reddettin');
 }
 async function mulkCancel(oid) {
