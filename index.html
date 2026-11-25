@@ -172,7 +172,7 @@ const COUNTRIES = {
 let FULL1 = true; try { FULL1 = localStorage.getItem('kk_full1') !== '0'; } catch (e) { }   // Komşukent dolu mu: yönetici panelden açar/kapatır (pub/full1)
 const C = (() => { let c = 0; try { const u = +new URLSearchParams(location.search).get('c'), st = +localStorage.getItem('kk_c'), known = !!(localStorage.getItem('kk_me') || localStorage.getItem('kk_id')); c = u || (known ? st : 0) || (FULL1 ? 2 + Math.floor(Math.random() * 2) : 1); } catch (e) { c = 1; } if (!COUNTRIES[c] || !COUNTRIES[c].cfg) c = 1; try { localStorage.setItem('kk_c', String(c)); } catch (e) { } return c; })();
 const FB = {};
-const APP_V = '2026112217';
+const APP_V = '2026112218';
 let CAP = 0;   // bump on every upload (yyyymmddNN)
 const ADMIN = location.hash === '#yonetim';
 let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off, orderByChild, equalTo;
@@ -763,6 +763,7 @@ function accountMenu() {
   items.push({ label: '🌍 Dünya • sıralama, savaş, referandum', fn: worldMenu });
   if (Object.keys(COUNTRIES).some(c => +c !== C && ctryOn(+c))) items.push(ME.gocUsed ? { label: '🌍 Göç hakkını kullandın', disabled: true } : { label: '🌍 Ülke değiştir (1 hakkın var)', fn: gocMenu });
   if (mods[myId]) items.unshift({ label: '🚩 Sohbet şikayetleri', fn: modReports });
+  items.push({ label: '📄 Gizlilik ve KVKK', fn: privMenu }, { label: '🗑 Hesabımı ve verilerimi sil', cls: 'red', fn: deleteMyAccount });
   items.push({ label: '🚪 Çıkış yap', fn: async () => { await remove(ref(db, 'online/' + myId)); if (myZone) await remove(ref(db, 'pos/' + myZone + '/' + myId)); await AU.signOut(auth); location.reload(); } });
   modal('👤 Hesabım', items, `<p>${u.isAnonymous ? 'Misafir hesap: başka cihazdan girersen ilerlemen görünmez. Kaybetmemek için Google\'a bağla.' : '✅ Google hesabınla giriş yaptın, ilerlemen her cihazda kayıtlı.'}${mods[myId] ? '<br>🛡 Moderatörsün: oyunculara dokunarak sustur/at yapabilirsin.' : ''}</p>`);
 }
@@ -6452,6 +6453,77 @@ function furnAct(a) {
 for (const k of ['market', 'firin', 'kuafor', 'avm']) { const o = BMENU[k]; if (!o || o.open0) continue; o.open0 = o.open; o.open = () => roomEnter(k, 'city', {}); }
 BMENU.market.open0 = () => shopScreen('🛒 Market', '#c0392b', foodTabs(MKT_FOOD).map((t, i) => i ? t : Object.assign(t, { info: 'Aldıkların 🎒 çantana girer, yiyince enerji verir.' })));
 BMENU.firin.open0 = () => shopScreen('🥯 Fırın & Pastane', '#9b3b2a', foodTabs(FIRIN_FOOD));
+
+// ================= v18: Gizlilik / KVKK, onay, hesap silme =================
+const PRIV_V = '2026112501';
+function privOk() { try { return localStorage.getItem('kk_priv') === PRIV_V; } catch (e) { return false; } }
+function privSet() { try { localStorage.setItem('kk_priv', PRIV_V); } catch (e) { } }
+function privText() {
+  return `<div style="max-height:52vh;overflow:auto;font-size:14px;line-height:1.5;text-align:left">
+<p><b>Kısaca:</b> Komşukent bir oyundur. Oyunu oynatmak için gereken en az bilgiyi tutarız. Bilgilerini <b>satmayız</b>, reklamcılarla <b>paylaşmayız</b>, reklam ya da takip kodu yoktur. Hesabını istediğin an silebilirsin.</p>
+<p><b>Ne tutuluyor?</b> Oyun adın (ya da Google'daki görünen adın), Google hesap kimliğin (e-postan oyuna yazılmaz), oyun içi ilerlemen (para, meslek, ev, araç, eşya…), haritadaki karakter konumun (gerçek konumun değil), sohbet ve özel mesajların, son giriş zamanın.</p>
+<p><b>Neden?</b> Oyunun çalışması, ilerlemenin kaydedilmesi, oyuncuların birbirini görmesi ve kötüye kullanımın önlenmesi (KVKK 5/2-c ve 5/2-f).</p>
+<p><b>Nerede?</b> Google Firebase sunucularında (Avrupa, Belçika). Bu yüzden verilerin yurt dışında işlenir. Başka hiçbir şirkete verilmez.</p>
+<p><b>Kim görür?</b> Oyun adın, karakterin ve oyun içi bilgilerin diğer oyunculara görünür; videolarda oyundaki karakterler ve oyun adları görünebilir. Moderatörler kural ihlallerini incelemek için sohbeti görebilir.</p>
+<p><b>Ne kadar?</b> Hesabın açık olduğu sürece. 7 gün girilmeyen hesap otomatik silinir.</p>
+<p><b>Hakların (KVKK 11):</b> Bilgi isteme, düzeltme, silme, itiraz. 👤 Hesabım → 🗑 Hesabımı ve verilerimi sil. İletişim: Instagram @komsukent.</p>
+<p>18 yaşından küçüksen oyunu ailenin bilgisiyle oyna; gerçek adını, okulunu, adresini kimseyle paylaşma.</p>
+<p><a href="gizlilik.html" target="_blank" style="color:#7fd3ff">📄 Metnin tamamı</a></p></div>`;
+}
+function privMenu() { modal('📄 Gizlilik ve KVKK', [{ label: 'Tamam', cls: 'blue', fn: closeModal }], privText()); }
+// giriş ekranı: onay kutusu
+(function () {
+  const card = document.getElementById('login'), err = document.getElementById('err'); if (!card || !err) return;
+  const w = document.createElement('label');
+  w.id = 'privBox'; w.style.cssText = 'display:flex;gap:8px;align-items:flex-start;font-size:13px;line-height:1.4;margin:10px 0 4px;cursor:pointer;text-align:left';
+  w.innerHTML = `<input type="checkbox" id="privChk" style="width:22px;height:22px;flex:none;margin:0" ${privOk() ? 'checked' : ''}><span><a href="gizlilik.html" target="_blank" style="color:#7fd3ff">Gizlilik ve Aydınlatma Metni</a>'ni okudum. Verilerimin oyun için Google Firebase'de (yurt dışı) saklanmasını kabul ediyorum.</span>`;
+  card.insertBefore(w, document.getElementById('gGoogle'));
+  const chk = w.querySelector('#privChk'); chk.onchange = () => { if (chk.checked) { privSet(); err.textContent = ''; } else try { localStorage.removeItem('kk_priv'); } catch (e) { } };
+  LB.forEach(b => b && b.addEventListener('click', e => { if (chk.checked) { privSet(); return; } e.stopImmediatePropagation(); e.preventDefault(); err.textContent = '☝️ Önce Gizlilik ve Aydınlatma Metni kutusunu işaretle'; w.style.outline = '2px solid #ff8a8a'; w.style.borderRadius = '8px'; }, true));
+})();
+// zaten oynayanlardan bir kere onay
+let privAsked = 0;
+setInterval(() => {
+  if (!ME || !myId || privAsked || (typeof ADMIN !== 'undefined' && ADMIN)) return;
+  if (ME.pv === PRIV_V || privOk()) { privSet(); privAsked = 1; if (ME.pv !== PRIV_V) { ME.pv = PRIV_V; update(ref(db, 'players/' + myId), { pv: PRIV_V }).catch(() => { }); } return; }
+  if (modalEl.style.display === 'flex') return;
+  privAsked = 1;
+  modal('📄 Gizlilik ve KVKK', [
+    { label: '✅ Okudum, kabul ediyorum', cls: 'blue', fn: () => { ME.pv = PRIV_V; privSet(); update(ref(db, 'players/' + myId), { pv: PRIV_V }).catch(() => { }); closeModal(); toast('Teşekkürler! İyi oyunlar 🏙️'); } },
+    { label: '🗑 Kabul etmiyorum, hesabımı sil', cls: 'red', fn: deleteMyAccount },
+  ], `<p>Oyuna gizlilik ve KVKK aydınlatma metni ekledik. Devam etmek için okuyup onayla 👇</p>${privText()}`);
+}, 5000);
+// hesabımı ve verilerimi sil
+async function deleteMyAccount() {
+  if (!ME || !myId) return;
+  if (!confirm('🗑 Hesabın ve bütün verilerin silinsin mi?\n\nParan, mesleğin, evlerin, dükkanların, eşyaların, arkadaş ve komşu listen gider. GERİ ALINAMAZ!')) return;
+  const w = prompt('Emin olmak için büyük harflerle SİL yaz:', '');
+  if (!w || w.trim().toLocaleUpperCase('tr') !== 'SİL') return toast('Silme iptal edildi');
+  toast('🗑 Hesabın siliniyor…', 8000);
+  const id = myId, q = p => remove(ref(db, p)).catch(() => { });
+  try {
+    if (ROOM.on) roomClose();
+    const tasks = [];
+    for (const k in plots) { const o = plots[k]; if (o && o.id === id) { tasks.push(q('plots2/' + k), q('furn/h_' + k), q('apt/' + k)); } }
+    for (const k in APT) for (const d of ['d1', 'd2', 'd3', 'd4']) { const f = (APT[k] || {})[d]; if (f && f.id === id) tasks.push(q(`apt/${k}/${d}`), q(`furn/a_${k}_${d}`)); }
+    try { const T = (await get(ref(db, 'fut/teams')).catch(() => null))?.val() || {}; for (const tid in T) if (T[tid] && T[tid].o === id) tasks.push(update(ref(db, 'fut/teams/' + tid), { o: null, on: null }).catch(() => { })); } catch (e) { }
+    try { const fr = (await get(ref(db, 'friends/' + id)).catch(() => null))?.val() || {}; for (const f in fr) tasks.push(q(`friends/${f}/${id}`)); } catch (e) { }
+    try { const K = (await get(ref(db, 'komsu/' + id)).catch(() => null))?.val() || {}; for (const f in K) tasks.push(q(`komsu/${f}/${id}`)); } catch (e) { }
+    tasks.push(q('friends/' + id), q('freq/' + id), q('komsu/' + id), q('komsuReq/' + id), q('notify/' + id), q('hb/' + id), q('karne/' + id), q('gorev/' + id));
+    let nk = null; try { nk = (await get(ref(db, 'players/' + id + '/nk'))).val(); } catch (e) { }
+    if (nk) tasks.push(q('names/' + nk));
+    await Promise.all(tasks);
+    if (myZone) await q('pos/' + myZone + '/' + id);
+    await q('players/' + id);
+    await q('online/' + id);
+    try { localStorage.removeItem('kk_priv'); const k = C === 1 ? 'kk_accts' : 'kk_accts' + C; const L = JSON.parse(localStorage.getItem(k) || '[]').filter(x => x !== id); localStorage.setItem(k, JSON.stringify(L)); } catch (e) { }
+    ME = null;
+    try { if (auth && auth.currentUser && AU.deleteUser) await AU.deleteUser(auth.currentUser); } catch (e) { }
+    try { await AU.signOut(auth); } catch (e) { }
+    alert('✅ Hesabın ve verilerin silindi. Görüşmek üzere 👋');
+    location.reload();
+  } catch (e) { alert('❌ Silme sırasında hata oldu: ' + (e.message || e) + '\nInstagram @komsukent DM ile bize yaz, elle silelim.'); }
+}
 
 // ================= EVENTS =================
 const EV_NAMES = { yangin: '🔥 YANGIN', soygun: '🚨 SOYGUN', festival: '🎉 FESTİVAL' };
