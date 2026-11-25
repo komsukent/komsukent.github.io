@@ -124,7 +124,7 @@ table.pl{width:100%;font-size:12px;border-collapse:collapse}table.pl td{padding:
 <div id="panel"><div class="card" id="login">
 <h1>KOMŞUKENT</h1>
 <div id="ctry"></div>
-<p style="text-align:center">Şehre taşın, meslek seç, para kazan, evini al!</p>
+<p style="text-align:center">Komşukent'e yerleş, meslek seç, para kazan, evini al!</p>
 <label>Kullanıcı adın <span style="opacity:.7">(sadece misafir girişi için)</span></label>
 <input id="name" maxlength="24" placeholder="ör. komsukent" autocomplete="off" autocapitalize="off">
 <select id="job" style="display:none"></select>
@@ -172,7 +172,7 @@ const COUNTRIES = {
 let FULL1 = true; try { FULL1 = localStorage.getItem('kk_full1') !== '0'; } catch (e) { }   // Komşukent dolu mu: yönetici panelden açar/kapatır (pub/full1)
 const C = (() => { let c = 0; try { const u = +new URLSearchParams(location.search).get('c'), st = +localStorage.getItem('kk_c'), known = !!(localStorage.getItem('kk_me') || localStorage.getItem('kk_id')); c = u || (known ? st : 0) || (FULL1 ? 2 + Math.floor(Math.random() * 2) : 1); } catch (e) { c = 1; } if (!COUNTRIES[c] || !COUNTRIES[c].cfg) c = 1; try { localStorage.setItem('kk_c', String(c)); } catch (e) { } return c; })();
 const FB = {};
-const APP_V = '2026112218';
+const APP_V = '2026112220';
 let CAP = 0;   // bump on every upload (yyyymmddNN)
 const ADMIN = location.hash === '#yonetim';
 let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off, orderByChild, equalTo;
@@ -404,7 +404,7 @@ async function enter2(mode) {
     ME = { name, job, color: myColor, money: prev.money ?? (isG ? 300 : 100), energy: prev.energy ?? 100, home: prev.home ?? null, shop: prev.shop ?? null,
       acc: prev.acc || {}, wear: prev.wear || {}, m: prev.m || {}, inv: prev.inv || {}, veh: prev.veh || {}, q: prev.q || {}, dq: prev.dq ? { d: prev.dq.d, c: prev.dq.c || {}, got: prev.dq.got || {}, bonus: prev.dq.bonus || 0 } : null, fan: prev.fan || null, fpw: prev.fpw || 50, ftr: prev.ftr || 0, lvl: prev.lvl || 0, sick: prev.sick || 0,
       play: prev.play || 0, pleft: prev.pleft || 0, jobDay: prev.jobDay || '', payDay: prev.payDay || '', jobChanged: prev.jobChanged || 0, jx: prev.jxv === 1 ? (prev.jx || 0) : (prev.jx || 0) + 1, jxv: 1, pet: prev.pet || null, bio: prev.bio || '', gocUsed: prev.gocUsed || 0, cbPd: prev.cbPd || '', preJob: prev.preJob || '', kd: undefined, stealDay: prev.stealDay || null, islah: prev.islah || 0, islahN: prev.islahN || 0, pd: prev.pd || {}, joined: prev.joined || now(), taxDay: prev.taxDay || '', drive: null, inside: null, bag: 0,
-      x: prev.x ?? (SPAWN.x + (Math.random() - .5) * 200), y: prev.y ?? SPAWN.y, wanted: 0, jail: 0, ride: null };
+      x: prev.x ?? (SPAWN.x + (Math.random() - .5) * 200), y: prev.y ?? SPAWN.y, wanted: 0, jail: 0, ride: null, pv: prev.pv || null, kmb: prev.kmb || null, ust: prev.ust || 0, ehl: prev.ehl || 0, ehlc: prev.ehlc || 0 };
     if (blocked(ME.x, ME.y) || ME.x > XMAX || ME.y > YMAX || (prev.v || 0) < 3) { ME.x = SPAWN.x + (Math.random() - .5) * 200; ME.y = SPAWN.y; }
     try { localStorage.setItem('kk_me', JSON.stringify({ name, job, color: myColor })); } catch (e) { }
     devAdd(myId); update(ref(db, 'players/' + myId), { dev: devId() }).catch(() => { });
@@ -424,7 +424,7 @@ async function enter2(mode) {
     set(ref(db, 'hb/' + myId), serverTimestamp()).catch(() => { });
     setZone(true);
     try { const jv = (await get(ref(db, 'jail/' + myId))).val(); if (jv > now()) { ME.jail = jv; ME.x = COURT_DOOR.x; ME.y = COURT_DOOR.y; pub({ jail: jv }); setTimeout(() => toast(`⛓ Hapis cezan devam ediyor: ${Math.ceil((jv - now()) / 60000)} dk`, 5000), 2500); } } catch (e) { }
-    say(`<b>${esc(name)}</b> şehre taşındı 🏠 (${esc(job)})`, true);
+    say(`<b>${esc(name)}</b> Komşukent'e yerleşti 🏠 (${esc(job)})`, true);
     document.getElementById('panel').style.display = 'none';
     cam.x = ME.x; cam.y = ME.y;
     loginT = now(); afterLogin();
@@ -589,14 +589,15 @@ async function syncMoney() {
 function saveMe() {
   if (!ME) return;
   syncMoney();
-  update(ref(db, 'players/' + myId), { v: 3, seen: serverTimestamp(), inv: ME.inv, veh: ME.veh, q: ME.q, dq: ME.dq || null, lvl: ME.lvl, sick: ME.sick, play: ME.play, pd: ME.pd, joined: ME.joined, taxDay: ME.taxDay, energy: Math.round(ME.energy), home: ME.home, shop: ME.shop, acc: ME.acc, wear: ME.wear, m: ME.m, x: Math.round(ME.x), y: Math.round(ME.y), name: ME.name, color: ME.color, job: ME.job, gocUsed: ME.gocUsed || 0, jx: ME.jx || 0, jxv: ME.jxv || 0 });
+  update(ref(db, 'players/' + myId), { v: 3, seen: serverTimestamp(), inv: ME.inv, veh: ME.veh, q: ME.q, dq: ME.dq || null, lvl: ME.lvl, sick: ME.sick, play: ME.play, pd: ME.pd, joined: ME.joined, taxDay: ME.taxDay, energy: Math.round(ME.energy), home: ME.home, shop: ME.shop, acc: ME.acc, wear: ME.wear, m: ME.m, x: Math.round(ME.x), y: Math.round(ME.y), name: ME.name, color: ME.color, job: ME.job, gocUsed: ME.gocUsed || 0, jx: ME.jx || 0, jxv: ME.jxv || 0, kmb: ME.kmb || null, ust: ME.ust || 0, ehl: ME.ehl || 0, ehlc: ME.ehlc || 0 });
 }
 setInterval(() => {
   if (!ME || ME.sleep) return;
   const d = new Date().toISOString().slice(0, 10); ME.play += 30000; { const pd = { [d]: ((ME.pd || {})[d] || 0) + 30000 }, lim = new Date(Date.now() - 7 * 864e5).toISOString().slice(0, 10); for (const k in ME.pd || {}) if (k > lim && k !== d) pd[k] = ME.pd[k]; ME.pd = pd; }
   if (ME.sick) ME.energy = Math.max(0, ME.energy - 1); else ME.energy = Math.min(100, ME.energy + (ME.inv.saat ? 2 : 1));
   if (!ME.sick && Math.random() < (ME.energy < 30 ? 0.025 : 0.012)) { ME.sick = 1; pub({ sick: 1 }); toast('🤒 Hastalandın! Enerjin düşüyor, hastaneye git', 5000); }
-  if (ME.drive && Math.random() < 0.06) { const v = ME.veh[ME.drive]; if (v) { v.br = Math.random() < 0.5 ? 'motor' : 'lastik'; toast(`💥 ${VEH[v.t].n} bozuldu! (${v.br === 'motor' ? 'motor arızası → Tamirci' : 'lastik patladı → Lastikçi'}) Sanayiye götür`, 5500); ME.drive = null; pub({ drive: null }); } }
+  if (ME.drive) vehWear();
+  if (ME.drive && Math.random() < vehBrk()) { const v = ME.veh[ME.drive]; if (v) { v.br = Math.random() < 0.5 ? 'motor' : 'lastik'; toast(`💥 ${VEH[v.t].n} bozuldu! (${v.br === 'motor' ? 'motor arızası → Tamirci' : 'lastik patladı → Lastikçi'}) Sanayiye götür`, 5500); ME.drive = null; pub({ drive: null }); } }
   saveMe(); hud();
 }, 30000);
 function stat(k, v = 1) { try { dqStat(k, v); } catch (e) { console.log('dq', e); } const m = MK(); ME.m = ME.m || {}; ME.m[m] = ME.m[m] || {}; ME.m[m][k] = (ME.m[m][k] || 0) + v; if (k === 'worked') seniorSave(); warPoint(k); }
@@ -910,7 +911,7 @@ function sanayi() {
     { n: '🚗 Galeri', info: 'Araç al, 🚗 butonundan bin. Her gün araç değerinin %2\'si vergi olarak kesilir.', items: Object.entries(VEH).map(([k, v]) => ({ e: v.e, n: v.n, r: v.p + ' 💰', off: ME.money < v.p, fn: () => { if (!spend(v.p)) return; const id = 'v' + now().toString(36); ME.veh[id] = { t: k, c: ME.color }; stat('vehicle'); saveMe(); payJob(['Galerici'], Math.round(v.p * 0.05), `🚗 ${ME.name} galeriden ${v.n} aldı`); say(`🚗 <b>${esc(ME.name)}</b> yeni ${v.n} aldı!`, true); toast(`${v.e} ${v.n} senin! 🚗 butonundan bin`); } })) },
     { n: '🛠 Tamirci', info: brk.some(([i, v]) => v.br === 'motor') ? 'Motoru arızalı aracın var.' : 'Motor arızası olan aracın yok 👍', items: vs.filter(([i, v]) => v.br === 'motor').map(([i, v]) => ({ e: VEH[v.t].e, n: VEH[v.t].n + ' motoru', r: Math.round(VEH[v.t].p * 0.1) + ' 💰', fn: () => { if (!spend(Math.round(VEH[v.t].p * 0.1))) return; delete v.br; saveMe(); payJob(['Tamirci', 'Kaportacı', 'Elektrikçi'], Math.round(VEH[v.t].p * 0.05), `🛠 ${ME.name}'in aracını tamir ettin`); toast('🛠 Motor tamir edildi!'); } })) },
     { n: '🛞 Lastikçi', info: 'Lastiği patlayan aracı burada düzelt.', items: vs.filter(([i, v]) => v.br === 'lastik').map(([i, v]) => ({ e: '🛞', n: VEH[v.t].n + ' lastiği', r: '80 💰', fn: () => { if (!spend(80)) return; delete v.br; saveMe(); payJob(['Tamirci'], 30, `🛞 ${ME.name}'in lastiğini değiştirdin`); toast('🛞 Yeni lastikler takıldı!'); } })) },
-    { n: '🎨 Boyacı', info: 'Yeni renkler, 💎 metalik / 🪨 mat kaplama ve 🎭 çift renk tavan. Aracına dokun.', items: vs.map(([i, v]) => ({ e: VEH[v.t].e, n: `<span style="color:${v.c || '#888'}">■</span>${v.c2 ? `<span style="color:${v.c2}">■</span>` : ''} ${VEH[v.t].n}`, r: (PAINT[v.c] || 'Boya') + (v.f === 'm' ? ' • metalik' : v.f === 't' ? ' • mat' : ''), fn: () => paintMenu(i), stay: false })) },
+    { n: '🎨 Boyacı', info: 'Yeni renkler, 💎 metalik / 🪨 mat kaplama ve 🎭 çift renk tavan. Aracına dokun.', items: vs.map(([i, v]) => ({ e: VEH[v.t].e, n: `<span style="color:${v.c || '#888'}">■</span>${v.c2 ? `<span style="color:${v.c2}">■</span>` : ''} ${VEH[v.t].n}`, r: (PAINT[v.c] || 'Boya') + (v.f === 'm' ? ' • metalik' : v.f === 't' ? ' • mat' : ''), fn: () => { SVC_OWNER = null; SVC_JOB = null; paintMenu(i); }, stay: false })) },
   ]);
 }
 function avmMenu(ti) {
@@ -945,8 +946,8 @@ function vehMenu() {
   const vs = Object.entries(ME.veh);
   shopScreen('🚗 Araçlarım', '#2c3e50', [{ n: 'Garaj', info: vs.length ? 'Binmek istediğine dokun. Bozulan araç sanayide tamir edilir.' : 'Aracın yok. Sanayideki galeriden alabilirsin.',
     items: [...(ME.drive ? [{ e: '🚶', n: 'Araçtan in', fn: () => { ME.drive = null; pub({ drive: null }); }, stay: false }] : []),
-      ...vs.map(([id, v]) => ({ e: VEH[v.t].e, n: VEH[v.t].n, on: ME.drive === id, r: v.br ? (v.br === 'motor' ? '💥 Motor arızalı' : '🛞 Lastik patlak') : ME.drive === id ? 'Biniyorsun ✓' : 'Bin', off: !!v.br || ME.inside || ME.jail > now(), stay: false,
-        fn: () => { if (ME.job === 'Taksici') { toast('Taksiciler taksiyle gezer 🚕'); return; } ME.drive = id; pub({ drive: v.t, dc: v.c || null, df: v.f || null, dc2: v.c2 || null }); toast(`${VEH[v.t].e} ${VEH[v.t].n}'a bindin!`); } }))] }]);
+      ...vs.map(([id, v]) => ({ e: VEH[v.t].e, n: VEH[v.t].n, on: ME.drive === id, r: (v.br ? (v.br === 'motor' ? '💥 Motor arızalı' : '🛞 Lastik patlak') : ME.drive === id ? 'Biniyorsun ✓' : 'Bin') + ` • 🧼%${v.kir || 0} 🔧%${v.hs || 0}`, off: !!v.br || ME.inside || ME.jail > now(), stay: false,
+        fn: () => { if (ME.job === 'Taksici') { toast('Taksiciler taksiyle gezer 🚕'); return; } ME.drive = id; pub({ drive: v.t, dc: v.c || null, df: v.f || null, dc2: v.c2 || null, vm: vmStr(v) || null }); toast(`${VEH[v.t].e} ${VEH[v.t].n}'a bindin!`); } }))] }]);
 }
 const QUESTS = [
   { id: 'q1', n: 'İlk mesaini tamamla', e: '💼', r: 30, ok: () => g('worked') >= 1 },
@@ -1114,7 +1115,7 @@ function computeActs() {
   if (b) {
     const roleHere = role && ROLES[role].b === b.id;
     if ((b.jobs.includes(ME.job) || roleHere) && !b.noShift && !isCB()) {
-      const pay = Math.round((JOBPAY[ME.job] || SHIFT_PAY) * kidemBonus() * headBonus() * (roleHere ? 1.5 : 1) * (1 + 0.1 * (ME.lvl || 0)) * (ME.sick ? 0.5 : 1) * (isNight() && ['Polis', 'Jandarma', 'İtfaiyeci', 'Doktor', 'Hemşire'].includes(ME.job) ? 1.2 : 1));
+      const pay = Math.round((JOBPAY[ME.job] || SHIFT_PAY) * kidemBonus() * headBonus() * (roleHere ? 1.5 : 1) * (1 + 0.1 * (ME.lvl || 0)) * (ME.sick ? 0.5 : 1) * ustBonus() * (isNight() && ['Polis', 'Jandarma', 'İtfaiyeci', 'Doktor', 'Hemşire'].includes(ME.job) ? 1.2 : 1));
       if (ME.inside === b.id) {
         L.push({ label: `🔨 Mesaiye başla (+${pay} 💰, -${SHIFT_E}⚡)`, disabled: ME.energy < SHIFT_E, fn: () => startTask('work', SHIFT_MS * (ME.inv.laptop ? 0.75 : 1), () => ME.inside === b.id, () => { ME.energy -= SHIFT_E; stat('worked'); earn(pay, '💼 Mesai bitti!'); ecoShift(b.id); }, '💼 İçeride mesai') });
         L.push({ label: '🚪 Dışarı çık', cls: 'gray', fn: () => goInside(null) });
@@ -1153,7 +1154,7 @@ function computeActs() {
   }
   if (ME.job === 'Taksici' && !b) L.push({ label: '🚕 Müşterilerin sana binebilir', cls: 'gray' });
   newJobActs(L, b, p, near, t);
-  ecoActs(L, b, t); abActs(L, b, t); futActs(L, b, t); kkActs(L, b, t); roomOutActs(L, b, p, t);
+  ecoActs(L, b, t); abActs(L, b, t); futActs(L, b, t); kkActs(L, b, t); roomOutActs(L, b, p, t); szActs(L, t);
   // thief / con man
   if ((ME.job === 'Hırsız' && isNight()) || ME.job === 'Dolandırıcı') {
     const blk = stealBlock();
@@ -3700,7 +3701,7 @@ function ecoFlag(parent, x, z, h = 5, y0 = 0) {
 }
 function ecoSign(parent, text, bg, fg, x, y, z, w = 4.2) { const s = new THREE.Mesh(new THREE.PlaneGeometry(w, w / 4), new THREE.MeshBasicMaterial({ map: signTex(text, bg, fg) })); s.position.set(x, y, z); parent.add(s); return s; }
 function ecoDeco(b, bg, bx, after) {
-  if (b.abl) return true;
+  if (b.abl || b.sz) return true;
   const cx = b.x + b.w / 2, cz = b.y + b.h / 2, H = b.H;
   if (!after && b.id === 'tarla') {
     for (let i = 0; i < 16; i++) { const r = slotRect(i); bx(r.w, 0.06, r.h, '#6d4c2f', r.x + r.w / 2, 0.035, r.y + r.h / 2, null, false); for (let j = 0; j < 4; j++) bx(r.w - 0.2, 0.04, 0.12, '#5a3d24', r.x + r.w / 2, 0.07, r.y + 0.5 + j * 0.95, null, false); }
@@ -3894,7 +3895,7 @@ const ABCAT = {
   hayvanat: { n: 'Hayvanat Bahçesi', e: '🦁', jobs: ['Hayvan Bakıcısı'], c: '#6ab04c', r: '#f0932b', act: '🦁 Hayvanları gez', cost: 15, ms: 25000, en: 30 },
   lunapark: { n: 'Lunapark', e: '🎡', jobs: ['Lunapark Görevlisi'], c: '#fd79a8', r: '#6c5ce7', act: '🎡 Eğlen', cost: 25, ms: 25000, en: 40 },
 };
-const ABN = 8, YMAX = 172 * T - 10;
+const ABN = 8, YMAX = 214 * T - 10;
 const abLot = i => ({ x: 3 + i * 12, y: 101, w: 10, h: 10 });
 let ABLD = {}, AB3D = {};
 const abJobOpen = j => Object.values(ABLD).some(v => v && ABCAT[v.type] && ABCAT[v.type].jobs.includes(j));
@@ -5861,7 +5862,7 @@ function paintMat(c, f) {
 function paintPub(vid) { if (ME.drive === vid) { const v = ME.veh[vid]; pub({ dc: v.c || null, df: v.f || null, dc2: v.c2 || null }); } }
 function paintMenu(vid, ti) {
   const v = ME.veh[vid]; if (!v) return; const V = VEH[v.t];
-  const done = (msg, pay) => { saveMe(); paintPub(vid); payJob(['Boyacı', 'Tamirci'], pay, `🎨 ${ME.name}'in aracını boyadın`); toast(msg); };
+  const done = (msg, pay) => { saveMe(); paintPub(vid); vmPub(); if (SVC_OWNER) svcPay(pay * 4, `🎨 ${ME.name}'in aracını boyadın`); else payJob(['Boyacı', 'Tamirci'], pay, `🎨 ${ME.name}'in aracını boyadın`); toast(msg); };
   shopScreen(`🎨 Boyacı • ${V.e} ${V.n}`, '#d35400', [
     { n: '🎨 Renk', info: 'Boya 300 💰. Herkes yolda yeni rengini görür!', items: Object.entries(PAINT).map(([c, n]) => ({ e: '🎨', n: `<span style="color:${c}">■</span> ${n}`, on: v.c === c, r: v.c === c ? 'Şu an ✓' : '300 💰', off: ME.money < 300, fn: () => { if (v.c === c || !spend(300)) return; v.c = c; done('🎨 Boya yapıldı!', 80); } })) },
     { n: '✨ Kaplama', info: 'Metalik ışıl ışıl parlar, mat kaplama asfalt gibi durur.', items: Object.entries(FINISH).map(([f, [n, p]]) => ({ e: '✨', n, on: (v.f || '') === f, r: (v.f || '') === f ? 'Şu an ✓' : (p ? p + ' 💰' : 'Ücretsiz'), off: ME.money < p, fn: () => { if ((v.f || '') === f || (p && !spend(p))) return; if (f) v.f = f; else delete v.f; done('✨ Kaplama tamam!', 60); } })) },
@@ -6395,7 +6396,7 @@ function roomOutActs(L, b, p, t) {
 }
 const VISITN = {};
 async function roomVisit(key, own, pk) {
-  const lock = (await get(ref(db, 'furn/' + key + '/lock')).catch(() => null))?.val();
+  const fv = (await get(ref(db, 'furn/' + key)).catch(() => null))?.val() || {}, lock = fv.lock && !(fv.party > now());
   if (lock) { toast('🔒 Kapı kilitli. Ev sahibi şu an misafir kabul etmiyor'); return; }
   roomEnter('ev', key, { owner: own.id, oname: own.name, pk });
   if (!VISITN[key]) { VISITN[key] = 1; notify(own.id, `🚪 ${ME.name} evini gezmeye geldi 🏠`); }
@@ -6525,6 +6526,576 @@ async function deleteMyAccount() {
   } catch (e) { alert('❌ Silme sırasında hata oldu: ' + (e.message || e) + '\nInstagram @komsukent DM ile bize yaz, elle silelim.'); }
 }
 
+// ================= v19: SANAYİ SİTESİ • GALERİCİLER • SÜRÜCÜ KURSU • ARAÇ BAKIM/MODİFİYE • KAMPANYA • REKLAM PANOLARI • MASADA YEMEK • GARDIROP =================
+// ---- yeni bölge (şehrin güneyi, kimsenin evine denk gelmez)
+const SZ = { road: 194.5, rx: 100.5, y0: 177, y1: 212 };
+const SSTYPE = {
+  kaporta: { n: 'Kaportacı', e: '🔨', job: 'Kaportacı', c: '#7f8c8d' }, boya: { n: 'Boyacı', e: '🎨', job: 'Boyacı', c: '#d35400' },
+  lastik: { n: 'Lastikçi', e: '🛞', job: 'Lastikçi', c: '#2c3e50' }, elektrik: { n: 'Oto Elektrikçi', e: '⚡', job: 'Oto Elektrikçi', c: '#f1c40f' },
+  motor: { n: 'Motor Ustası', e: '⚙️', job: 'Motor Ustası', c: '#c0392b' }, egzoz: { n: 'Egzozcu', e: '💨', job: 'Egzozcu', c: '#566573' },
+  cam: { n: 'Cam Filmcisi', e: '🕶', job: 'Cam Filmcisi', c: '#1b2a49' }, yikama: { n: 'Oto Yıkama', e: '🧽', job: 'Oto Yıkamacı', c: '#3498db' },
+};
+const SS_N = 12, GL_N = 8, SS_PRICE = 12000, GL_PRICE = 20000;
+const ssLot = i => ({ x: 4 + (i % 6) * 8.6, y: i < 6 ? 180 : 197, w: 7.6, h: 12, s: i < 6 ? 1 : -1 });
+const glLot = i => ({ x: 60.5 + (i % 4) * 9.5, y: i < 4 ? 180 : 197, w: 8.6, h: 12, s: i < 4 ? 1 : -1 });
+const SZ_GAR = L => L.s > 0 ? { x: L.x + 0.2, y: L.y + 0.5, w: L.w - 0.4, h: 5.5 } : { x: L.x + 0.2, y: L.y + 6, w: L.w - 0.4, h: 5.5 };
+let SSITE = {}, GALERI = {}, KAMP = null, ADS = {}, szStarted = 0;
+const SSJOBS = Object.values(SSTYPE).map(t => t.job);
+{
+  const KL = glLot(7);
+  BUILD.push(
+    { id: 'kurs', n: 'Sürücü Kursu', jobs: ['Sürücü Hocası'], c: '#f39c12', r: '#1b2a49', x: KL.x, y: KL.y, w: KL.w, h: KL.h, H: 0.1, open: true, sz: 1 },
+    { id: 'ssite', n: 'Sanayi Sitesi', jobs: SSJOBS.filter(j => !['Kaportacı', 'Boyacı'].includes(j)), c: '#9aa0a6', r: '#d35400', x: 2, y: 179, w: 55, h: 31, H: 0.1, open: true, sz: 1 },
+    { id: 'galeri', n: 'Galericiler Sitesi', jobs: ['Galerici', 'Oto Ekspertiz'], c: '#dfe6ee', r: '#2e86de', x: 59, y: 179, w: 41, h: 31, H: 0.1, open: true, sz: 1 });
+  for (const id of ['kurs', 'ssite', 'galeri']) BMAP[id] = BUILD.find(b => b.id === id);
+  const old = BMAP.sanayi; if (old) old.jobs = old.jobs.filter(j => j !== 'Galerici');
+  for (const j of [...SSJOBS, 'Oto Ekspertiz', 'Sürücü Hocası']) if (!JOBS.includes(j)) JOBS.push(j);
+  JOBS.sort((a, b) => a.localeCompare(b, 'tr'));
+  Object.assign(JOBPAY, { Lastikçi: 45, 'Oto Elektrikçi': 50, 'Motor Ustası': 55, Egzozcu: 45, 'Cam Filmcisi': 40, 'Oto Yıkamacı': 35, 'Oto Ekspertiz': 50, 'Sürücü Hocası': 50 });
+  for (let i = 0; i < SS_N; i++) XBLK.push(SZ_GAR(ssLot(i)));
+  for (let i = 0; i < GL_N; i++) XBLK.push(SZ_GAR(glLot(i)));
+}
+const ustLvl = () => { const u = ME.ust || 0; return u >= 70 ? 3 : u >= 30 ? 2 : u >= 10 ? 1 : 0; };
+const UST_N = ['Çırak', 'Kalfa', 'Usta', 'Baş Usta'];
+function ustBonus() { return [...SSJOBS, 'Tamirci', 'Galerici', 'Oto Ekspertiz', 'Sürücü Hocası'].includes(ME.job) ? 1 + ustLvl() * 0.1 : 1; }
+const _ecoShift18 = ecoShift;
+ecoShift = async function (bid) {
+  const r = await _ecoShift18(bid);
+  if (['ssite', 'galeri', 'kurs', 'sanayi'].includes(bid)) { const l0 = ustLvl(); ME.ust = (ME.ust || 0) + 1; saveMe(); if (ustLvl() > l0) { toast(`🏅 Tebrikler! Artık <b>${UST_N[ustLvl()]}</b>sın, maaşın +%${ustLvl() * 10}`, 5000); say(`🏅 <b>${esc(ME.name)}</b> ${ME.job} olarak <b>${UST_N[ustLvl()]}</b> oldu!`, true); } }
+  return r;
+};
+function szListen() {
+  if (szStarted || !db) return; szStarted = 1;
+  onValue(ref(db, 'ssite'), s => { SSITE = s.val() || {}; sz3DSync(); });
+  onValue(ref(db, 'galeri'), s => { GALERI = s.val() || {}; sz3DSync(); });
+  onValue(ref(db, 'config/kampanya'), s => { KAMP = s.val(); kampApply(); });
+  onValue(ref(db, 'config/ads'), s => { ADS = s.val() || {}; ads3D(); });
+  if (myId) onChildAdded(ref(db, 'gifts/' + myId), s => giftGot(s.key, s.val()));
+  pub({ ehl: ME && ME.ehl ? 1 : 0 });
+  if (ME && !ME.ehlc && Object.keys(ME.veh || {}).length) { ME.ehl = 1; ME.ehlc = now(); saveMe(); pub({ ehl: 1 }); setTimeout(() => toast('🪪 Eski sürücü olduğun için ehliyetin hediye! Yeni sürücüler Sürücü Kursu\'ndan alır.', 6000), 4000); }
+}
+setInterval(() => { if (ME && db && myId) szListen(); }, 3000);
+const ssName = (i, L) => (L && L.ad) || `SANAYİ NO:${i + 1} • ${(SSTYPE[L && L.t] || {}).n || ''}`.toLocaleUpperCase('tr');
+const glName = (i, L) => (L && L.ad) || `GALERİ NO:${i + 1}`;
+// ---- kampanya günü
+const KAMP_CATS = () => [FOOD, CLOTH, PANTS, ACC, TECH, FURN, VEH];
+let kampOn = 0;
+function kampActive() { return !!(KAMP && KAMP.until > now()); }
+function kampApply() {
+  const on = kampActive(), pct = on ? Math.max(5, Math.min(50, KAMP.pct || 20)) : 0;
+  if (on === !!kampOn && (!on || kampOn === pct)) return;
+  for (const C0 of KAMP_CATS()) for (const k in C0) { const o = C0[k]; if (o._p0 == null) o._p0 = o.p; o.p = Math.max(1, Math.round(o._p0 * (1 - pct / 100))); }
+  kampOn = on ? pct : 0;
+  let b = document.getElementById('kampB');
+  if (on) { if (!b) { b = document.createElement('div'); b.id = 'kampB'; b.style.cssText = 'position:fixed;left:8px;top:calc(env(safe-area-inset-top) + 112px);z-index:20;background:linear-gradient(135deg,#ff4d6d,#f39c12);color:#fff;font:800 13px system-ui;padding:6px 10px;border-radius:12px;box-shadow:0 3px 10px rgba(0,0,0,.35);pointer-events:none'; document.body.appendChild(b); } b.textContent = `🏷 %${pct} İNDİRİM • ${KAMP.txt || 'Kampanya günü'}`; }
+  else if (b) b.remove();
+}
+setInterval(() => { if (kampOn && !kampActive()) kampApply(); }, 30000);
+const svcP = p => Math.round(p * (kampOn ? 1 - kampOn / 100 : 1));
+
+// ---- araç: kir, hasar, bakım, modifiye
+function vehSp(v) { return VEH[v.t].sp * (v.tu ? 1.1 : 1) * ((v.hs || 0) >= 60 ? 0.85 : 1); }
+function vehWear() { const v = ME.veh[ME.drive]; if (!v) return; v.km = (v.km || 0) + 1; v.kir = Math.min(100, (v.kir || 0) + 3); if (Math.random() < 0.5) v.hs = Math.min(100, (v.hs || 0) + Math.ceil(Math.random() * 3)); if (v.kir === 60 || v.kir === 61 || v.kir === 62) vmPub(); }
+function vehBrk() { const v = ME.veh[ME.drive]; if (!v) return 0; return 0.02 + (v.hs || 0) * 0.0006 + ((v.km || 0) - (v.bk || 0) > 60 ? 0.025 : 0) + ((v.km || 0) - (v.lt || 0) > 90 ? 0.02 : 0); }
+function vmStr(v) { if (!v) return ''; const a = []; if (v.sp) a.push('s' + v.sp); if (v.ne) a.push('n' + v.ne); if (v.jt) a.push('j' + v.jt); if (v.ex) a.push('e'); if (v.cf) a.push('c'); if ((v.kir || 0) >= 60) a.push('d'); return a.join('|'); }
+function vmParse(s) { const o = {}; (s || '').split('|').forEach(x => { if (!x) return; const k = x[0], r = x.slice(1); if (k === 's') o.sp = +r; if (k === 'n') o.ne = r; if (k === 'j') o.jt = r; if (k === 'e') o.ex = 1; if (k === 'c') o.cf = 1; if (k === 'd') o.d = 1; }); return o; }
+function vmPub() { if (ME.drive) pub({ vm: vmStr(ME.veh[ME.drive]) || null }); }
+function vehCond(v) { return Math.max(10, Math.round(100 - (v.hs || 0) * 0.5 - Math.min(30, (v.km || 0) / 20))); }
+const MODM = {};
+function modsOn(g, md, big) {
+  if (!md) return;
+  if (md.sp) { const h = md.sp === 2 ? 0.28 : 0.16; box(0.06, h, 0.06, '#222', -0.32, 0.65 + h / 2, -0.88, g, false); box(0.06, h, 0.06, '#222', 0.32, 0.65 + h / 2, -0.88, g, false); box(md.sp === 2 ? 1.1 : 0.9, 0.05, 0.28, '#111', 0, 0.67 + h, -0.9, g, false); }
+  if (md.ne) { const k = 'n' + md.ne, m = MODM[k] || (MODM[k] = new THREE.MeshBasicMaterial({ color: md.ne, transparent: true, opacity: 0.75 })); box(1.25, 0.02, 2.1, '', 0, 0.05, 0, g, false, m); }
+  if (md.jt) for (const sx of [-0.51, 0.51]) for (const sz of [-0.6, 0.6]) box(0.16, 0.17, 0.17, md.jt, sx, 0.18, sz, g, false);
+  if (md.ex) for (const sx of [-0.25, 0.25]) box(0.11, 0.11, 0.18, '#bdc3c7', sx, 0.27, -1.0, g, false);
+  if (md.cf) { const m = MODM.cf || (MODM.cf = new THREE.MeshLambertMaterial({ color: '#141414' })); box(0.87, 0.31, 0.96, '', 0, 0.82, -0.1, g, false, m); }
+}
+const dirtyC = c => { try { return '#' + new THREE.Color(c).lerp(new THREE.Color('#6b5a3e'), 0.42).getHexString(); } catch (e) { return c; } };
+// ---- sanayi hizmetleri
+let SVC_OWNER = null, SVC_JOB = null;
+function svcPay(cost, msg) {
+  if (SVC_OWNER && SVC_OWNER !== myId) payTo(SVC_OWNER, Math.round(cost * 0.6));
+  if (SVC_JOB) payJob([SVC_JOB], Math.max(5, Math.round(cost * 0.15)), msg || `🔧 ${ME.name}'in aracıyla ilgilendin`);
+  cityIncome(Math.round(cost * 0.15));
+}
+function svcItems(type, vs) {
+  const P = (n, v, p, ok, fn, r) => ({ e: VEH[v.t].e, n: `${VEH[v.t].n} • ${n}`, r: r || (svcP(p) + ' 💰'), off: !ok || ME.money < svcP(p), fn: () => { const c = svcP(p); if (!spend(c)) return; fn(); saveMe(); vmPub(); svcPay(c); toast(`${SSTYPE[type].e} Tamamdır!`); } });
+  const L = [];
+  for (const [id, v] of vs) {
+    if (type === 'kaporta') { L.push(P(`hasarı onar (hasar %${v.hs || 0})`, v, Math.max(50, (v.hs || 0) * 8), (v.hs || 0) > 0, () => { v.hs = 0; }));
+      if (v.t === 'araba' || v.t === 'spor') { L.push(P('küçük spoiler', v, 500, v.sp !== 1, () => { v.sp = 1; })); L.push(P('büyük spoiler', v, 900, v.sp !== 2, () => { v.sp = 2; })); if (v.sp) L.push(P('spoileri sök', v, 0, true, () => { delete v.sp; }, 'Ücretsiz')); } }
+    if (type === 'lastik') { if (v.br === 'lastik') L.push(P('patlak lastik', v, 80, true, () => { delete v.br; }));
+      L.push(P(`yeni lastik (${Math.max(0, (v.km || 0) - (v.lt || 0))} km)`, v, 200, true, () => { v.lt = v.km || 0; }));
+      if (v.t !== 'bisiklet') for (const [c, n] of [['#d4ac0d', 'altın'], ['#e74c3c', 'kırmızı'], ['#ecf0f1', 'krom'], ['#111111', 'siyah'], ['#3498db', 'mavi']]) L.push(P(`<span style="color:${c}">●</span> ${n} jant`, v, 300, v.jt !== c, () => { v.jt = c; })); }
+    if (type === 'elektrik') { L.push(P('akü & far kontrolü (hasar -10)', v, 60, (v.hs || 0) > 0, () => { v.hs = Math.max(0, (v.hs || 0) - 10); }));
+      if (v.t !== 'bisiklet') { for (const [c, n] of [['#ff2bd6', 'pembe'], ['#00e5ff', 'mavi'], ['#39ff14', 'yeşil'], ['#ff3b30', 'kırmızı'], ['#b026ff', 'mor']]) L.push(P(`<span style="color:${c}">●</span> ${n} neon`, v, 400, v.ne !== c, () => { v.ne = c; })); if (v.ne) L.push(P('neonu sök', v, 0, true, () => { delete v.ne; }, 'Ücretsiz')); } }
+    if (type === 'motor') { if (v.br === 'motor') L.push(P('motor arızası', v, Math.round(VEH[v.t].p * 0.1), true, () => { delete v.br; }));
+      L.push(P(`periyodik bakım (${Math.max(0, (v.km || 0) - (v.bk || 0))} km)`, v, 250, true, () => { v.bk = v.km || 0; }));
+      if (v.t !== 'bisiklet') L.push(P('chip tuning (+%10 hız)', v, 2000, !v.tu, () => { v.tu = 1; }, v.tu ? 'Var ✓' : null)); }
+    if (type === 'egzoz' && v.t !== 'bisiklet') { L.push(P('spor egzoz', v, 600, !v.ex, () => { v.ex = 1; }, v.ex ? 'Var ✓' : null)); if (v.ex) L.push(P('orijinal egzoza dön', v, 0, true, () => { delete v.ex; }, 'Ücretsiz')); }
+    if (type === 'cam' && (v.t === 'araba' || v.t === 'spor')) { L.push(P('cam filmi', v, 300, !v.cf, () => { v.cf = 1; }, v.cf ? 'Var ✓' : null)); if (v.cf) L.push(P('filmi sök', v, 0, true, () => { delete v.cf; }, 'Ücretsiz')); }
+    if (type === 'yikama') { L.push(P(`dış yıkama (kir %${v.kir || 0})`, v, 40, (v.kir || 0) > 0, () => { v.kir = 0; })); L.push(P('detaylı iç-dış yıkama (+hasar -5)', v, 120, true, () => { v.kir = 0; v.hs = Math.max(0, (v.hs || 0) - 5); })); }
+  }
+  return L;
+}
+function ssMenu(i, coop) {
+  const L = coop ? null : SSITE[i], type = coop ? null : L && L.t, vs = Object.entries(ME.veh);
+  if (!coop && (!L || !SSTYPE[type])) return ssBuy(i);
+  SVC_OWNER = coop ? null : L && L.id; SVC_JOB = type ? SSTYPE[type].job : null;
+  const title = coop ? '🏪 Sanayi Kooperatifi' : `${SSTYPE[type].e} ${ssName(i, L)}`;
+  if (!vs.length) return toast('Aracın yok 🚗 Galericiler Sitesi\'nden alabilirsin');
+  const tabs = coop ? Object.keys(SSTYPE).filter(t => t !== 'boya').map(t => ({ n: SSTYPE[t].e + ' ' + SSTYPE[t].n, info: 'Kooperatif bütün hizmetleri verir ama %50 pahalı. Oyuncu dükkanları daha ucuz 😉', items: svcItems(t, vs) }))
+    : [{ n: SSTYPE[type].n, info: `${L.on} işletiyor. Ödemenin çoğu dükkan sahibine gider.`, items: type === 'boya' ? vs.map(([id, v]) => ({ e: VEH[v.t].e, n: VEH[v.t].n, r: 'Boyat', stay: false, fn: () => paintMenu(id) })) : svcItems(type, vs) }];
+  if (coop) { const _svcP = svcP; tabs.forEach(t => t.items.forEach(it => { if (it.r && /💰/.test(it.r)) it.r = it.r.replace(/(\d+) 💰/, (m, d) => Math.round(+d * 1.5) + ' 💰'); const f = it.fn; it.fn = () => { const m0 = ME.money; f(); const paid = m0 - ME.money; if (paid > 0) { const extra = Math.round(paid * 0.5); if (ME.money >= extra) { ME.money -= extra; hud(); cityIncome(extra); } } }; })); }
+  if (!coop && L.id === myId) tabs.push({ n: '🏷 Dükkanım', info: `Ustalık: <b>${UST_N[ustLvl()]}</b>. Müşteri hizmet aldıkça kazancın sana gelir. Adı sabittir, reklam için sadece yönetim değiştirebilir.`, items: [{ e: '🏷', n: 'Dükkanı kapat (%50 iade)', r: Math.round(SS_PRICE / 2) + ' 💰', fn: () => { if (!confirm('Dükkan kapatılsın mı?')) return; set(ref(db, 'ssite/' + i), null).then(() => earn(Math.round(SS_PRICE / 2), '🏷 Dükkan kapandı')); }, stay: false }] });
+  shopScreen(title, coop ? '#7f8c8d' : SSTYPE[type].c, tabs);
+}
+function ssBuy(i) {
+  if (Object.values(SSITE).some(L => L && L.id === myId)) return toast('Sanayide zaten bir dükkanın var 🔧');
+  modal(`🔧 Sanayi No:${i + 1} • ${SS_PRICE.toLocaleString('tr')} 💰`, Object.entries(SSTYPE).map(([t, o]) => ({ label: `${o.e} ${o.n}`, disabled: ME.money < SS_PRICE, fn: async () => {
+    if (ME.money < SS_PRICE) return toast('Para yetmiyor');
+    const r = await TX(ref(db, 'ssite/' + i), c => c ? undefined : { id: myId, on: ME.name, t, at: now() }).catch(() => null);
+    if (!r || !r.committed) return toast('Bu dükkan alınmış 😬');
+    spend(SS_PRICE); cityIncome(Math.round(SS_PRICE * 0.3)); stat('shop'); saveMe(); closeModal();
+    say(`🔧 <b>${esc(ME.name)}</b> Sanayi Sitesi'nde <b>${o.n}</b> dükkanı açtı! (Sanayi No:${i + 1})`, true); toast('🔧 Dükkanın hayırlı olsun!', 4000);
+  } })), `<p>Ne dükkanı açacaksın? Dükkan adı otomatik verilir (ör. <b>SANAYİ NO:${i + 1} • LASTİKÇİ</b>), sonradan değişmez.</p>`);
+}
+// ---- galeri
+function glBuy(i) {
+  if (Object.values(GALERI).some(L => L && L.id === myId)) return toast('Zaten bir galerin var 🚗');
+  modal(`🚗 Galeri No:${i + 1}`, [{ label: `✅ Satın al (${GL_PRICE.toLocaleString('tr')} 💰)`, cls: 'blue', disabled: ME.money < GL_PRICE, fn: async () => {
+    const r = await TX(ref(db, 'galeri/' + i), c => c ? undefined : { id: myId, on: ME.name, at: now() }).catch(() => null);
+    if (!r || !r.committed) return toast('Bu galeri alınmış 😬');
+    spend(GL_PRICE); cityIncome(Math.round(GL_PRICE * 0.3)); stat('shop'); saveMe(); closeModal();
+    say(`🚗 <b>${esc(ME.name)}</b> Galericiler Sitesi'nde galeri açtı! (Galeri No:${i + 1})`, true);
+  } }], '<p>Galeride fabrikadan araç alıp kâr koyarak satarsın, oyuncular da 2. el araçlarını senin galerine bırakır (satışın %10\'u senin). Adı otomatik verilir.</p>');
+}
+async function glSell(i, cid) {
+  const L = GALERI[i], c = L && L.c && L.c[cid]; if (!c) return;
+  if (c.sid === myId) return toast('Bu senin ilanın');
+  if (ME.money < c.p) return toast('Para yetmiyor 😅');
+  const r = await TX(ref(db, `galeri/${i}/c/${cid}`), x => x ? null : undefined).catch(() => null);
+  if (!r || !r.committed) return toast('Bu araç az önce satıldı 😬');
+  if (!spend(c.p)) return;
+  const id = 'v' + now().toString(36), v = Object.assign({}, c.v); delete v.br; ME.veh[id] = v; stat('bought'); saveMe(); closeModal();
+  if (c.sid === L.id) payBig(L.id, c.p); else { payBig(c.sid, Math.round(c.p * 0.9)); payBig(L.id, Math.round(c.p * 0.1)); notify(c.sid, `🚗 ${VEH[v.t].n} aracın ${glName(i, L)}'de ${c.p.toLocaleString('tr')} 💰'ye satıldı! (%90 sana)`); }
+  notify(L.id, `🚗 Galerinden ${ME.name} bir ${VEH[v.t].n} aldı! 🎉`);
+  payJob(['Oto Ekspertiz'], 40, `🔍 ${ME.name}'in aldığı aracın ekspertizini yaptın`);
+  say(`🚗 <b>${esc(ME.name)}</b> ${esc(glName(i, L))}'den ${VEH[v.t].e} ${VEH[v.t].n} aldı!`, true); toast(`${VEH[v.t].e} Hayırlı olsun! 🚗 butonundan bin`, 4000);
+}
+function glPriceAsk(base, def) { const v = prompt(`Satış fiyatı (en fazla ${Math.round(base * 1.5).toLocaleString('tr')} 💰):`, String(def)); if (v == null) return null; const n = Math.round(+String(v).replace(/\D/g, '')); if (!n || n < 100) { toast('Geçersiz fiyat'); return null; } return Math.min(n, Math.round(base * 1.5)); }
+function glMenu(i) {
+  const L = GALERI[i]; if (!L) return glBuy(i);
+  const mine = L.id === myId, cars = Object.entries(L.c || {}), col = '#2e86de';
+  const forSale = cars.map(([cid, c]) => { const V = VEH[c.v.t]; return { e: V.e, n: `<span style="color:${c.v.c || '#888'}">■</span> ${V.n}${c.sid !== L.id ? ' • 2. el (' + esc(c.sn || '') + ')' : ' • sıfır'}`, r: `${c.p.toLocaleString('tr')} 💰 • ekspertiz %${vehCond(c.v)}`, off: c.sid === myId || ME.money < c.p, fn: () => glSell(i, cid), stay: false }; });
+  const tabs = [{ n: '🚗 Satılık araçlar', info: cars.length ? 'Araca dokun, satın al.' : 'Şu an satılık araç yok.', items: forSale }];
+  const myCars = cars.filter(([, c]) => c.sid === myId);
+  if (mine) tabs.push({ n: '🏭 Fabrikadan al', info: 'Sıfır aracı fabrika fiyatının %80\'ine alıp galerine koyarsın, fiyatını sen belirlersin.', items: Object.entries(VEH).map(([k, V]) => ({ e: V.e, n: V.n, r: Math.round(V.p * 0.8).toLocaleString('tr') + ' 💰', off: ME.money < V.p * 0.8 || cars.length >= 8, fn: () => {
+    const p = glPriceAsk(V.p, V.p); if (!p) return; const cost = Math.round(V.p * 0.8); if (!spend(cost)) return; saveMe();
+    const cl = Object.keys(PAINT)[Math.floor(Math.random() * Object.keys(PAINT).length)];
+    set(ref(db, `galeri/${i}/c/c${now().toString(36)}`), { v: { t: k, c: cl }, p, sid: myId, sn: ME.name, at: now() }).then(() => toast(`${V.e} Galerine geldi! Vitrinde ${p.toLocaleString('tr')} 💰`));
+  } })) });
+  const own = Object.entries(ME.veh).filter(([id]) => id !== ME.drive);
+  if (!mine) tabs.push({ n: '🤝 2. el bırak', info: 'Aracını bu galeriye bırakırsın; satılınca parasının %90\'ı sana, %10\'u galeriye. İstersen geri alırsın.', items: own.map(([id, v]) => { const V = VEH[v.t], val = Math.round(V.p * vehCond(v) / 100); return { e: V.e, n: `${V.n} • ekspertiz %${vehCond(v)}`, r: `değeri ~${val.toLocaleString('tr')} 💰`, off: cars.length >= 8, fn: () => {
+    const p = glPriceAsk(V.p, val); if (!p) return; const cp = Object.assign({}, v); delete ME.veh[id]; saveMe();
+    set(ref(db, `galeri/${i}/c/c${now().toString(36)}`), { v: cp, p, sid: myId, sn: ME.name, at: now() }).then(() => { toast('🤝 Aracın galeride, satılınca haber gelecek'); notify(L.id, `🤝 ${ME.name} galerine 2. el ${V.n} bıraktı`); });
+  } }; }) });
+  if (myCars.length) tabs.push({ n: '↩ İlanlarım', info: 'İlanını geri çekersen araç garajına döner.', items: myCars.map(([cid, c]) => ({ e: VEH[c.v.t].e, n: VEH[c.v.t].n, r: 'Geri al', fn: async () => {
+    const r = await TX(ref(db, `galeri/${i}/c/${cid}`), x => x ? null : undefined).catch(() => null); if (!r || !r.committed) return toast('Bu araç satılmış 🎉');
+    if (c.sid === myId && L.id === myId && !c.v.km) earn(Math.round(VEH[c.v.t].p * 0.8), '↩ Araç fabrikaya iade edildi');
+    else { ME.veh['v' + now().toString(36)] = c.v; saveMe(); toast('↩ Araç garajına döndü'); }
+  } })) });
+  if (mine) tabs.push({ n: '🏷 Galerim', info: `${cars.length}/8 araç vitrinde. Adı sabittir, reklam için sadece yönetim değiştirebilir.`, items: [{ e: '🏷', n: 'Galeriyi kapat (%50 iade)', r: Math.round(GL_PRICE / 2) + ' 💰', off: cars.length > 0, fn: () => { if (!confirm('Galeri kapatılsın mı? (Önce bütün araçları geri al)')) return; set(ref(db, 'galeri/' + i), null).then(() => earn(Math.round(GL_PRICE / 2), '🏷 Galeri kapandı')); }, stay: false }] });
+  shopScreen(`🚗 ${esc(glName(i, L))} • ${esc(L.on || '')}`, col, tabs);
+}
+// ---- ehliyet
+const EHL_Q = [
+  ['Kırmızı ışıkta ne yaparsın?', ['Dururum', 'Hızlanırım', 'Korna çalarım'], 0], ['Yaya geçidinde yaya varsa?', ['Yol veririm', 'Geçerim', 'Selektör yaparım'], 0],
+  ['Emniyet kemeri ne zaman takılır?', ['Her zaman', 'Sadece otoyolda', 'Polisi görünce'], 0], ['Şehir içi hız sınırı genelde kaçtır?', ['50 km/s', '120 km/s', 'Sınır yok'], 0],
+  ['Alkollü araç kullanmak…', ['Yasaktır', 'Az içince serbest', 'Gece serbest'], 0], ['Sarı ışık ne demek?', ['Dikkat, durmaya hazırlan', 'Bas gaza', 'Geri vites'], 0],
+  ['Ambulans arkadan gelirse?', ['Sağa çekip yol veririm', 'Yarışırım', 'Dururum ve inerim'], 0], ['Telefonla konuşurken araç kullanmak?', ['Tehlikeli ve yasak', 'Sorun yok', 'Sadece mesaj yazarım'], 0],
+  ['DUR levhası görünce?', ['Tam dururum', 'Yavaşlarım', 'Hızlanırım'], 0], ['Yağmurda takip mesafesi?', ['Artırırım', 'Azaltırım', 'Fark etmez'], 0],
+];
+function ehlQuiz() {
+  const qs = EHL_Q.slice().sort(() => Math.random() - 0.5).slice(0, 5); let i = 0, ok = 0;
+  const ask = () => {
+    if (i >= qs.length) {
+      if (ok >= 4) { ME.ehlT = now(); toast(`📝 Teorik sınavı geçtin (${ok}/5)! Şimdi direksiyon sınavı 🚗`, 4000); } else toast(`❌ ${ok}/5 bildin. En az 4 lazım, tekrar dene`, 4000);
+      closeModal(); return;
+    }
+    const [q, opts, a] = qs[i]; const order = opts.map((o, j) => [o, j]).sort(() => Math.random() - 0.5);
+    modal(`📝 Soru ${i + 1}/5`, order.map(([o, j]) => ({ label: o, fn: () => { if (j === a) ok++; i++; ask(); } })), `<p style="font-size:17px"><b>${q}</b></p>`);
+  };
+  ask();
+}
+// ---- reklam panoları
+const ADSPOT = [[20, 99.7, 0], [78, 99.7, 0], [28, 116.6, 0], [44, 116.6, 0], [92, 160, 0], [104.6, 170, 0], [104.6, 182, 0]];
+const ADS3D = {};
+function ads3D() {
+  if (!THREE || !scene) return;
+  ADSPOT.forEach(([x, z, r], i) => {
+    const a = ADS[i] || {}, key = (a.t || '') + (a.bg || '') + (a.fg || '');
+    if (ADS3D[i] && ADS3D[i].key === key) return;
+    if (ADS3D[i]) scene.remove(ADS3D[i].g);
+    const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = r; scene.add(g); ADS3D[i] = { g, key };
+    box(0.18, 3.2, 0.18, '#2c3e50', -1.9, 1.6, -0.1, g); box(0.18, 3.2, 0.18, '#2c3e50', 1.9, 1.6, -0.1, g); box(4.4, 2.2, 0.12, '#2c3e50', 0, 3.3, -0.12, g);
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 2), new THREE.MeshBasicMaterial({ map: signTex(a.t || 'REKLAM ALANI • DM @komsukent', a.bg || '#ffd23f', a.fg || '#1b2a49', 512, 244) })); m.position.set(0, 3.3, 0); g.add(m);
+  });
+}
+// ---- 3D bölge
+const SZ3 = { lots: {} };
+function sz3D() {
+  if (!THREE || !scene || SZ3.base) return; SZ3.base = 1;
+  const gr = new THREE.Mesh(new THREE.PlaneGeometry(160, 48), mat('#7cc06a')); gr.rotation.x = -Math.PI / 2; gr.position.set(50, -0.02, 196); gr.receiveShadow = true; scene.add(gr);
+  box(3.2, 0.06, 83, '#4a4f57', SZ.rx, 0.045, 154.5, null, false); box(4.6, 0.06, 2, '#4a4f57', 99.6, 0.045, 113, null, false);
+  box(100, 0.06, 3.2, '#4a4f57', 51.6, 0.045, SZ.road, null, false);
+  for (let x = 4; x < 101; x += 3) box(1.2, 0.07, 0.12, '#f4f4f4', x, 0.05, SZ.road, null, false);
+  for (let z = 116; z < 193; z += 3) box(0.12, 0.07, 1.2, '#f4f4f4', SZ.rx, 0.05, z, null, false);
+  box(55, 0.04, 33, '#8f949a', 29.5, 0.025, 194.5, null, false); box(41, 0.04, 33, '#c7ccd1', 79.5, 0.025, 194.5, null, false);
+  const sg = (t, bg, fg, w, h, x, y, z) => { const s = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: signTex(t, bg, fg) })); s.position.set(x, y, z); scene.add(s); return s; };
+  sg('🔧 SANAYİ • 🚗 GALERİCİLER ⬇', '#d35400', '#ffffff', 6, 1.3, SZ.rx, 3.2, 115.2); box(0.2, 3.8, 0.2, '#333', SZ.rx - 3, 1.9, 115.2); box(0.2, 3.8, 0.2, '#333', SZ.rx + 3, 1.9, 115.2);
+  for (const [t, c, x] of [['SANAYİ SİTESİ', '#d35400', 29.5], ['GALERİCİLER SİTESİ', '#2e86de', 79.5]]) { box(0.3, 5, 0.3, '#2c3e50', x - 5, 2.5, SZ.road + 1.9); box(0.3, 5, 0.3, '#2c3e50', x + 5, 2.5, SZ.road + 1.9); box(10.3, 1.2, 0.3, c, x, 5, SZ.road + 1.9); sg(t, c, '#ffffff', 9.6, 1.05, x, 5, SZ.road + 2.06); }
+  const K = glLot(7); box(K.w, 0.05, K.h, '#d5d8dc', K.x + K.w / 2, 0.04, K.y + K.h / 2, null, false);
+  box(6, 2.6, 4, '#f39c12', K.x + K.w / 2, 1.3, K.y + 8.5); box(6.4, 0.3, 4.4, '#1b2a49', K.x + K.w / 2, 2.75, K.y + 8.5); sg('🪪 SÜRÜCÜ KURSU', '#1b2a49', '#f39c12', 5, 0.9, K.x + K.w / 2, 2.2, K.y + 6.45);
+  for (let k = 0; k < 6; k++) { const cx = K.x + 1 + k * 1.3; box(0.25, 0.45, 0.25, '#ff7f00', cx, 0.22, K.y + 2.5 + (k % 2) * 1.5); box(0.27, 0.06, 0.27, '#ffffff', cx, 0.3, K.y + 2.5 + (k % 2) * 1.5); }
+  sz3DSync(); ads3D();
+}
+function sz3DSync() {
+  if (!THREE || !scene || !SZ3.base) return;
+  const lot = (key, L, data, kind, i) => {
+    const sig = JSON.stringify(data || null); if (SZ3.lots[key] && SZ3.lots[key].sig === sig) return;
+    if (SZ3.lots[key]) { scene.remove(SZ3.lots[key].g); if (SZ3.lots[key].lb) SZ3.lots[key].lb.remove(); }
+    const g = new THREE.Group(); scene.add(g); SZ3.lots[key] = { g, sig };
+    const bx = (w, h, d, c, x, y, z, cast = true, m) => box(w, h, d, c, x, y, z, g, cast, m), G = SZ_GAR(L), cx = L.x + L.w / 2, fz = L.s > 0 ? G.y + G.h : G.y, fd = L.s > 0 ? 1 : -1;
+    bx(L.w, 0.05, L.h, kind === 'gl' ? '#e5e8e8' : '#b0b3b8', cx, 0.045, L.y + L.h / 2, false);
+    const sign = (t, bg, fg, y, w = 6.4) => { const s = new THREE.Mesh(new THREE.PlaneGeometry(w, 0.9), new THREE.MeshBasicMaterial({ map: signTex(t, bg, fg) })); s.position.set(cx, y, fz + fd * 0.08); if (fd < 0) s.rotation.y = Math.PI; g.add(s); };
+    if (!data) {
+      for (let k = 0; k <= L.w; k += 1.9) bx(0.1, 0.8, 0.1, '#f39c12', L.x + k, 0.4, L.s > 0 ? L.y + L.h - 0.3 : L.y + 0.3, false);
+      const s = new THREE.Mesh(new THREE.PlaneGeometry(4, 1.1), new THREE.MeshBasicMaterial({ map: signTex(`SATILIK • ${kind === 'gl' ? 'GALERİ' : 'SANAYİ'} NO:${i + 1}`, '#f39c12', '#1b2a49') })); s.position.set(cx, 1.4, L.y + L.h / 2); g.add(s);
+      return;
+    }
+    if (kind === 'ss') {
+      const T0 = SSTYPE[data.t] || SSTYPE.kaporta, H = 3.4;
+      bx(G.w, H, 0.2, '#d5d8dc', cx, H / 2, L.s > 0 ? G.y + 0.1 : G.y + G.h - 0.1); bx(0.2, H, G.h, '#d5d8dc', G.x + 0.1, H / 2, G.y + G.h / 2); bx(0.2, H, G.h, '#d5d8dc', G.x + G.w - 0.1, H / 2, G.y + G.h / 2);
+      bx(G.w + 0.4, 0.3, G.h + 0.4, T0.c, cx, H + 0.15, G.y + G.h / 2); bx(G.w - 0.4, 1.2, 0.08, '#95a5a6', cx, H - 0.6, fz);
+      for (let k = 0; k < 4; k++) bx(G.w - 0.4, 0.04, 0.1, '#7f8c8d', cx, H - 0.1 - k * 0.3, fz + fd * 0.02, false);
+      sign(ssName(i, data), T0.c, '#ffffff', H + 0.75);
+      const az = fz + fd * 3;
+      if (data.t === 'lastik') for (let k = 0; k < 5; k++) bx(0.6, 0.25, 0.6, '#1c1c1c', G.x + 0.8, 0.13 + k * 0.26, az);
+      if (data.t === 'yikama') { bx(0.3, 2.4, 0.3, '#3498db', cx - 2, 1.2, az); bx(0.3, 2.4, 0.3, '#3498db', cx + 2, 1.2, az); bx(4.3, 0.3, 0.6, '#3498db', cx, 2.4, az); rem(3.6, 0.02, 2.6, '#aed6f1', cx, 0.07, az, g); }
+      if (data.t === 'boya') bx(3, 2.2, 0.1, '#e67e22', cx, 1.1, fz - fd * 2.6);
+      if (['kaporta', 'motor', 'elektrik', 'egzoz'].includes(data.t)) { bx(0.2, 1.4, 0.2, '#c0392b', cx - 1.2, 0.7, fz - fd * 2.2); bx(0.2, 1.4, 0.2, '#c0392b', cx + 1.2, 0.7, fz - fd * 2.2); bx(2.8, 0.08, 1.8, '#c0392b', cx, 1.3, fz - fd * 2.2); }
+      if (data.t === 'cam') bx(2.2, 1.2, 0.05, '#141414', cx, 1.0, fz - fd * 2.6);
+      bx(0.7, 0.9, 0.5, '#7b241c', G.x + G.w - 0.7, 0.45, fz - fd * 0.6);
+    } else {
+      const H = 3.2;
+      bx(G.w, H, G.h, '#ecf0f1', cx, H / 2, G.y + G.h / 2); rgl(G.w - 0.6, H - 0.6, 0.05, '#bfe3ff', cx, H / 2, fz + fd * 0.03, g, 0.55);
+      bx(G.w + 0.3, 0.35, G.h + 0.3, '#2e86de', cx, H + 0.17, G.y + G.h / 2); sign(glName(i, data).toLocaleUpperCase('tr'), '#2e86de', '#ffffff', H + 0.8);
+      const cars = Object.values(data.c || {}).slice(0, 6);
+      cars.forEach((c, k) => { const m = vehMesh(c.v.t, c.v.c || '#2980b9', c.v.f, c.v.c2, { sp: c.v.sp, ne: c.v.ne, jt: c.v.jt, ex: c.v.ex, cf: c.v.cf }); m.position.set(L.x + 1.4 + (k % 3) * 2.9, 0.05, fz + fd * (1.8 + Math.floor(k / 3) * 2.6)); m.rotation.y = fd > 0 ? 0 : Math.PI; g.add(m);
+        const s = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.45), new THREE.MeshBasicMaterial({ map: signTex(c.p.toLocaleString('tr') + ' ₺', '#ffffff', '#c0392b') })); s.position.set(L.x + 1.4 + (k % 3) * 2.9, 1.5, fz + fd * (1.8 + Math.floor(k / 3) * 2.6)); g.add(s); });
+    }
+  };
+  for (let i = 0; i < SS_N; i++) lot('s' + i, ssLot(i), SSITE[i], 'ss', i);
+  for (let i = 0; i < GL_N - 1; i++) lot('g' + i, glLot(i), GALERI[i], 'gl', i);
+}
+// ---- dışarıdaki butonlar (sanayi, galeri, kurs, polis kontrolü)
+const EHLCHK = {};
+function szActs(L, t) {
+  if (!ME || ME.inside) return;
+  const near = (r, pad = 30) => inside(r, ME.x, ME.y, pad);
+  let hit = false;
+  for (let i = 0; i < SS_N; i++) { const Lt = ssLot(i); if (!near(Lt, 10)) continue; hit = true; const d = SSITE[i];
+    if (!d) L.push({ label: `🏷 Sanayi No:${i + 1} satılık (${SS_PRICE.toLocaleString('tr')} 💰)`, cls: 'blue', fn: () => ssBuy(i) });
+    else L.push({ label: `${SSTYPE[d.t].e} ${ssName(i, d)}${d.id === myId ? ' (dükkanın)' : ''}`, cls: 'blue', fn: () => ssMenu(i) });
+  }
+  for (let i = 0; i < GL_N - 1; i++) { const Lt = glLot(i); if (!near(Lt, 10)) continue; hit = true; const d = GALERI[i];
+    if (!d) L.push({ label: `🏷 Galeri No:${i + 1} satılık (${GL_PRICE.toLocaleString('tr')} 💰)`, cls: 'blue', fn: () => glBuy(i) });
+    else L.push({ label: `🚗 ${glName(i, d)}${d.id === myId ? ' (galerin)' : ''} • ${Object.keys(d.c || {}).length} araç`, cls: 'blue', fn: () => glMenu(i) });
+  }
+  if (near(BMAP.ssite) && !hit) L.push({ label: '🏪 Sanayi Kooperatifi (bütün hizmetler, +%50)', fn: () => ssMenu(0, true) });
+  if (near(BMAP.kurs)) {
+    if (ME.ehl) L.push({ label: '🪪 Ehliyetin var ✓', cls: 'gray' });
+    else if (!(ME.ehlT > t - 3600000)) L.push({ label: '📝 Ehliyet kursu • teorik sınav (500 💰)', cls: 'blue', disabled: ME.money < 500, fn: () => { if (!spend(500)) return; saveMe(); payJob(['Sürücü Hocası'], 100, `🪪 ${ME.name} kursa yazıldı`); ehlQuiz(); } });
+    else L.push({ label: '🚗 Direksiyon sınavına gir', cls: 'blue', fn: () => startTask('ehl', 20000, () => near(BMAP.kurs, 60), () => { ME.ehl = 1; ME.ehlc = now(); delete ME.ehlT; saveMe(); pub({ ehl: 1 }); stat('ehliyet'); say(`🪪 <b>${esc(ME.name)}</b> ehliyetini aldı! Yollar dikkat 😄`, true); toast('🪪 Tebrikler, ehliyetin hazır!', 4000); }, '🚗 Sınavda') });
+  }
+  if (POLICE.includes(ME.job)) for (const [id, o] of nearOthers(220)) if (o.drive && o.drive !== 'bisiklet' && o.job !== 'Taksici' && !o.ehl && !(EHLCHK[id] > t - 600000)) {
+    L.push({ label: `🚔 ${o.name}: ehliyet kontrolü`, cls: 'red', fn: async () => {
+      EHLCHK[id] = now();
+      await runTransaction(ref(db, 'players/' + id + '/money'), m => Math.max(0, (m || 0) - 100)).catch(() => null);
+      notify(id, '🚔 Ehliyetsiz araç kullandığın için 100 💰 ceza yedin! Galericiler Sitesi\'ndeki Sürücü Kursu\'ndan ehliyet al 🪪');
+      earn(30, '🚔 Ceza kestin'); cityIncome(70); say(`🚔 Polis <b>${esc(ME.name)}</b>, ehliyetsiz sürücü <b>${esc(o.name)}</b>'e ceza kesti`, true);
+    } });
+    break;
+  }
+}
+
+// ---- vitrin (oyuncu dükkanları dışarıdan ürünleriyle görünür)
+function vitrin(own, g, cxP, czP) {
+  try {
+    const kind = { Market: 'market', Kafe: 'cake', Restoran: 'food', Butik: 'cloth' }[own.shopType]; if (!kind) return;
+    let seed = 0; for (const ch of String(own.shop || '')) seed = (seed + ch.charCodeAt(0)) % 50;
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 0.8), new THREE.MeshBasicMaterial({ map: prodTex(kind, seed + 1), transparent: kind === 'cloth' }));
+    m.position.set(cxP, 0.85, czP + 0.93); g.add(m);
+    if (own.gm && own.gm.until > now() && FOOD[own.gm.k]) { const s = new THREE.Mesh(new THREE.PlaneGeometry(1.9, 0.38), new THREE.MeshBasicMaterial({ map: signTex(`⭐ GÜNÜN MENÜSÜ: ${FOOD[own.gm.k].n}`, '#f1c40f', '#7b241c') })); s.position.set(cxP, 1.42, czP + 1.0); g.add(s); }
+    if (kampOn) { const s = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.4), new THREE.MeshBasicMaterial({ map: signTex(`%${kampOn}`, '#ff4d6d', '#ffffff') })); s.position.set(cxP + 1.05, 1.2, czP + 1.0); g.add(s); }
+  } catch (e) { }
+}
+
+// ================= MASADA YEMEK • ISMARLAMA • HESAP • BAHŞİŞ • PASTA • PARTİ • İKRAM =================
+const FOODROOM = ['kafe', 'restoran', 'firin', 'yemek', 'ev'];
+const DPASTA = { n: 'Doğum günü pastası', e: '🎂', p: 150, en: 40 };
+const fInfo = k => k === 'dpasta' ? DPASTA : FOOD[k];
+const DRINKS = new Set(['su', 'sut', 'cay', 'kahve', 'latte', 'limonata', 'kola', 'ayran', 'milkshake', 'meyvesuyu', 'sicakcik']);
+function roomOrdListen() {
+  const R = ROOM; if (!R.on || !FOODROOM.includes(R.type)) return;
+  R.ord = {}; R.ordAte = R.ordAte || {};
+  R.unsubO = onValue(ref(db, 'rord/' + R.id), s => { if (!ROOM.on) return; const o = s.val() || {}; for (const k in o) { const x = o[k]; if (x.to === myId && x.by !== myId && !(R.ord || {})[k] && now() - x.t < 8000) toast(`${fInfo(x.k).e} ${x.bn} sana ${fInfo(x.k).n.toLocaleLowerCase('tr')} ısmarladı! 🙏`, 4500); if (x.g === myId && !(R.ord || {})[k] && now() - x.t < 8000) toast(`🧑‍🍳 ${x.tn}'e ${fInfo(x.k).n} götürdün +10 💰`); } R.ord = o; ordBuild(); }, () => { });
+}
+const _roomEnter18 = roomEnter;
+roomEnter = function (type, key, meta) {
+  _roomEnter18(type, key, meta);
+  if (!ROOM.on) return;
+  roomOrdListen();
+  if (type === 'ev') setTimeout(() => { const p = ROOM.furn && ROOM.furn.party; if (p > now() && meta && meta.owner !== myId && !(ROOM.partyGot === key)) { ROOM.partyGot = key; ME.energy = Math.min(100, ME.energy + 10); hud(); toast('🎉 Partiye hoş geldin! +10⚡'); } }, 1500);
+};
+const _roomClose18 = roomClose;
+roomClose = function () { if (ROOM.unsubO) { try { ROOM.unsubO(); } catch (e) { } ROOM.unsubO = null; } ROOM.ord = {}; ROOM.ordG = null; ROOM.garson = null; ROOM.partyG = null; ME._pv = null; _roomClose18(); };
+function seatOf(q) { let best = null, bd = 0.35; for (const s of ROOM.seats) { const d = Math.hypot(s.x - q.x, s.z - q.z); if (d < bd) { bd = d; best = s; } } return best; }
+function foodPos(q) { const [dx, dz] = rrot(0, 0.55, q.r || 0); return { x: q.x + dx, z: q.z + dz, y: 0.8 }; }
+function ordMeal(k, g) {
+  const F = fInfo(k), drink = DRINKS.has(k);
+  if (k === 'dpasta') { rb(0.5, 0.05, 0.5, '#fdfefe', 0, 0.02, 0, g); rb(0.38, 0.22, 0.38, '#ff9ecf', 0, 0.15, 0, g); rb(0.4, 0.04, 0.4, '#fdfefe', 0, 0.27, 0, g); for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2; rb(0.03, 0.12, 0.03, ['#e74c3c', '#3498db', '#f1c40f', '#2ecc71'][i], Math.cos(a) * 0.1, 0.35, Math.sin(a) * 0.1, g); const f = rem(0.035, 0.05, 0.035, '#ffb000', Math.cos(a) * 0.1, 0.44, Math.sin(a) * 0.1, g); f.userData.flame = 1; } return; }
+  if (drink) { rb(0.14, 0.02, 0.14, '#fdfefe', 0, 0.01, 0, g); rb(0.1, 0.16, 0.1, k === 'cay' ? '#c0392b' : k === 'kahve' ? '#3b2414' : ['ayran', 'sut', 'milkshake'].includes(k) ? '#fdfefe' : k === 'kola' ? '#2c1a0e' : '#f7dc6f', 0, 0.1, 0, g); return; }
+  rb(0.36, 0.03, 0.36, '#fdfefe', 0, 0.015, 0, g);
+  const col = { pizza: '#e67e22', burger: '#a0522d', doner: '#c68642', durum: '#d4a056', lahmacun: '#c0392b', kebap: '#8b4513', kofte: '#6e2c00', manti: '#f5e6c8', kumpir: '#d4ac0d', salata: '#27ae60', sushi: '#fdfefe', baklava: '#d4a056', kunefe: '#e67e22', waffle: '#c68642', dondurma: '#ff9ecf', patates: '#f1c40f' }[k] || '#c68642';
+  const m = rb(0.24, 0.08, 0.2, col, 0, 0.07, 0, g); m.userData.eat = 1;
+}
+function ordBuild() {
+  const R = ROOM; if (!R.on || !R.S) return;
+  if (R.ordG) R.S.remove(R.ordG); R.ordG = new THREE.Group(); R.S.add(R.ordG); R.ordM = {};
+  for (const [k, o] of Object.entries(R.ord || {})) { if (!fInfo(o.k)) continue; const g = new THREE.Group(); g.position.set(o.x, o.y || 0.8, o.z); R.ordG.add(g); ordMeal(o.k, g); R.ordM[k] = g; }
+  if (!R.garson) { const gs = rnpc(0, -R.D / 2 + 1.2, 0, '#1b2a49', R.g, 'Garson'); R.npc.pop(); R.garson = gs; buildAcc(gs, { pc: '#111111', n: 'papyon' }); }
+}
+function ordTick(t) {
+  const R = ROOM; if (!R.on || !R.ord) return; const T0 = now();
+  let walk = null;
+  for (const [k, o] of Object.entries(R.ord)) {
+    const age = T0 - o.t, g = R.ordM && R.ordM[k], dur = o.k === 'dpasta' ? 70000 : 26000;
+    if (age < 4000) { if (!walk || o.t > walk.t) walk = o; if (g) g.visible = false; continue; }
+    if (g) { g.visible = true; const p = Math.min(1, (age - 4000) / (dur - 6000)); g.children.forEach(c => { if (c.userData.eat) { c.scale.set(1 - p * 0.8, 1, 1 - p * 0.8); } if (c.userData.flame) c.visible = !o.uf; }); }
+    if (o.to === myId && !R.ordAte[k]) { R.ordAte[k] = 1; const F = fInfo(o.k); ME.energy = Math.min(100, ME.energy + F.en); stat('ate'); hud(); saveMe(); toast(`${F.e} Afiyet olsun! +${F.en}⚡`); }
+    if (age > dur && (o.by === myId || age > dur + 20000)) remove(ref(db, `rord/${R.id}/${k}`)).catch(() => { });
+    if (o.uf && T0 - o.uf < 5000) cakeConf(o, t);
+  }
+  if (R.garson) { const gs = R.garson.g, home = { x: R.type === 'yemek' ? 0 : -2.2, z: -R.D / 2 + 1.3 };
+    let tx = home.x, tz = home.z; if (walk) { const p = Math.min(1, (T0 - walk.t) / 3500); tx = home.x + (walk.x - home.x) * p; tz = home.z + (walk.z + 0.4 - home.z) * p; }
+    const dx = tx - gs.position.x, dz = tz - gs.position.z, mv = Math.hypot(dx, dz) > 0.02; gs.position.x += dx * 0.2; gs.position.z += dz * 0.2; if (mv) gs.rotation.y = Math.atan2(dx, dz);
+    const sw = mv ? Math.sin(t / 110) * 0.6 : 0; R.garson.legL.rotation.x = sw; R.garson.legR.rotation.x = -sw; R.garson.armR.rotation.x = walk ? -1.3 : 0; }
+}
+const CONF = [];
+function cakeConf(o, t) {
+  const R = ROOM; if (!R.confG) { R.confG = new THREE.Group(); R.S.add(R.confG); for (let i = 0; i < 40; i++) CONF[i] = rem(0.06, 0.06, 0.02, ['#e74c3c', '#f1c40f', '#3498db', '#2ecc71', '#ff6fb5'][i % 5], 0, 0, 0, R.confG); }
+  const a = (now() - o.uf) / 1000;
+  R.confG.visible = a < 4.5; CONF.forEach((m, i) => { const ang = i * 2.4, sp = 0.6 + (i % 7) * 0.12; m.position.set(o.x + Math.cos(ang) * sp * a, 0.9 + 2.2 * a - 1.6 * a * a + (i % 3) * 0.1, o.z + Math.sin(ang) * sp * a); m.rotation.z = t / 100 + i; });
+}
+function eatingNow(id) { const R = ROOM, T0 = now(); return Object.values(R.ord || {}).some(o => o.to === id && T0 - o.t > 4000 && T0 - o.t < (o.k === 'dpasta' ? 70000 : 26000)); }
+function roomSeated() { const R = ROOM, L = []; for (const id in R.rp || {}) { if (id === myId) continue; const q = R.rp[id], o = others[id]; if (q && q.s === 1 && o && o.name) L.push([id, o.name, q]); } return L; }
+function tablemates() { const me = ROOM.me; return roomSeated().filter(([, , q]) => Math.hypot(q.x - me.x, q.z - me.z) < 1.9); }
+function roomMenuKeys() {
+  const R = ROOM, ty = R.type;
+  if (ty === 'kafe') return [...KAFE_FOOD, 'dpasta']; if (ty === 'restoran') return REST_FOOD; if (ty === 'firin') return [...FIRIN_FOOD['🎂 Pastane'], 'acma', 'simit', 'pogaca', 'cay', 'dpasta'];
+  if (ty === 'yemek') return [...new Set(STALLS.flatMap(s => s.f))]; return [];
+}
+function ordPrice(k) { const F = fInfo(k), own = ROOM.meta && ROOM.meta.pk && plots[ROOM.meta.pk]; let p = F.p; if (own && own.gm && own.gm.k === k && own.gm.until > now()) p = Math.round(p * 0.7); return p; }
+async function placeOrders(k, targets, free) {
+  const R = ROOM, F = fInfo(k), price = free ? 0 : ordPrice(k) * targets.length;
+  if (price && !spend(price)) return false;
+  const owner = R.meta && R.meta.owner && R.meta.owner !== myId ? R.meta.owner : null;
+  const gars = Object.keys(R.rp || {}).find(id => id !== myId && others[id] && ['Garson', 'Barista'].includes(others[id].job));
+  if (price) { if (owner) payTo(owner, Math.round(price * 0.5)); else if (!gars) payJob(['Garson', 'Barista', 'Aşçı', 'Fırıncı', 'Pastacı', 'AVM Çalışanı'], Math.max(2, Math.round(price * 0.3)), `🍽 ${ME.name} sipariş verdi`); if (gars) payTo(gars, 10); stat('bought'); saveMe(); }
+  for (const [id, nm, q] of targets) { const fp = foodPos(q); push(ref(db, 'rord/' + R.id), { k, by: myId, bn: ME.name, to: id, tn: nm, t: now(), x: Math.round(fp.x * 100) / 100, z: Math.round(fp.z * 100) / 100, y: 0.8, g: gars || null }).catch(() => { }); }
+  return true;
+}
+function tableMenu() {
+  const R = ROOM, me = R.me; if (me.s !== 1) return toast('Önce bir masaya otur 🪑');
+  const self = [myId, ME.name, roomRP()], keys = roomMenuKeys(), mates = tablemates(), seated = roomSeated();
+  const items = to => keys.filter(k => fInfo(k)).map(k => { const F = fInfo(k), p = ordPrice(k) * to.length, gm = p < F.p * to.length; return { e: F.e, n: F.n + (gm ? ' ⭐' : ''), r: `${p} 💰 • +${F.en}⚡`, off: ME.money < p, stay: false, fn: () => placeOrders(k, to).then(ok => ok && toast(to.length > 1 ? `💳 Hesap senden! ${to.length} kişiye ${F.n}` : to[0][0] === myId ? `${F.e} Siparişin geliyor…` : `🎁 ${to[0][1]}'e ${F.n} ısmarladın!`)) }; });
+  const tabs = [{ n: '🍽 Kendime', info: 'Garson getirir, masanda yersin. Herkes görür 😋', items: items([self]) }];
+  for (const s of seated.slice(0, 4)) tabs.push({ n: `🎁 ${s[1]}`, info: `${s[1]} için ısmarla, masasına gelir.`, items: items([s]) });
+  if (mates.length) tabs.push({ n: '💳 Hesap benden', info: `Masandaki herkese (${mates.length + 1} kişi) aynı şeyi ısmarlarsın.`, items: items([self, ...mates]) });
+  shopScreen(`📋 ${esc((R.meta && R.meta.shop) || RTYPE[R.type].n)} • Masa siparişi`, '#c0392b', tabs);
+}
+function tipMenu() {
+  const R = ROOM, owner = R.meta && R.meta.owner && R.meta.owner !== myId ? R.meta.owner : null;
+  const gars = Object.keys(R.rp || {}).find(id => id !== myId && others[id] && ['Garson', 'Barista'].includes(others[id].job));
+  modal('💵 Bahşiş', [10, 20, 50].map(a => ({ label: `${a} 💰`, disabled: ME.money < a, fn: () => { if (!spend(a)) return; if (gars) { payTo(gars, a); notify(gars, `💵 ${ME.name} sana ${a} 💰 bahşiş bıraktı!`); } else if (owner) payTo(owner, a); else payJob(['Garson', 'Barista', 'Aşçı'], a, `💵 ${ME.name} bahşiş bıraktı`); saveMe(); closeModal(); toast('💵 Garson çok sevindi! 😊'); } })), '<p>Garsona ne kadar bahşiş bırakmak istersin?</p>');
+}
+function sayMenu() {
+  const v = prompt('Masaya ne söylemek istersin? (en fazla 60 harf)', ''); if (!v || !v.trim()) return;
+  if (myMute > now()) return toast('Susturuldun 🤐');
+  ROOM.me.m = cleanText(v.trim().slice(0, 60)); ROOM.me.mt = now(); if (ROOM.rpRef) set(ROOM.rpRef, Object.assign(roomRP(), { m: ROOM.me.m, mt: ROOM.me.mt })).catch(() => { });
+}
+const _roomRP18 = roomRP;
+roomRP = function () { const r = _roomRP18(), me = ROOM.me; if (me && me.m && now() - me.mt < 8000) { r.m = me.m; r.mt = me.mt; } return r; };
+function ikramMenu() {
+  const R = ROOM, seated = roomSeated(), foods = Object.keys(ME.inv).filter(k => FOOD[k] && ME.inv[k] > 0);
+  if (!seated.length) return toast('Oturan misafir yok 🪑'); if (!foods.length) return toast('Çantanda ikram edecek yiyecek yok 🎒');
+  shopScreen('🍽 İkram et', '#8e5a2b', seated.slice(0, 4).map(s => ({ n: s[1], info: `${s[1]}'e çantandan ikram et, masasına gelir.`, items: foods.map(k => ({ e: FOOD[k].e, n: FOOD[k].n, r: `x${ME.inv[k]}`, stay: false, fn: () => { ME.inv[k]--; if (!ME.inv[k]) delete ME.inv[k]; saveMe(); placeOrders(k, [s], true); toast(`🍽 ${s[1]}'e ${FOOD[k].n} ikram ettin`); } })) })));
+}
+async function partyStart() {
+  const R = ROOM; if (!spend(500)) return; saveMe();
+  const until = now() + 30 * 60000; await set(ref(db, `furn/${R.key}/party`), until).catch(() => { });
+  const ids = new Set(Object.keys(KOMSU || {})); try { const fr = (await get(ref(db, 'friends/' + myId)))?.val() || {}; Object.keys(fr).forEach(x => ids.add(x)); } catch (e) { }
+  ids.forEach(id => notify(id, `🎉 ${ME.name} evinde parti veriyor! Gel, eğlen +10⚡ 🏠`));
+  say(`🎉 <b>${esc(ME.name)}</b> evinde parti veriyor! Kapı açık 🎶`, true); toast('🎉 Parti başladı! 30 dakika sürecek');
+}
+function partyTick(t) {
+  const R = ROOM; if (R.type !== 'ev') return; const on = R.furn && R.furn.party > now();
+  if (on && !R.partyG) { R.partyG = new THREE.Group(); R.S.add(R.partyG); R.pl = []; for (let i = 0; i < 10; i++) R.pl.push(rem(0.6, 0.02, 0.6, ['#ff2bd6', '#00e5ff', '#39ff14', '#f1c40f', '#ff3b30'][i % 5], 0, 0.02, 0, R.partyG)); for (let i = 0; i < 6; i++) rem(0.15, 0.15, 0.15, ['#ff2bd6', '#00e5ff', '#f1c40f'][i % 3], -R.W / 2 + 1 + i * (R.W - 2) / 5, R.D > 8 ? 3 : 2.8, -R.D / 2 + 0.2, R.partyG); }
+  if (!on && R.partyG) { R.S.remove(R.partyG); R.partyG = null; }
+  if (R.partyG) R.pl.forEach((m, i) => { const a = t / 700 + i * 0.63; m.position.set(Math.sin(a * 1.3) * (R.W / 2 - 1.5), 0.02, Math.cos(a) * (R.D / 2 - 1.5)); m.visible = Math.sin(t / 180 + i) > -0.3; });
+}
+// oda butonlarına ekler
+const _roomActs18 = roomActs;
+roomActs = function (L, t) {
+  const R = ROOM, me = R.me, mine = R.meta && R.meta.owner === myId, n0 = L.length;
+  _roomActs18(L, t);
+  if (!R.on) return;
+  const out = L.findIndex(a => a.label === '🚪 Dışarı çık'), ex = [];
+  if (!R.ed) {
+    const food = ['kafe', 'restoran', 'firin', 'yemek'].includes(R.type);
+    if (food && me.s === 1) ex.push({ label: '📋 Masaya sipariş ver / ısmarla', cls: 'blue', fn: tableMenu }, { label: '💵 Bahşiş bırak', fn: tipMenu });
+    if (food && me.s !== 1) ex.push({ label: '🪑 Masaya otur, sipariş masana gelsin', cls: 'gray' });
+    const cake = Object.entries(R.ord || {}).find(([, o]) => o.k === 'dpasta' && o.to === myId && !o.uf && now() - o.t > 4000);
+    if (cake) ex.push({ label: '🎂 Mumları üfle!', cls: 'blue', fn: () => { update(ref(db, `rord/${R.id}/${cake[0]}`), { uf: now() }).catch(() => { }); say(`🎂 <b>${esc(ME.name)}</b> mumları üfledi! İyi ki doğdun 🎉`, true); } });
+    if (R.rp && Object.keys(R.rp).length > 1) ex.push({ label: '💬 Bir şey söyle', fn: sayMenu });
+    if (R.type === 'ev' && mine) { if (roomNear(F => F.fridge, 3) || Object.keys(ME.inv).some(k => FOOD[k])) ex.push({ label: '🍽 Misafire ikram et', fn: ikramMenu }); const pa = R.furn && R.furn.party > now(); ex.push(pa ? { label: `🎉 Parti sürüyor (${Math.ceil((R.furn.party - now()) / 60000)} dk)`, cls: 'gray' } : { label: '🎉 Parti ver (500 💰, 30 dk)', disabled: ME.money < 500, fn: partyStart }); }
+    if ((R.type === 'butik') || (R.type === 'ev' && roomNear(F => F.n === 'Boy aynası' || F.n === 'Gardırop', 2.2))) ex.push({ label: '🪞 Aynaya bak', fn: () => { R.zoom = now() + 6000; } });
+    if (R.type === 'ev' && mine && roomNear(F => F.n === 'Gardırop', 2.2)) ex.push({ label: '👕 Gardırobum', fn: () => myWardrobe() });
+    if (R.type === 'butik' || R.type === 'avm') ex.push({ label: '🚪 Deneme kabini', fn: tryMenu });
+    if (R.type === 'kafe' || R.type === 'restoran' || R.type === 'pmarket') { const own = plots[R.meta && R.meta.pk]; if (own && own.id === myId) ex.push({ label: own.gm && own.gm.until > now() ? `⭐ Günün menüsü: ${FOOD[own.gm.k] ? FOOD[own.gm.k].n : ''}` : '⭐ Günün menüsünü seç (%30 indirim)', fn: gmMenu }); }
+  }
+  if (ex.length) L.splice(out >= 0 ? out : L.length, 0, ...ex);
+};
+function gmMenu() {
+  const R = ROOM, pk = R.meta.pk, keys = R.type === 'kafe' ? KAFE_FOOD : R.type === 'restoran' ? REST_FOOD : Object.values(MKT_FOOD).flat();
+  modal('⭐ Günün menüsü', keys.filter(k => FOOD[k]).map(k => ({ label: `${FOOD[k].e} ${FOOD[k].n}`, fn: () => { update(ref(db, 'plots2/' + pk), { gm: { k, until: now() + 24 * 3600000 } }).then(() => { closeModal(); toast('⭐ Günün menüsü vitrinde! 24 saat %30 indirimli'); say(`⭐ <b>${esc(R.meta.shop)}</b>'da günün menüsü: <b>${FOOD[k].n}</b> %30 indirimli!`, true); }).catch(e => toast('❌ ' + e.message)); } })), '<p>Seçtiğin ürün 24 saat %30 indirimli olur, dükkanın vitrininde yazar.</p>');
+}
+// oda çizimine ekler: sipariş, parti, sohbet balonu, yemek yeme animasyonu, ayna yakın planı, deneme
+const _roomRender18 = roomRender;
+roomRender = function (t) {
+  const R = ROOM;
+  if (R.on && R.S) { try { ordTick(t); partyTick(t); } catch (e) { } }
+  if (R.on && R.zoom > now()) {
+    const c = R.cam, me = R.me, a = t / 1600; c.position.set(me.x + Math.sin(a) * 2.6, 1.9, me.z + Math.cos(a) * 2.6); c.lookAt(me.x, 1.25, me.z);
+    const asp = camera3.aspect || 1; if (c.aspect !== asp) { c.aspect = asp; c.updateProjectionMatrix(); }
+    R.anim.forEach(f => f(t)); roomSyncPeople(t); renderer.render(R.S, c); return;
+  }
+  _roomRender18(t);
+};
+const _roomPose18 = roomPose;
+roomPose = function (m, s, t, mv) {
+  _roomPose18(m, s, t, mv);
+  if (s.s === 1 && m._id && eatingNow(m._id)) { m.armR.rotation.x = -1.6 + Math.sin(t / 260) * 0.45; }
+};
+const _roomSync18 = roomSyncPeople;
+roomSyncPeople = function (t) {
+  const R = ROOM;
+  if (ME._pv && !(ME._pvT > now())) { ME._pv = null; }
+  const real = ME.wear; if (ME._pv) ME.wear = ME._pv;
+  try { _roomSync18(t); } finally { ME.wear = real; }
+  for (const id in R.ppl) { const m = R.ppl[id]; m._id = id; const q = id === myId ? R.me : (R.rp || {})[id], msg = q && q.m && now() - q.mt < 7000 ? q.m : '';
+    let b = m.label.querySelector('.rbub');
+    if (msg) { if (!b) { b = document.createElement('div'); b.className = 'rbub'; b.style.cssText = 'background:#fff;color:#111;border-radius:12px;padding:3px 8px;font:600 12px system-ui;max-width:170px;margin:0 auto 3px;text-align:center;box-shadow:0 2px 6px rgba(0,0,0,.3)'; m.label.prepend(b); } if (b.textContent !== '💬 ' + msg) b.textContent = '💬 ' + msg; } else if (b) b.remove(); }
+};
+// ---- deneme kabini
+function tryMenu() {
+  const prev = (patch, n) => () => { ME._pv = Object.assign({}, ME.wear, patch); ME._pvT = now() + 25000; ROOM.zoom = now() + 6000; toast(`🪞 ${n} üstünde! Beğendiysen 👗 Kıyafetler'den al (25 sn)`, 4000); };
+  shopScreen('🚪 Deneme kabini', '#c0392b', [
+    { n: '👕 Üst & elbise', info: 'Dokun, üstünde gör. Para ödemezsin.', items: Object.entries(CLOTH).map(([k, c]) => ({ e: c.e, n: c.n, r: ME.acc['c_' + k] ? 'Sende ✓' : c.p + ' 💰', stay: false, fn: prev({ ck: k, sh: c.sh, dress: c.dress ? 1 : undefined }, c.n) })) },
+    { n: '👖 Pantolon', items: Object.entries(PANTS).map(([k, c]) => ({ e: '👖', n: c.n, r: ME.acc['p_' + k] ? 'Sende ✓' : c.p + ' 💰', stay: false, fn: prev({ pk: k, pc: c.c }, c.n) })) },
+    { n: '🕶 Aksesuar', items: Object.entries(ACC).map(([k, a]) => ({ e: '✨', n: a.n, r: ME.acc[k] ? 'Sende ✓' : a.p + ' 💰', stay: false, fn: prev({ [a.s]: k }, a.n) })) },
+  ]);
+}
+// ---- gardırop (çantadan giy) • kombin • hediye
+function myWardrobe(ti) {
+  if (!ME) return;
+  const togC = k => () => { const c = CLOTH[k]; if (ME.wear.ck === k) { delete ME.wear.ck; delete ME.wear.sh; delete ME.wear.dress; } else { ME.wear.ck = k; ME.wear.sh = c.sh; if (c.dress) ME.wear.dress = 1; else delete ME.wear.dress; } pub({ wear: ME.wear }); saveMe(); myWardrobe(0); };
+  const togP = k => () => { if (ME.wear.pk === k) { delete ME.wear.pk; delete ME.wear.pc; } else { ME.wear.pk = k; ME.wear.pc = PANTS[k].c; } pub({ wear: ME.wear }); saveMe(); myWardrobe(1); };
+  const togA = k => () => { const a = ACC[k]; ME.wear[a.s] = ME.wear[a.s] === k ? null : k; pub({ wear: ME.wear }); saveMe(); myWardrobe(2); };
+  const oc = Object.keys(CLOTH).filter(k => ME.acc['c_' + k]), op = Object.keys(PANTS).filter(k => ME.acc['p_' + k]), oa = Object.keys(ACC).filter(k => ME.acc[k]);
+  ME.kmb = ME.kmb || [null, null, null];
+  const kmb = [0, 1, 2].flatMap(i => { const w = ME.kmb[i]; return [{ e: '👔', n: `Kombin ${i + 1}${w ? ' • ' + [w.ck && CLOTH[w.ck] && CLOTH[w.ck].n, w.pk && PANTS[w.pk] && PANTS[w.pk].n].filter(Boolean).join(' + ') : ' (boş)'}`, r: w ? 'Giy' : '—', off: !w, fn: () => { ME.wear = Object.assign({}, w); pub({ wear: ME.wear }); saveMe(); toast(`👔 Kombin ${i + 1} giyildi`); myWardrobe(3); } },
+    { e: '💾', n: `Şu anki kıyafetimi Kombin ${i + 1}'e kaydet`, r: 'Kaydet', fn: () => { ME.kmb[i] = JSON.parse(JSON.stringify(ME.wear || {})); saveMe(); toast(`💾 Kombin ${i + 1} kaydedildi`); myWardrobe(3); } }]; });
+  const gift = [...Object.entries(CLOTH).map(([k, c]) => ['c', k, c.e, c.n, c.p]), ...Object.entries(PANTS).map(([k, c]) => ['p', k, '👖', c.n, c.p]), ...Object.entries(ACC).map(([k, a]) => ['a', k, '✨', a.n, a.p])]
+    .map(([kind, k, e, n, p]) => ({ e, n, r: p + ' 💰', off: ME.money < p, fn: () => giftSend(kind, k, n, p) }));
+  shopScreen('👕 Gardırobum', '#6c3483', [
+    { n: '👕 Üst & elbise', info: oc.length ? 'Aldığın kıyafetler burada, dokun giy / çıkar.' : 'Henüz kıyafetin yok. Butik ya da AVM\'den al.', items: oc.map(k => ({ e: CLOTH[k].e, n: CLOTH[k].n, on: ME.wear.ck === k, r: ME.wear.ck === k ? 'Çıkar' : 'Giy', fn: togC(k) })) },
+    { n: '👖 Pantolon', info: op.length ? '' : 'Henüz pantolonun yok.', items: op.map(k => ({ e: '👖', n: `<span style="color:${PANTS[k].c}">■</span> ${PANTS[k].n}`, on: ME.wear.pk === k, r: ME.wear.pk === k ? 'Çıkar' : 'Giy', fn: togP(k) })) },
+    { n: '🕶 Aksesuar', info: oa.length ? '' : 'Henüz aksesuarın yok.', items: oa.map(k => ({ e: '✨', n: ACC[k].n, on: ME.wear[ACC[k].s] === k, r: ME.wear[ACC[k].s] === k ? 'Çıkar' : 'Tak', fn: togA(k) })) },
+    { n: '👔 Kombinler', info: '3 kombin kaydet, tek dokunuşla değiştir.', items: kmb },
+    { n: '🎁 Hediye et', info: 'Bir arkadaşına kıyafet ya da aksesuar hediye et. Oyunda olması gerekmez, adını doğru yaz.', items: gift },
+  ], ti);
+}
+async function giftSend(kind, k, n, p) {
+  const who = (prompt(`🎁 ${n} kime hediye edilsin? (oyundaki adını yaz)`, '') || '').trim(); if (!who) return;
+  const key = keyOf(who); let uid = null;
+  try { uid = (await get(ref(db, 'names/' + key))).val(); } catch (e) { }
+  if (!uid) { const hit = Object.entries(others).find(([, o]) => o.name && o.name.toLocaleLowerCase('tr') === who.toLocaleLowerCase('tr')); if (hit) uid = hit[0]; }
+  if (!uid) return toast('Bu isimde oyuncu bulunamadı 🤔'); if (uid === myId) return toast('Kendine hediye olmaz 😄');
+  if (!spend(p)) return; saveMe();
+  await push(ref(db, 'gifts/' + uid), { kind, k, from: ME.name, t: now() }).catch(() => { });
+  notify(uid, `🎁 ${ME.name} sana ${n} hediye etti! Gardırobuna bak 👕`); toast(`🎁 ${n} ${who}'e gönderildi!`); stat('gift');
+}
+function giftGot(id, g) {
+  if (!g || !ME) return; const pre = { c: 'c_', p: 'p_', a: '' }[g.kind]; if (pre == null) return;
+  const nm = g.kind === 'c' ? (CLOTH[g.k] || {}).n : g.kind === 'p' ? (PANTS[g.k] || {}).n : (ACC[g.k] || {}).n; if (!nm) { remove(ref(db, `gifts/${myId}/${id}`)); return; }
+  ME.acc[pre + g.k] = 1; saveMe(); remove(ref(db, `gifts/${myId}/${id}`)).catch(() => { });
+  toast(`🎁 ${g.from} sana <b>${nm}</b> hediye etti! 👕 Gardırobundan giy`, 6000);
+}
+// ---- yönetim: dükkan adı (reklam), kampanya, reklam panoları
+async function adminShopName() {
+  const L = [];
+  for (const [k, p] of Object.entries(plots)) if (p && p.shop && p.type !== 'ev' && p.type !== 'apt') L.push(['p', k, p.shop, p.name]);
+  try { const A = (await get(ref(db, 'avm2'))).val() || {}; for (const [i, u] of Object.entries(A)) if (u && u.name) L.push(['a', i, u.name, u.owner]); } catch (e) { }
+  for (let i = 0; i < SS_N; i++) if (SSITE[i]) L.push(['s', i, ssName(i, SSITE[i]), SSITE[i].on]);
+  for (let i = 0; i < GL_N; i++) if (GALERI[i]) L.push(['g', i, glName(i, GALERI[i]), GALERI[i].on]);
+  if (!L.length) return alert('Dükkan yok');
+  const pick = prompt('Hangi dükkanın adı değişsin? Numarasını yaz:\n\n' + L.map((x, j) => `${j + 1}) ${x[2]} — ${x[3] || ''}`).join('\n').slice(0, 3500), '');
+  const x = L[(+pick || 0) - 1]; if (!x) return;
+  const n = prompt(`"${x[2]}" için yeni ad (reklam). Sanayi/galeride boş bırakırsan otomatik ada döner:`, x[0] === 's' || x[0] === 'g' ? '' : x[2]); if (n == null) return;
+  const v = n.trim().slice(0, 30);
+  try {
+    if (x[0] === 'p') { if (!v) return; await update(ref(db, 'plots2/' + x[1]), { shop: v }); }
+    if (x[0] === 'a') { if (!v) return; await update(ref(db, 'avm2/' + x[1]), { name: v }); }
+    if (x[0] === 's') await update(ref(db, 'ssite/' + x[1]), { ad: v || null });
+    if (x[0] === 'g') await update(ref(db, 'galeri/' + x[1]), { ad: v || null });
+    alert('✅ Dükkan adı değişti');
+  } catch (e) { alert('❌ ' + e.message); }
+}
+async function adminKamp() {
+  if (kampActive()) { if (confirm('Kampanya bitirilsin mi?')) { await set(ref(db, 'config/kampanya'), null).catch(e => alert(e.message)); alert('✅ Kampanya bitti'); } return; }
+  const pct = Math.round(+(prompt('İndirim yüzdesi (5-50):', '20') || 0)); if (!pct) return;
+  const h = Math.round(+(prompt('Kaç saat sürsün?', '24') || 0)); if (!h) return;
+  const txt = (prompt('Kampanya yazısı (ör. Hafta sonu çılgınlığı):', 'Kampanya günü') || 'Kampanya günü').slice(0, 30);
+  await set(ref(db, 'config/kampanya'), { pct: Math.max(5, Math.min(50, pct)), until: now() + h * 3600000, txt }).catch(e => alert(e.message));
+  push(ref(db, 'log'), { h: `🏷 <b>KAMPANYA BAŞLADI!</b> Bütün dükkanlarda <b>%${pct} indirim</b> (${h} saat) 🛍`, k: 'ann', t: serverTimestamp() }).catch(() => { });
+  alert('✅ Kampanya başladı');
+}
+async function adminAds() {
+  const cur = (await get(ref(db, 'config/ads')).catch(() => null))?.val() || {};
+  const names = ['Şehir güney 1', 'Şehir güney 2', 'Stadyum sol', 'Stadyum sağ', 'Halı saha arkası', 'Sanayi yolu 1', 'Sanayi yolu 2'];
+  const i = +(prompt('Hangi pano?\n' + names.map((n, j) => `${j + 1}) ${n}: ${(cur[j] && cur[j].t) || '(boş)'}`).join('\n'), '1') || 0) - 1; if (!(i >= 0 && i < names.length)) return;
+  const t = prompt('Pano yazısı (boş = varsayılan "REKLAM ALANI"):', (cur[i] && cur[i].t) || ''); if (t == null) return;
+  const bg = prompt('Arka plan rengi (ör. #e74c3c):', (cur[i] && cur[i].bg) || '#ffd23f') || '#ffd23f';
+  await set(ref(db, 'config/ads/' + i), t.trim() ? { t: t.trim().slice(0, 40), bg, fg: '#ffffff' === bg ? '#111111' : (bg.toLowerCase() === '#ffd23f' ? '#1b2a49' : '#ffffff') } : null).catch(e => alert(e.message));
+  alert('✅ Pano güncellendi');
+}
+const _kkAdminHTML18 = kkAdminHTML, _kkAdminWire18 = kkAdminWire;
+kkAdminHTML = () => _kkAdminHTML18() + `<div style="margin-top:8px"><b>🏷 Reklam & kampanya</b><br><button id="aShopNm" style="background:#8e44ad;margin-top:6px">🏷 Dükkan adı değiştir (reklam)</button> <button id="aKamp" style="background:#ff4d6d;margin-top:6px">🏷 Kampanya günü başlat / bitir</button> <button id="aAds" style="background:#f39c12;margin-top:6px">📢 Reklam panoları</button></div>`;
+kkAdminWire = el => { _kkAdminWire18(el); const q = id => el.querySelector('#' + id); if (q('aShopNm')) q('aShopNm').onclick = adminShopName; if (q('aKamp')) q('aKamp').onclick = adminKamp; if (q('aAds')) q('aAds').onclick = adminAds; };
+
 // ================= EVENTS =================
 const EV_NAMES = { yangin: '🔥 YANGIN', soygun: '🚨 SOYGUN', festival: '🎉 FESTİVAL' };
 function evStart() { if (EV && !EV.done) { const b = evB(); toast(`${EV_NAMES[EV.type]}${b ? ' — ' + b.n : ''}!`, 5000); } }
@@ -6632,7 +7203,7 @@ async function buildRank() {   // admin only, every 30 min: one full read instea
 }
 document.getElementById('bRank').onclick = () => db && rankMenu();
 document.getElementById('bFut').onclick = () => { if (!db) return toast('Önce şehre gir'); futMenu().catch(e => { console.log(e); toast('Lig açılamadı, tekrar dene'); }); };
-document.getElementById('bWard').onclick = () => ME && wardrobe(null);
+document.getElementById('bWard').onclick = () => ME && myWardrobe();
 
 // ================= 3D =================
 let THREE = null, renderer, scene, camera3, sun, hemi, groundMesh, plotGroup, rayc, ndc, tgtMark, winMat, lampMat, fireGroup, robberMeshes = [], confetti;
@@ -6757,7 +7328,7 @@ async function init3D() {
     ecoDeco(b, bg, box, 1);
     addOcc(bg, b.x, b.x + b.w, b.y, b.y + b.h + 1.2, b.id === 'cami' ? 6.5 : H + 1);
   });
-  ecoWorld3D(o); ab3D();
+  ecoWorld3D(o); ab3D(); try { sz3D(); } catch (e) { console.warn('sz3D', e); }
   box(1.2, 1.4, 0.15, '#7f8c8d', JAIL_SPOT.x * S3, 0.7, JAIL_SPOT.y * S3 + 0.8);
   const trees = [];
   for (let gy = 0; gy < WN; gy++) for (let gx = 0; gx < WN; gx++) {
@@ -6868,7 +7439,7 @@ function refreshPlots() {
       box(2.7, 2.0, 2.2, '#fbf6ec', cxP, 1.0, czP - 0.15, g);
       box(2.9, 0.25, 2.4, own.color || '#2e86de', cxP, 2.12, czP - 0.15, g);
       box(2.8, 0.12, 0.8, own.color || '#2e86de', cxP, 1.55, czP + 1.25, g);
-      box(1.6, 0.9, 0.05, '', cxP, 0.85, czP + 0.96, g, false, winMat);
+      box(1.6, 0.9, 0.05, '', cxP, 0.85, czP + 0.96, g, false, winMat); vitrin(own, g, cxP, czP);
       const s = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 0.55), new THREE.MeshBasicMaterial({ map: signTex(own.shop || 'Dükkan', '#ffffff', '#111') }));
       s.position.set(cxP, 1.9, czP + 0.97); g.add(s);
       label = makeLabel(); label.innerHTML = `<span class="nm${own.id === myId ? ' me' : ''}">${SHOPTYPES[own.shopType] || '🏪'} ${esc(own.shop)} • ${esc(own.name)}</span>`; label._p = [cxP, 3.1, czP];
@@ -6890,11 +7461,13 @@ function personMesh(color, robber) {
   const acc = new THREE.Group(); g.add(acc);
   scene.add(g); return { g, legL, legR, armL, armR, acc, color, hair, wearKey: '' };
 }
-function carMesh(color, f, c2) {
+function carMesh(color, f, c2, md) {
   const g = new THREE.Group();
+  if (md && md.d) { color = dirtyC(color); if (c2) c2 = dirtyC(c2); }
   box(1.0, 0.45, 1.9, color, 0, 0.42, 0, g, true, paintMat(color, f)); box(0.85, 0.35, 1.0, c2 || color, 0, 0.82, -0.1, g, true, paintMat(c2 || color, f)); box(0.86, 0.3, 0.95, '', 0, 0.82, -0.1, g, false, winMat);
   box(0.4, 0.15, 0.25, '#ffffff', 0, 1.06, -0.1, g, false);
   for (const sx of [-0.5, 0.5]) for (const sz of [-0.6, 0.6]) box(0.16, 0.32, 0.32, '#111', sx, 0.18, sz, g, false);
+  try { modsOn(g, md); } catch (e) { }
   return g;
 }
 function buildAcc(m, wear) {
@@ -6915,8 +7488,8 @@ function buildAcc(m, wear) {
   if (wear && wear.k) { box(0.56, 0.08, 0.1, '#111', 0, 1.82, 0, a); box(0.1, 0.18, 0.18, '#e74c3c', -0.27, 1.6, 0, a); box(0.1, 0.18, 0.18, '#e74c3c', 0.27, 1.6, 0, a); }
   if (wear && wear.dress) box(0.72, 0.42, 0.46, wear.sh || '#ff6fb5', 0, 0.45, 0, a);
 }
-function vehMesh(t, color, f, c2) {
-  if (t === 'araba' || t === 'taksi' || t === 'spor') { const g = t === 'taksi' ? carMesh('#f5c518') : carMesh(color, f, c2); if (t === 'spor') g.scale.set(1.05, 0.8, 1.15); return g; }
+function vehMesh(t, color, f, c2, md) {
+  if (t === 'araba' || t === 'taksi' || t === 'spor') { const g = t === 'taksi' ? carMesh('#f5c518') : carMesh(color, f, c2, md); if (t === 'spor') g.scale.set(1.05, 0.8, 1.15); return g; }
   const g = new THREE.Group(), big = t === 'motor';
   box(0.12, 0.5, 0.5, '#111', 0, 0.25, 0.55, g, false); box(0.12, 0.5, 0.5, '#111', 0, 0.25, -0.55, g, false);
   box(big ? 0.35 : 0.08, big ? 0.35 : 0.08, 1.1, color, 0, big ? 0.55 : 0.5, 0, g, true, paintMat(color, f)); box(0.5, 0.06, 0.06, '#333', 0, big ? 0.95 : 0.85, 0.45, g, false);
@@ -6930,8 +7503,8 @@ function syncPerson(id, p, me, t) {
     if (m) { scene.remove(m.g); if (m.car) scene.remove(m.car); m.label.remove(); }
     m = peopleMesh[id] = personMesh(col); m.label = makeLabel(); m.vt = '';
   }
-  const vp = me ? (ME.veh[ME.drive] || {}) : { c: p.dc, f: p.df, c2: p.dc2 }, vkey = vt + '|' + (vp.c || '') + (vp.f || '') + (vp.c2 || '');
-  if (m.vt !== vkey) { if (m.car) scene.remove(m.car); m.car = null; m.vt = vkey; if (vt) { m.car = vehMesh(vt, vp.c || p.color || '#2980b9', vp.f, vp.c2); scene.add(m.car); } }
+  const vp = me ? (ME.veh[ME.drive] || {}) : { c: p.dc, f: p.df, c2: p.dc2 }, vms = me ? vmStr(vp) : (p.vm || ''), vkey = vt + '|' + (vp.c || '') + (vp.f || '') + (vp.c2 || '') + vms;
+  if (m.vt !== vkey) { if (m.car) scene.remove(m.car); m.car = null; m.vt = vkey; if (vt) { m.car = vehMesh(vt, vp.c || p.color || '#2980b9', vp.f, vp.c2, vmParse(vms)); scene.add(m.car); } }
   if (!m.bagM) { m.bagM = new THREE.Group(); box(0.26, 0.3, 0.12, '#f5f5f5', 0.45, 0.55, 0.05, m.bagM); box(0.2, 0.06, 0.13, '#e74c3c', 0.45, 0.72, 0.05, m.bagM, false); m.g.add(m.bagM); }
   m.bagM.visible = (p.bag || 0) > now();
   if (p.inside) { if (m.petG) m.petG.visible = false; m.g.visible = false; if (m.car) m.car.visible = false; m.label.style.display = 'none'; m.seen = true; return; }
@@ -7020,7 +7593,7 @@ function frame(t) {
       const [jx, jy, jm] = inputVec();
       if (jm > 0.08) {
         if (ME.sit != null || ME.trib) kkStand();
-        const sp = (ME.job === 'Taksici' ? 0.32 : ME.drive && ME.veh[ME.drive] ? VEH[ME.veh[ME.drive].t].sp : ME.sick ? 0.12 : 0.18) * dt * jm * (cityOn('road') ? 1.15 : 1) * (ME.sw ? (ME.job === 'Cankurtaran' ? 0.8 : 0.55) : 1) * (ME.boat > now() ? 0.9 : 1);
+        const sp = (ME.job === 'Taksici' ? 0.32 : ME.drive && ME.veh[ME.drive] ? vehSp(ME.veh[ME.drive]) : ME.sick ? 0.12 : 0.18) * dt * jm * (cityOn('road') ? 1.15 : 1) * (ME.sw ? (ME.job === 'Cankurtaran' ? 0.8 : 0.55) : 1) * (ME.boat > now() ? 0.9 : 1);
         const nx = Math.max(10, Math.min(XMAX, ME.x + jx * sp)), ny = Math.max(10, Math.min(YMAX, ME.y + jy * sp));
         if (blocked(ME.x, ME.y) || !blocked(nx, ny)) { ME.x = nx; ME.y = ny; ME._mv = true; }
         else if (!blocked(nx, ME.y)) { ME.x = nx; ME._mv = true; }
