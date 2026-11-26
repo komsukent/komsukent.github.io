@@ -13,6 +13,7 @@
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;overflow:hidden;background:#7cc06a;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#fff;-webkit-user-select:none;user-select:none}
 canvas{display:block;touch-action:none;position:fixed;inset:0;width:100%!important;height:100%!important}
+#mmap{inset:auto!important;width:104px!important;height:104px!important}#mapC{position:absolute!important}
 html,body{background:#15233f}
 #labels{position:fixed;inset:0;pointer-events:none;overflow:hidden}
 .lb{position:absolute;left:0;top:0;white-space:nowrap;will-change:transform}
@@ -172,7 +173,7 @@ const COUNTRIES = {
 let FULL1 = true; try { FULL1 = localStorage.getItem('kk_full1') !== '0'; } catch (e) { }   // Komşukent dolu mu: yönetici panelden açar/kapatır (pub/full1)
 const C = (() => { let c = 0; try { const u = +new URLSearchParams(location.search).get('c'), st = +localStorage.getItem('kk_c'), known = !!(localStorage.getItem('kk_me') || localStorage.getItem('kk_id')); c = u || (known ? st : 0) || (FULL1 ? 2 + Math.floor(Math.random() * 2) : 1); } catch (e) { c = 1; } if (!COUNTRIES[c] || !COUNTRIES[c].cfg) c = 1; try { localStorage.setItem('kk_c', String(c)); } catch (e) { } return c; })();
 const FB = {};
-const APP_V = '2026112220';
+const APP_V = '2026112221';
 let CAP = 0;   // bump on every upload (yyyymmddNN)
 const ADMIN = location.hash === '#yonetim';
 let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off, orderByChild, equalTo;
@@ -1154,7 +1155,7 @@ function computeActs() {
   }
   if (ME.job === 'Taksici' && !b) L.push({ label: '🚕 Müşterilerin sana binebilir', cls: 'gray' });
   newJobActs(L, b, p, near, t);
-  ecoActs(L, b, t); abActs(L, b, t); futActs(L, b, t); kkActs(L, b, t); roomOutActs(L, b, p, t); szActs(L, t);
+  ecoActs(L, b, t); abActs(L, b, t); futActs(L, b, t); kkActs(L, b, t); roomOutActs(L, b, p, t); szActs(L, t); mapActs(L, t);
   // thief / con man
   if ((ME.job === 'Hırsız' && isNight()) || ME.job === 'Dolandırıcı') {
     const blk = stealBlock();
@@ -6587,7 +6588,7 @@ function kampApply() {
   for (const C0 of KAMP_CATS()) for (const k in C0) { const o = C0[k]; if (o._p0 == null) o._p0 = o.p; o.p = Math.max(1, Math.round(o._p0 * (1 - pct / 100))); }
   kampOn = on ? pct : 0;
   let b = document.getElementById('kampB');
-  if (on) { if (!b) { b = document.createElement('div'); b.id = 'kampB'; b.style.cssText = 'position:fixed;left:8px;top:calc(env(safe-area-inset-top) + 112px);z-index:20;background:linear-gradient(135deg,#ff4d6d,#f39c12);color:#fff;font:800 13px system-ui;padding:6px 10px;border-radius:12px;box-shadow:0 3px 10px rgba(0,0,0,.35);pointer-events:none'; document.body.appendChild(b); } b.textContent = `🏷 %${pct} İNDİRİM • ${KAMP.txt || 'Kampanya günü'}`; }
+  if (on) { if (!b) { b = document.createElement('div'); b.id = 'kampB'; b.style.cssText = 'position:fixed;left:8px;top:calc(env(safe-area-inset-top) + 164px);z-index:20;background:linear-gradient(135deg,#ff4d6d,#f39c12);color:#fff;font:800 13px system-ui;padding:6px 10px;border-radius:12px;box-shadow:0 3px 10px rgba(0,0,0,.35);pointer-events:none'; document.body.appendChild(b); } b.textContent = `🏷 %${pct} İNDİRİM • ${KAMP.txt || 'Kampanya günü'}`; }
   else if (b) b.remove();
 }
 setInterval(() => { if (kampOn && !kampActive()) kampApply(); }, 30000);
@@ -7095,6 +7096,360 @@ async function adminAds() {
 const _kkAdminHTML18 = kkAdminHTML, _kkAdminWire18 = kkAdminWire;
 kkAdminHTML = () => _kkAdminHTML18() + `<div style="margin-top:8px"><b>🏷 Reklam & kampanya</b><br><button id="aShopNm" style="background:#8e44ad;margin-top:6px">🏷 Dükkan adı değiştir (reklam)</button> <button id="aKamp" style="background:#ff4d6d;margin-top:6px">🏷 Kampanya günü başlat / bitir</button> <button id="aAds" style="background:#f39c12;margin-top:6px">📢 Reklam panoları</button></div>`;
 kkAdminWire = el => { _kkAdminWire18(el); const q = id => el.querySelector('#' + id); if (q('aShopNm')) q('aShopNm').onclick = adminShopName; if (q('aKamp')) q('aKamp').onclick = adminKamp; if (q('aAds')) q('aAds').onclick = adminAds; };
+
+// ================= v20: HARİTA • DOKUN-GİT (yol bulma) • MİNİ HARİTA • DURAKLAR • TAKSİ ÇAĞIR • ŞEHRİ TANI TURU =================
+const MAPW = 130, MAPH = 214;     // harita sınırları (karo)
+const BICON = { belediye: '🏛', market: '🛒', firin: '🥯', adalet: '⚖️', hastane: '🏥', polis: '🚓', okul: '🏫', sanayi: '🔧', kuafor: '💇', itfaiye: '🚒', cami: '🕌', konser: '🎤', petshop: '🐶',
+  veteriner: '🐾', avm: '🏬', tarla: '🌾', maden: '⛏', cumhur: '🇹🇷', fabrika: '🏭', liman: '⚓', cankurtaran: '🛟', balikci: '🎣', kafe: '☕', kulup: '⚽', kurs: '🪪', ssite: '🔧', galeri: '🚗' };
+const BDESC = { belediye: 'Başkan, memurlar, seçimler', market: 'Yiyecek, içecek', firin: 'Ekmek, simit, pasta', adalet: 'Hakim, savcı, avukat', hastane: 'Doktor, hemşire, tedavi', polis: 'Polis, jandarma', okul: 'Ders al, öğretmen ol',
+  sanayi: 'Tamir, boya, araç', kuafor: 'Saç, sakal, manikür', itfaiye: 'İtfaiyeciler', cami: 'İmam', konser: 'Konser sahnesi', petshop: 'Evcil hayvan', veteriner: 'Hayvan sağlığı', avm: 'Mağazalar + yemek katı',
+  tarla: 'Çiftçilik', maden: 'Madencilik', fabrika: 'Fabrika işçiliği', liman: 'Liman işleri', cankurtaran: 'Sahil güvenliği', balikci: 'Olta, kayık, balık sat', kafe: 'Falezde kafe', kulup: 'Futbol kulübü',
+  kurs: 'Ehliyet al', ssite: 'Oto ustaları, satılık dükkan', galeri: 'Araba al-sat, 2. el' };
+function bDoor(b) { return b.open ? { x: b.x + b.w / 2, y: b.y + b.h / 2 } : { x: b.x + b.w / 2, y: b.y + b.h + 0.8 }; }
+const LANDM = [
+  { id: 'stad', e: '🏟', n: 'Stadyum', x: 36, y: 117, d: 'Maçlar, tribün' }, { id: 'hali', e: '⚽', n: 'Halı sahalar', x: 83.5, y: 126, d: 'Halı saha maçları' },
+  { id: 'sahil', e: '🏖', n: 'Sahil', x: 116.5, y: 40, d: 'Denize gir, güneşlen' }, { id: 'falez', e: '⛰', n: 'Falez', x: 112, y: 132, d: 'Manzara, paraşüt, kafe' },
+  { id: 'yeni', e: '🏗', n: 'Yeni Binalar Bölgesi', x: 49, y: 104, d: 'Özel binalar' },
+];
+// ---- otobüs durakları
+const STOPS = [{ n: 'Belediye', b: 'belediye' }, { n: 'AVM', b: 'avm' }, { n: 'Hastane', b: 'hastane' }, { n: 'Stadyum', x: 39, y: 115.5 }, { n: 'Sahil', x: 110, y: 40 }, { n: 'Falez', x: 102.5, y: 140 }, { n: 'Sanayi', x: 98, y: 192 }];
+function freeNear(x, y) {
+  if (!blocked(x * T, y * T)) return { x, y };
+  for (let r = 1; r < 8; r++) for (let a = 0; a < 16; a++) { const nx = x + Math.cos(a * Math.PI / 8) * r * 0.5, ny = y + Math.sin(a * Math.PI / 8) * r * 0.5; if (!blocked(nx * T, ny * T) && !inWater(nx * T, ny * T)) return { x: nx, y: ny }; }
+  return { x, y };
+}
+let STOPS_READY = 0;
+function stopsInit() { if (STOPS_READY) return; STOPS_READY = 1; for (const s of STOPS) { const p = s.b && BMAP[s.b] ? bDoor(BMAP[s.b]) : { x: s.x, y: s.y }; const f = freeNear(p.x + (s.b ? 2.5 : 0), p.y); s.x = f.x; s.y = f.y; } }
+let STOPS3D = 0;
+setInterval(() => {
+  if (STOPS3D || !THREE || !scene) return; STOPS3D = 1; stopsInit();
+  for (const s of STOPS) {
+    const g = new THREE.Group(); g.position.set(s.x, 0, s.y); scene.add(g);
+    box(0.12, 2.4, 0.12, '#2c3e50', -1.1, 1.2, -0.4, g); box(0.12, 2.4, 0.12, '#2c3e50', 1.1, 1.2, -0.4, g); box(2.6, 0.12, 1.2, '#2e86de', 0, 2.45, -0.2, g); box(2.4, 1.2, 0.06, '#bfe3ff', 0, 1.3, -0.75, g, false);
+    box(2.0, 0.1, 0.45, '#8d6e63', 0, 0.5, -0.5, g);
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 0.5), new THREE.MeshBasicMaterial({ map: signTex('DURAK • ' + s.n.toLocaleUpperCase('tr'), '#2e86de', '#ffffff') })); m.position.set(0, 2.85, -0.2); g.add(m);
+  }
+}, 2500);
+function busMenu(from) {
+  if (ME.drive) return toast('Önce araçtan in 🚗');
+  modal(`🚌 ${from.n} durağı • nereye?`, STOPS.filter(s => s !== from).map(s => ({ label: `🚌 ${s.n}`, right: '10 💰', disabled: ME.money < 10, fn: () => {
+    if (!spend(10)) return; cityIncome(10); payJob(['Otobüs Şoförü', 'Şoför'], 3, `🚌 ${ME.name} otobüse bindi`); saveMe(); closeModal();
+    startTask('bus', 2500, () => true, () => { ME.x = s.x * T; ME.y = s.y * T; target = null; sendPos(true); toast(`🚌 ${s.n} durağına vardın!`); }, `🚌 ${s.n} yolunda`);
+  } })), '<p>Otobüsle şehrin her yerine 10 💰. Yürümekten çok daha hızlı!</p>');
+}
+// ---- yol bulma (A*, karo ızgarası)
+let NAV = null;
+function navPath(sx, sy, gx, gy) {
+  const W_ = Math.ceil(XMAX / T) + 1, H_ = Math.ceil(YMAX / T) + 1, idx = (x, y) => y * W_ + x;
+  const cost = new Float32Array(W_ * H_).fill(-1), walk = c => { if (cost[c] >= 0) return cost[c]; const x = c % W_, y = (c / W_) | 0, px = (x + 0.5) * T, py = (y + 0.5) * T;
+    let v = blocked(px, py) ? 0 : inWater(px, py) ? 8 : (x < WN && y < WN && isRoad(x, y)) ? 1 : 1.35; cost[c] = v; return v; };
+  const s = idx(Math.max(0, Math.min(W_ - 1, sx | 0)), Math.max(0, Math.min(H_ - 1, sy | 0))), g = idx(Math.max(0, Math.min(W_ - 1, gx | 0)), Math.max(0, Math.min(H_ - 1, gy | 0)));
+  const gs = new Float32Array(W_ * H_).fill(Infinity), from = new Int32Array(W_ * H_).fill(-1), closed = new Uint8Array(W_ * H_);
+  const heap = []; const hpush = (f, c) => { heap.push([f, c]); let i = heap.length - 1; while (i > 0) { const p = (i - 1) >> 1; if (heap[p][0] <= heap[i][0]) break; [heap[p], heap[i]] = [heap[i], heap[p]]; i = p; } };
+  const hpop = () => { const top = heap[0], last = heap.pop(); if (heap.length) { heap[0] = last; let i = 0; for (;;) { const l = 2 * i + 1, r = l + 1; let m = i; if (l < heap.length && heap[l][0] < heap[m][0]) m = l; if (r < heap.length && heap[r][0] < heap[m][0]) m = r; if (m === i) break; [heap[m], heap[i]] = [heap[i], heap[m]]; i = m; } } return top; };
+  const gxx = g % W_, gyy = (g / W_) | 0, hh = c => Math.hypot(c % W_ - gxx, ((c / W_) | 0) - gyy);
+  gs[s] = 0; hpush(hh(s), s); let n = 0;
+  const D = [[1, 0, 1], [-1, 0, 1], [0, 1, 1], [0, -1, 1], [1, 1, 1.414], [1, -1, 1.414], [-1, 1, 1.414], [-1, -1, 1.414]];
+  while (heap.length && n++ < 60000) {
+    const [, c] = hpop(); if (closed[c]) continue; closed[c] = 1; if (c === g) break;
+    const x = c % W_, y = (c / W_) | 0;
+    for (const [dx, dy, dc] of D) {
+      const nx = x + dx, ny = y + dy; if (nx < 0 || ny < 0 || nx >= W_ || ny >= H_) continue; const nc = idx(nx, ny);
+      const w = walk(nc); if (!w && nc !== g) continue; if (dx && dy && (!walk(idx(x + dx, y)) || !walk(idx(x, y + dy)))) continue;
+      const ng = gs[c] + dc * (w || 1); if (ng < gs[nc]) { gs[nc] = ng; from[nc] = c; hpush(ng + hh(nc), nc); }
+    }
+  }
+  if (from[g] < 0 && g !== s) return null;
+  const pts = []; for (let c = g; c >= 0 && c !== s; c = from[c]) pts.push({ x: (c % W_ + 0.5) * T, y: (((c / W_) | 0) + 0.5) * T }); pts.reverse();
+  // görüş hattıyla sadeleştir
+  const clear = (a, b) => { const d = Math.hypot(b.x - a.x, b.y - a.y), n2 = Math.ceil(d / (T * 0.4)); for (let i = 1; i < n2; i++) { const x = a.x + (b.x - a.x) * i / n2, y = a.y + (b.y - a.y) * i / n2; if (blocked(x, y) || inWater(x, y)) return false; } return true; };
+  const out = []; let cur = { x: ME.x, y: ME.y }, i = 0;
+  while (i < pts.length) { let j = Math.min(pts.length - 1, i + 14); while (j > i && !clear(cur, pts[j])) j--; out.push(pts[j]); cur = pts[j]; i = j + 1; }
+  return out;
+}
+function navTo(x, y, label) {
+  if (!ME) return; if (ME.inside) { toast('Önce dışarı çık 🚪'); return; } if (ME.jail > now()) return;
+  if (ME.sit != null || ME.trib) kkStand();
+  const f = freeNear(x, y), pts = navPath(ME.x / T, ME.y / T, f.x, f.y);
+  if (!pts) { toast('Oraya yol bulunamadı 😕'); return; }
+  pts.push({ x: f.x * T, y: f.y * T });
+  NAV = { pts, i: 0, label, gx: f.x, gy: f.y, last: { x: ME.x, y: ME.y, t: now() } }; mapClose(); navUI(); toast(`📍 ${label} yoluna çıktın`, 2500);
+  if (tgtMark) { tgtMark.position.set(f.x, 0.06, f.y); tgtMark.visible = true; }
+}
+function navStop(msg) { NAV = null; navUI(); tgtHide(); if (msg) toast(msg, 3000); }
+function navVec() {
+  if (!NAV || !ME || ME.inside || task) return null;
+  let p = NAV.pts[NAV.i];
+  while (p && Math.hypot(p.x - ME.x, p.y - ME.y) < T * 0.45) { NAV.i++; p = NAV.pts[NAV.i]; }
+  if (!p) { const l = NAV.label; navStop(`📍 Vardın: ${l}!`); stat('nav'); return null; }
+  const t = now(); if (t - NAV.last.t > 2500) { if (Math.hypot(ME.x - NAV.last.x, ME.y - NAV.last.y) < T * 0.4) { const g = NAV; navStop(); navTo(g.gx, g.gy, g.label); return null; } NAV.last = { x: ME.x, y: ME.y, t }; }
+  const dx = p.x - ME.x, dy = p.y - ME.y, d = Math.hypot(dx, dy); return [dx / d, dy / d, 1];
+}
+const _inputVec19 = inputVec;
+inputVec = function () {
+  const v = _inputVec19();
+  if (v[2] > 0.08) { if (NAV && (joy.x || joy.y || Object.values(keys).some(Boolean))) navStop('Yol iptal edildi'); return v; }
+  const n = navVec(); return n || v;
+};
+let NAVEL = null;
+function navUI() {
+  if (!NAVEL) { NAVEL = document.createElement('div'); NAVEL.id = 'navB'; NAVEL.style.cssText = 'position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 54px);transform:translateX(-50%);z-index:25;background:rgba(46,134,222,.95);color:#fff;font:800 14px system-ui;padding:7px 8px 7px 12px;border-radius:20px;display:none;align-items:center;gap:8px;box-shadow:0 4px 14px rgba(0,0,0,.35);white-space:nowrap';
+    NAVEL.innerHTML = '<span id="navA" style="display:inline-block;font-size:18px">⬆</span><span id="navT"></span><button id="navX" style="border:0;background:rgba(0,0,0,.25);color:#fff;border-radius:50%;width:26px;height:26px;font-size:14px">✕</button>'; document.body.appendChild(NAVEL);
+    NAVEL.querySelector('#navX').onclick = () => navStop('Yol iptal edildi'); }
+  NAVEL.style.display = NAV ? 'flex' : 'none';
+}
+setInterval(() => {
+  if (!NAV || !NAVEL || !ME) return;
+  const p = NAV.pts[Math.min(NAV.i, NAV.pts.length - 1)], dx = NAV.gx * T - ME.x, dy = NAV.gy * T - ME.y, m = Math.round(Math.hypot(dx, dy) / T * 2);
+  const a = Math.atan2(p.x - ME.x, -(p.y - ME.y)) * 180 / Math.PI;
+  NAVEL.querySelector('#navA').style.transform = `rotate(${a}deg)`; NAVEL.querySelector('#navT').textContent = `${NAV.label} • ${m} m`;
+}, 250);
+// ---- POI listesi
+function myWorkB() { return BUILD.find(b => b.jobs && b.jobs.includes(ME.job) && !b.abl) || BUILD.find(b => b.jobs && b.jobs.includes(ME.job)); }
+function myHomePt() { if (ME.home && PMAP[ME.home]) { const p = PMAP[ME.home]; return { x: p.x + 1.5, y: p.y + 3.6 }; }
+  for (const k in APT) for (const d of ['d1', 'd2', 'd3', 'd4']) { const f = (APT[k] || {})[d]; if (f && f.id === myId && PMAP[k]) return { x: PMAP[k].x + 1.5, y: PMAP[k].y + 3.6 }; } return null; }
+function myShopPt() { for (const k in plots) { const o = plots[k]; if (o && o.id === myId && o.shopType && PMAP[k]) return { x: PMAP[k].x + 1.5, y: PMAP[k].y + 3.6, n: o.shop }; }
+  for (let i = 0; i < SS_N; i++) if (SSITE[i] && SSITE[i].id === myId) { const L = ssLot(i); return { x: L.x + L.w / 2, y: L.s > 0 ? L.y + 9 : L.y + 3, n: ssName(i, SSITE[i]) }; }
+  for (let i = 0; i < GL_N; i++) if (GALERI[i] && GALERI[i].id === myId) { const L = glLot(i); return { x: L.x + L.w / 2, y: L.s > 0 ? L.y + 9 : L.y + 3, n: glName(i, GALERI[i]) }; } return null; }
+const MAPL = (() => { try { return JSON.parse(localStorage.getItem('kk_mapl') || '{}'); } catch (e) { return {}; } })();
+['sale', 'shop', 'friend', 'event', 'stop'].forEach(k => { if (MAPL[k] == null) MAPL[k] = k !== 'sale'; });
+function mapPOIs() {
+  stopsInit(); const L = [];
+  for (const b of BUILD) { if (!b.jobs && !b.n) continue; const d = bDoor(b); L.push({ k: 'b', id: b.id, e: BICON[b.id] || '🏢', n: b.n, x: b.x + b.w / 2, y: b.y + b.h / 2, gx: d.x, gy: d.y, b, big: 1 }); }
+  for (const l of LANDM) L.push({ k: 'l', e: l.e, n: l.n, x: l.x, y: l.y, gx: l.x, gy: l.y, d: l.d, big: 1 });
+  if (MAPL.stop) for (const s of STOPS) L.push({ k: 'stop', e: '🚌', n: s.n + ' durağı', x: s.x, y: s.y, gx: s.x, gy: s.y, stop: s });
+  if (MAPL.shop) for (const p of PLOTS) { const o = plots[p.k]; if (o && o.shopType) L.push({ k: 'shop', e: (SHOPTYPES[o.shopType] || '🏪').split(' ')[0], n: o.shop || 'Dükkan', x: p.x + 1.5, y: p.y + 1.5, gx: p.x + 1.5, gy: p.y + 3.6, o, pk: p.k }); }
+  if (MAPL.sale) { for (const p of PLOTS) if (!plots[p.k]) L.push({ k: 'sale', e: '🟢', n: 'Satılık arsa', x: p.x + 1.5, y: p.y + 1.5, gx: p.x + 1.5, gy: p.y + 3.6, pk: p.k });
+    for (let i = 0; i < SS_N; i++) if (!SSITE[i]) { const Lt = ssLot(i); L.push({ k: 'sale', e: '🟢', n: `Sanayi No:${i + 1} satılık`, x: Lt.x + Lt.w / 2, y: Lt.y + 6, gx: Lt.x + Lt.w / 2, gy: Lt.s > 0 ? Lt.y + 10 : Lt.y + 2, price: SS_PRICE }); }
+    for (let i = 0; i < GL_N - 1; i++) if (!GALERI[i]) { const Lt = glLot(i); L.push({ k: 'sale', e: '🟢', n: `Galeri No:${i + 1} satılık`, x: Lt.x + Lt.w / 2, y: Lt.y + 6, gx: Lt.x + Lt.w / 2, gy: Lt.s > 0 ? Lt.y + 10 : Lt.y + 2, price: GL_PRICE }); } }
+  if (MAPL.event) {
+    if (concert && concert.until > now()) L.push({ k: 'ev', e: '🎤', n: 'Konser var!', x: STAGE.x + STAGE.w / 2, y: STAGE.y + 3, gx: STAGE.x + STAGE.w / 2, gy: STAGE.y + 4, pulse: 1 });
+    for (const p of PLOTS) { const o = plots[p.k]; if (o && o.gm && o.gm.until > now() && FOOD[o.gm.k]) L.push({ k: 'ev', e: '⭐', n: `${o.shop}: ${FOOD[o.gm.k].n} %30`, x: p.x + 1.5, y: p.y + 0.5, gx: p.x + 1.5, gy: p.y + 3.6, pulse: 1 }); }
+  }
+  if (MAPL.friend) for (const id in others) { const o = others[id]; if (friends && friends[id] && o.hasPos && live(o)) L.push({ k: 'fr', e: '👤', n: o.name, x: o.x / T, y: o.y / T, gx: o.x / T, gy: o.y / T, id }); }
+  if (ME && ME.job === 'Taksici') for (const id in others) { const o = others[id]; if (o.tc && now() - o.tc.t < 600000 && live(o)) L.push({ k: 'tc', e: '🙋', n: `${o.name} taksi bekliyor`, x: o.tc.x / T, y: o.tc.y / T, gx: o.tc.x / T, gy: o.tc.y / T, id, pulse: 1 }); }
+  if (TOURP()) { const s = TOURP(); L.push({ k: 'tour', e: '⭐', n: 'Tur: ' + s.n, x: s.x, y: s.y, gx: s.x, gy: s.y, pulse: 1, big: 1 }); }
+  return L;
+}
+// ---- harita taban görüntüsü
+let MAPBASE = null;
+const MPX = 4;
+function mapBase() {
+  if (MAPBASE) return MAPBASE;
+  const c = document.createElement('canvas'); c.width = MAPW * MPX; c.height = MAPH * MPX; const x = c.getContext('2d');
+  x.fillStyle = '#86c66f'; x.fillRect(0, 0, c.width, c.height);
+  for (let gy = 0; gy < MAPH; gy++) for (let gx = 0; gx < MAPW; gx++) {
+    const px = (gx + 0.5) * T, py = (gy + 0.5) * T;
+    if (gy * T > YMAX + 20) { x.fillStyle = '#5a8f4a'; x.fillRect(gx * MPX, gy * MPX, MPX, MPX); continue; }
+    if (inWater(px, py)) x.fillStyle = '#4aa3df'; else if (gx >= BEACH_X && gx < SEA_X) x.fillStyle = '#f3dca2'; else if (gx < WN && gy < WN && isRoad(gx, gy)) x.fillStyle = '#5d636b'; else continue;
+    x.fillRect(gx * MPX, gy * MPX, MPX, MPX);
+  }
+  x.fillStyle = '#5d636b';
+  const rr = (x0, y0, x1, y1) => x.fillRect(x0 * MPX, y0 * MPX, (x1 - x0) * MPX, (y1 - y0) * MPX);
+  rr(0, 112, 102, 114); rr(34.4, 113.6, 37.6, 120.5); rr(82, 113.8, 85, 127.8); rr(99, 113, 102, 196); rr(2, 193, 102, 196);
+  x.fillStyle = '#c8a27a'; rr(FZ.x1, FZ.z0, FZ.x2, FZ.z2);
+  x.fillStyle = '#2e8b57'; rr(8.4, 120.4, 63.6, 165.6); x.fillStyle = '#4caf50'; rr(21, 133, 51, 153);
+  x.fillStyle = '#3c9a46'; rr(70, 128, 82, 148); rr(85, 128, 97, 148);
+  x.fillStyle = '#9aa0a6'; rr(2, 179, 57, 210); x.fillStyle = '#d6dbe0'; rr(59, 179, 100, 210);
+  return MAPBASE = c;
+}
+function mapPlotsDraw(x, s, ox, oy) {
+  for (const p of PLOTS) { const o = plots[p.k]; if (!o) continue; x.fillStyle = o.type === 'ev' ? '#f28b82' : o.type === 'apt' ? '#b39ddb' : '#ffd57e'; if (o.id === myId) x.fillStyle = '#ffe600'; x.fillRect(ox + p.x * s, oy + p.y * s, p.w * s, p.h * s); }
+  for (const b of BUILD) { if (b.sz || b.open) { if (!b.sz) { x.fillStyle = 'rgba(255,255,255,.25)'; x.fillRect(ox + b.x * s, oy + b.y * s, b.w * s, b.h * s); } continue; } x.fillStyle = b.r || b.c || '#999'; x.fillRect(ox + b.x * s, oy + b.y * s, b.w * s, b.h * s); x.strokeStyle = 'rgba(0,0,0,.35)'; x.lineWidth = 1; x.strokeRect(ox + b.x * s, oy + b.y * s, b.w * s, b.h * s); }
+  for (let i = 0; i < SS_N; i++) { const L = ssLot(i), G = SZ_GAR(L); x.fillStyle = SSITE[i] ? (SSTYPE[SSITE[i].t] || {}).c || '#7f8c8d' : 'rgba(46,204,113,.6)'; x.fillRect(ox + G.x * s, oy + G.y * s, G.w * s, G.h * s); }
+  for (let i = 0; i < GL_N; i++) { const L = glLot(i), G = SZ_GAR(L); x.fillStyle = i === GL_N - 1 ? '#f39c12' : GALERI[i] ? '#2e86de' : 'rgba(46,204,113,.6)'; x.fillRect(ox + G.x * s, oy + G.y * s, G.w * s, G.h * s); }
+}
+// ---- tam ekran harita
+let MAPV = null;
+const MV = { s: 4, ox: 0, oy: 0, sel: null };
+function mapOpen() {
+  if (!ME) return;
+  if (!MAPV) {
+    MAPV = document.createElement('div'); MAPV.id = 'mapv';
+    MAPV.style.cssText = 'position:fixed;inset:0;z-index:60;background:#1b2635;display:flex;flex-direction:column;touch-action:none;font-family:system-ui';
+    MAPV.innerHTML = `<div style="display:flex;gap:6px;align-items:center;padding:calc(env(safe-area-inset-top) + 6px) 8px 6px;background:#0f1724">
+      <b style="color:#fff;font-size:16px;white-space:nowrap">🗺 Harita</b><input id="mapQ" placeholder="🔍 Nereye? (market, hastane…)" style="flex:1;min-width:0;padding:8px 10px;border-radius:12px;border:0;font-size:14px">
+      <button id="mapX" style="border:0;background:#e74c3c;color:#fff;border-radius:50%;width:36px;height:36px;font-size:16px">✕</button></div>
+      <div id="mapSC" style="display:flex;gap:6px;padding:6px 8px;overflow-x:auto;background:#0f1724"></div>
+      <div id="mapLY" style="display:flex;gap:6px;padding:0 8px 6px;overflow-x:auto;background:#0f1724"></div>
+      <div id="mapRes" style="display:none;position:absolute;left:8px;right:8px;top:calc(env(safe-area-inset-top) + 52px);z-index:3;background:#fff;border-radius:12px;max-height:45vh;overflow:auto;box-shadow:0 8px 20px rgba(0,0,0,.4)"></div>
+      <div style="flex:1;position:relative;overflow:hidden"><canvas id="mapC" style="position:absolute;inset:0;width:100%;height:100%"></canvas>
+      <div style="position:absolute;right:8px;bottom:8px;display:flex;flex-direction:column;gap:6px"><button id="mapZi" class="mzb">＋</button><button id="mapZo" class="mzb">－</button><button id="mapMe" class="mzb">📍</button></div></div>
+      <div id="mapCard" style="display:none;background:#fff;padding:12px 14px calc(env(safe-area-inset-bottom) + 12px);border-radius:16px 16px 0 0"></div>`;
+    document.body.appendChild(MAPV);
+    const st = document.createElement('style'); st.textContent = '.mzb{width:42px;height:42px;border:0;border-radius:50%;background:rgba(15,25,45,.9);color:#fff;font-size:20px}#mapSC,#mapLY{scrollbar-width:none}#mapSC::-webkit-scrollbar,#mapLY::-webkit-scrollbar{display:none}.mch{border:0;border-radius:14px;padding:7px 11px;font:700 13px system-ui;white-space:nowrap;background:#2c3e50;color:#fff}.mch.on{background:#2e86de}.mbt{border:0;border-radius:12px;padding:10px 12px;font:800 14px system-ui;color:#fff;background:#2e86de;margin:4px 4px 0 0}'; document.head.appendChild(st);
+    MAPV.querySelector('#mapX').onclick = mapClose;
+    MAPV.querySelector('#mapZi').onclick = () => mapZoom(1.35); MAPV.querySelector('#mapZo').onclick = () => mapZoom(1 / 1.35);
+    MAPV.querySelector('#mapMe').onclick = () => { mapCenter(ME.x / T, ME.y / T); mapDraw(); };
+    const q = MAPV.querySelector('#mapQ'); q.oninput = () => mapSearch(q.value); q.onfocus = () => mapSearch(q.value);
+    const c = MAPV.querySelector('#mapC'); let drag = null, pts = {};
+    c.addEventListener('pointerdown', e => { c.setPointerCapture(e.pointerId); pts[e.pointerId] = { x: e.clientX, y: e.clientY }; drag = { x: e.clientX, y: e.clientY, ox: MV.ox, oy: MV.oy, moved: 0, d0: null }; const ks = Object.values(pts); if (ks.length === 2) drag.d0 = Math.hypot(ks[0].x - ks[1].x, ks[0].y - ks[1].y), drag.s0 = MV.s; });
+    c.addEventListener('pointermove', e => { if (!drag || !pts[e.pointerId]) return; pts[e.pointerId] = { x: e.clientX, y: e.clientY }; const ks = Object.values(pts);
+      if (ks.length === 2 && drag.d0) { const d = Math.hypot(ks[0].x - ks[1].x, ks[0].y - ks[1].y); mapZoom(drag.s0 * d / drag.d0 / MV.s); drag.moved = 99; return; }
+      const dx = e.clientX - drag.x, dy = e.clientY - drag.y; if (Math.abs(dx) + Math.abs(dy) > 6) drag.moved = 1; MV.ox = drag.ox + dx; MV.oy = drag.oy + dy; mapDraw(); });
+    const up = e => { const was = drag; delete pts[e.pointerId]; if (Object.keys(pts).length) return; drag = null; if (was && !was.moved) { const r = c.getBoundingClientRect(); mapTap((e.clientX - r.left - MV.ox) / MV.s, (e.clientY - r.top - MV.oy) / MV.s); } };
+    c.addEventListener('pointerup', up); c.addEventListener('pointercancel', e => { delete pts[e.pointerId]; drag = null; });
+  }
+  MAPV.style.display = 'flex'; MV.sel = null; mapCard(null); mapBars();
+  requestAnimationFrame(() => { const c = MAPV.querySelector('#mapC'), r = c.getBoundingClientRect(); c.width = r.width * devicePixelRatio; c.height = r.height * devicePixelRatio; MV.s = Math.max(3, r.width / 60); mapCenter(ME.x / T, ME.y / T); mapDraw(); });
+  MV.timer = setInterval(() => MAPV.style.display === 'flex' && mapDraw(), 1000);
+}
+function mapClose() { if (MAPV) { MAPV.style.display = 'none'; MAPV.querySelector('#mapRes').style.display = 'none'; } clearInterval(MV.timer); }
+function mapCenter(x, y) { const c = MAPV.querySelector('#mapC'), r = c.getBoundingClientRect(); MV.ox = r.width / 2 - x * MV.s; MV.oy = r.height / 2 - y * MV.s; }
+function mapZoom(f) { const c = MAPV.querySelector('#mapC'), r = c.getBoundingClientRect(), cx = (r.width / 2 - MV.ox) / MV.s, cy = (r.height / 2 - MV.oy) / MV.s; MV.s = Math.max(2, Math.min(28, MV.s * f)); mapCenter(cx, cy); mapDraw(); }
+function mapBars() {
+  const sc = MAPV.querySelector('#mapSC'), ly = MAPV.querySelector('#mapLY');
+  const H = myHomePt(), Wb = ME.job && myWorkB(), Sh = myShopPt(), tour = ME.q && ME.q.tur;
+  const B = [];
+  B.push(['🏠 Evim', H, () => H ? navTo(H.x, H.y, 'Evin') : toast('Henüz evin yok 🏠 Haritada 🟢 satılık arsalara bak')]);
+  B.push(['💼 İş yerim', Wb, () => { if (!Wb) return toast('Henüz işin yok'); const d = bDoor(Wb); navTo(d.x, d.y, Wb.n); }]);
+  B.push(['🏪 Dükkanım', Sh, () => Sh ? navTo(Sh.x, Sh.y, Sh.n) : toast('Henüz dükkanın yok')]);
+  B.push(['🧭 Şehri tanı', 1, () => { mapClose(); tourStart(); }]);
+  if (ME.job !== 'Taksici') B.push(['🚕 Taksi çağır', 1, () => taxiCall()]);
+  sc.innerHTML = ''; for (const [n, ok, fn] of B) { const b = document.createElement('button'); b.className = 'mch'; b.textContent = n; if (!ok) b.style.opacity = .5; b.onclick = fn; sc.appendChild(b); }
+  const LY = [['sale', '🟢 Satılık'], ['shop', '🏪 Dükkanlar'], ['friend', '👥 Arkadaşlar'], ['event', '🎉 Etkinlik'], ['stop', '🚌 Duraklar']];
+  ly.innerHTML = ''; for (const [k, n] of LY) { const b = document.createElement('button'); b.className = 'mch' + (MAPL[k] ? ' on' : ''); b.textContent = n; b.onclick = () => { MAPL[k] = !MAPL[k]; try { localStorage.setItem('kk_mapl', JSON.stringify(MAPL)); } catch (e) { } mapBars(); mapDraw(); }; ly.appendChild(b); }
+  const mm = document.createElement('button'); mm.className = 'mch' + (MMON() ? ' on' : ''); mm.textContent = '⭕ Mini harita'; mm.onclick = () => { try { localStorage.setItem('kk_mm', MMON() ? '0' : '1'); } catch (e) { } mmUpdate(true); mapBars(); }; ly.appendChild(mm);
+}
+function mapDraw() {
+  if (!MAPV) return; const c = MAPV.querySelector('#mapC'), x = c.getContext('2d'), dp = devicePixelRatio, s = MV.s;
+  x.setTransform(dp, 0, 0, dp, 0, 0); x.fillStyle = '#4aa3df'; x.fillRect(0, 0, c.width, c.height);
+  x.imageSmoothingEnabled = false; x.drawImage(mapBase(), MV.ox, MV.oy, MAPW * s, MAPH * s);
+  mapPlotsDraw(x, s, MV.ox, MV.oy);
+  if (NAV) { x.strokeStyle = '#2e86de'; x.lineWidth = 4; x.setLineDash([8, 6]); x.beginPath(); x.moveTo(MV.ox + ME.x / T * s, MV.oy + ME.y / T * s); for (let i = NAV.i; i < NAV.pts.length; i++) x.lineTo(MV.ox + NAV.pts[i].x / T * s, MV.oy + NAV.pts[i].y / T * s); x.stroke(); x.setLineDash([]); }
+  const P = mapPOIs(), t = now(); MV.pois = P;
+  x.textAlign = 'center'; x.textBaseline = 'middle';
+  for (const p of P) {
+    const px = MV.ox + p.x * s, py = MV.oy + p.y * s; if (px < -40 || py < -40 || px > c.width / dp + 40 || py > c.height / dp + 40) continue;
+    const fs = p.big ? Math.max(14, Math.min(26, s * 2.2)) : Math.max(10, Math.min(20, s * 1.4));
+    if (!p.big && s < 4.5 && p.k !== 'fr' && p.k !== 'tc' && p.k !== 'ev') { x.fillStyle = p.k === 'sale' ? '#2ecc71' : p.k === 'stop' ? '#2e86de' : '#e67e22'; x.beginPath(); x.arc(px, py, 3, 0, 7); x.fill(); continue; }
+    if (p.pulse) { x.fillStyle = `rgba(255,214,0,${0.35 + 0.25 * Math.sin(t / 200)})`; x.beginPath(); x.arc(px, py, fs * 0.9, 0, 7); x.fill(); }
+    if (MV.sel === p.n + p.k) { x.fillStyle = 'rgba(46,134,222,.45)'; x.beginPath(); x.arc(px, py, fs, 0, 7); x.fill(); }
+    x.font = `${fs}px system-ui`; x.fillText(p.e, px, py);
+    if (p.k === 'l' || p.k === 'tour' || p.big && s >= 5 || s >= 9) { x.font = `800 ${Math.max(10, Math.min(14, s * 1.1))}px system-ui`; const tw = x.measureText(p.n).width + 8; x.fillStyle = 'rgba(15,23,36,.78)'; x.fillRect(px - tw / 2, py + fs * 0.6, tw, 16); x.fillStyle = '#fff'; x.fillText(p.n, px, py + fs * 0.6 + 8); }
+  }
+  const mx = MV.ox + ME.x / T * s, my = MV.oy + ME.y / T * s, a = MYF;
+  x.fillStyle = `rgba(231,76,60,${0.25 + 0.2 * Math.sin(t / 150)})`; x.beginPath(); x.arc(mx, my, 14, 0, 7); x.fill();
+  x.save(); x.translate(mx, my); x.rotate(a); x.fillStyle = '#e74c3c'; x.strokeStyle = '#fff'; x.lineWidth = 2; x.beginPath(); x.moveTo(0, -11); x.lineTo(8, 8); x.lineTo(0, 4); x.lineTo(-8, 8); x.closePath(); x.fill(); x.stroke(); x.restore();
+}
+function mapTap(tx, ty) {
+  const P = MV.pois || mapPOIs(); let best = null, bd = Math.max(1.6, 14 / MV.s);
+  for (const p of P) { const d = Math.hypot(p.x - tx, p.y - ty) - (p.big ? 0.8 : 0); if (d < bd) { bd = d; best = p; } }
+  if (!best) { const b = BUILD.find(b => !b.sz && tx > b.x && tx < b.x + b.w && ty > b.y && ty < b.y + b.h); if (b) best = (P.find(p => p.b === b)); }
+  if (!best) best = { k: 'pt', e: '📍', n: 'Seçtiğin nokta', x: tx, y: ty, gx: tx, gy: ty };
+  MV.sel = best.n + best.k; mapCard(best); mapDraw();
+}
+function nearStop(x, y) { stopsInit(); let b = null, bd = 1e9; for (const s of STOPS) { const d = Math.hypot(s.x - x, s.y - y); if (d < bd) { bd = d; b = s; } } return [b, bd]; }
+function mapCard(p) {
+  const el = MAPV.querySelector('#mapCard'); if (!p) { el.style.display = 'none'; return; }
+  const dist = Math.round(Math.hypot(p.gx - ME.x / T, p.gy - ME.y / T) * 2), info = [];
+  if (p.b) { const b = p.b; info.push(BDESC[b.id] || ''); if (b.jobs && b.jobs.length) info.push('💼 ' + b.jobs.slice(0, 4).join(', ') + (b.jobs.length > 4 ? '…' : ''));
+    const n = Object.values(others).filter(o => o.hasPos && live(o) && (o.inside === b.id || inside(b, o.x, o.y, 2 * T))).length; info.push(`👥 Şu an ${n} kişi`); info.push('🟢 Açık'); }
+  if (p.d) info.push(p.d);
+  if (p.k === 'shop') { info.push(`👤 ${esc(p.o.name || '')} • ${p.o.shopType}`); info.push(`💰 ${shopP(p.o)} 💰`); if (p.o.closed > now()) info.push('🔴 Şu an kapalı'); }
+  if (p.k === 'sale') info.push(p.price ? `💰 ${p.price.toLocaleString('tr')} 💰` : `💰 Ev ${HOUSE_PRICE.toLocaleString('tr')} • Dükkan ${SHOP_PRICE.toLocaleString('tr')} 💰`);
+  if (p.k === 'fr') info.push('👥 Arkadaşın, şu an çevrimiçi');
+  info.push(`📏 ${dist} m uzakta`);
+  el.innerHTML = `<div style="display:flex;align-items:center;gap:10px"><span style="font-size:30px">${p.e}</span><div style="flex:1"><b style="font-size:17px">${esc(p.n)}</b><div style="font-size:13px;color:#555">${info.filter(Boolean).map(esc).join('<br>')}</div></div></div><div id="mapBt"></div>`;
+  const bt = el.querySelector('#mapBt'), add = (t, fn, col) => { const b = document.createElement('button'); b.className = 'mbt'; b.textContent = t; if (col) b.style.background = col; b.onclick = fn; bt.appendChild(b); };
+  add('📍 Buraya git', () => navTo(p.gx, p.gy, p.n));
+  const [st, sd] = nearStop(p.gx, p.gy), [ms] = nearStop(ME.x / T, ME.y / T);
+  if (dist > 60 && st && ms && st !== ms) add(`🚌 Otobüsle (${ms.n} → ${st.n})`, () => navTo(ms.x, ms.y, ms.n + ' durağı'), '#16a085');
+  if (p.stop) add('🚌 Bu durağa yürü', () => navTo(p.stop.x, p.stop.y, p.stop.n + ' durağı'), '#16a085');
+  if (ME.job !== 'Taksici' && dist > 30) add('🚕 Taksi çağır', () => taxiCall(p.n), '#f39c12');
+  if (p.k === 'tc') add('🙋 Müşteriye git', () => navTo(p.gx, p.gy, p.n), '#f39c12');
+  el.style.display = 'block';
+}
+function mapSearch(q) {
+  const r = MAPV.querySelector('#mapRes'); q = (q || '').trim().toLocaleLowerCase('tr'); if (!q) { r.style.display = 'none'; return; }
+  const all = [...mapPOIs()]; for (const b of BUILD) if (b.jobs) for (const j of b.jobs) all.push({ k: 'job', e: BICON[b.id] || '🏢', n: `${j} → ${b.n}`, x: b.x + b.w / 2, y: b.y + b.h / 2, gx: bDoor(b).x, gy: bDoor(b).y, b });
+  for (const p of PLOTS) { const o = plots[p.k]; if (o && o.shop) all.push({ k: 'shop', e: '🏪', n: o.shop, x: p.x + 1.5, y: p.y + 1.5, gx: p.x + 1.5, gy: p.y + 3.6, o, pk: p.k }); }
+  const hits = all.filter(p => p.n.toLocaleLowerCase('tr').includes(q)).slice(0, 12);
+  r.innerHTML = hits.length ? '' : '<div style="padding:12px;color:#777">Bulunamadı</div>';
+  for (const p of hits) { const d = document.createElement('div'); d.style.cssText = 'padding:11px 12px;border-bottom:1px solid #eee;font:600 15px system-ui'; d.textContent = `${p.e} ${p.n}`; d.onclick = () => { r.style.display = 'none'; MAPV.querySelector('#mapQ').blur(); mapCenter(p.x, p.y); MV.sel = p.n + p.k; mapCard(p); mapDraw(); }; r.appendChild(d); }
+  r.style.display = 'block';
+}
+// ---- taksi çağır
+function taxiCall(dest) {
+  const taxis = Object.entries(others).filter(([, o]) => o.job === 'Taksici' && live(o));
+  if (!taxis.length) return toast('Şu an çevrimiçi taksici yok 😕 Otobüs durağına git 🚌');
+  pub({ tc: { x: Math.round(ME.x), y: Math.round(ME.y), t: now(), d: dest || '' } });
+  taxis.forEach(([id]) => notify(id, `🚕 ${ME.name} taksi çağırdı${dest ? ' (' + dest + ')' : ''}! Haritada 🙋 işaretine bak`));
+  toast(`🚕 Taksi çağrıldı! ${taxis.length} taksiciye haber gitti. Bekle, gelince "taksisine bin" butonu çıkar`, 5000); mapClose();
+}
+let TCSET = 0; const _taxiCall0 = taxiCall; taxiCall = function (d) { TCSET = 1; return _taxiCall0(d); };
+setInterval(() => { if (TCSET && ME && ME.ride) { TCSET = 0; pub({ tc: null }); } }, 5000);
+let MYF = 0, MYL = null;
+setInterval(() => { if (!ME) return; if (MYL) { const dx = ME.x - MYL.x, dy = ME.y - MYL.y; if (Math.hypot(dx, dy) > 2) MYF = Math.atan2(dx, -dy); } MYL = { x: ME.x, y: ME.y }; }, 150);
+// ---- mini harita
+const MMON = () => { try { return localStorage.getItem('kk_mm') !== '0'; } catch (e) { return true; } };
+let MM = null;
+function mmUpdate(force) {
+  if (!ME) return;
+  const on = MMON() && !ROOM.on && !(IS_ADMIN && admView);
+  if (!MM) { MM = document.createElement('canvas'); MM.id = 'mmap'; MM.width = MM.height = 220; MM.style.cssText = 'position:fixed;left:max(8px,env(safe-area-inset-left));top:calc(env(safe-area-inset-top) + 50px);width:104px;height:104px;border-radius:50%;border:3px solid rgba(255,255,255,.85);box-shadow:0 3px 10px rgba(0,0,0,.35);z-index:15;background:#86c66f'; MM.onclick = mapOpen; document.body.appendChild(MM); }
+  MM.style.display = on ? 'block' : 'none'; if (!on) return;
+  const x = MM.getContext('2d'), s = 6, cx = ME.x / T, cy = ME.y / T, ox = 110 - cx * s, oy = 110 - cy * s;
+  x.save(); x.clearRect(0, 0, 220, 220); x.beginPath(); x.arc(110, 110, 110, 0, 7); x.clip(); x.fillStyle = '#4aa3df'; x.fillRect(0, 0, 220, 220);
+  x.imageSmoothingEnabled = false; x.drawImage(mapBase(), ox, oy, MAPW * s, MAPH * s); mapPlotsDraw(x, s, ox, oy);
+  x.textAlign = 'center'; x.textBaseline = 'middle'; x.font = '20px system-ui';
+  for (const b of BUILD) { if (!BICON[b.id]) continue; const px = ox + (b.x + b.w / 2) * s, py = oy + (b.y + b.h / 2) * s; if (px > -20 && py > -20 && px < 240 && py < 240) x.fillText(BICON[b.id], px, py); }
+  if (NAV) { x.strokeStyle = '#2e86de'; x.lineWidth = 5; x.beginPath(); x.moveTo(110, 110); for (let i = NAV.i; i < NAV.pts.length; i++) x.lineTo(ox + NAV.pts[i].x / T * s, oy + NAV.pts[i].y / T * s); x.stroke(); }
+  const tp = TOURP(); if (tp) { x.font = '22px system-ui'; x.fillText('⭐', ox + tp.x * s, oy + tp.y * s); }
+  x.translate(110, 110); x.rotate(MYF); x.fillStyle = '#e74c3c'; x.strokeStyle = '#fff'; x.lineWidth = 3; x.beginPath(); x.moveTo(0, -14); x.lineTo(10, 10); x.lineTo(0, 5); x.lineTo(-10, 10); x.closePath(); x.fill(); x.stroke();
+  x.restore();
+}
+setInterval(() => { try { mmUpdate(); } catch (e) { } }, 300);
+// ---- Şehri tanı turu
+function TOURS() {
+  const W = ME && ME.job && myWorkB(), d = b => bDoor(BMAP[b]);
+  return [{ n: 'Belediye', ...d('belediye') }, { n: 'Market', ...d('market') }, W && !W.sz && !['belediye', 'market'].includes(W.id) ? { n: 'İş yerin: ' + W.n, ...bDoor(W) } : { n: 'KOMŞU AVM', ...d('avm') },
+    { n: 'Sahil', x: 116.5, y: 40 }, { n: 'Stadyum', x: 36, y: 117 }];
+}
+function TOURP() { const s = ME && ME.q && ME.q.tur; if (!s || !s.on || s.i >= 5) return null; return TOURS()[s.i]; }
+let TOUREL = null;
+function tourStart() {
+  ME.q = ME.q || {}; const s = ME.q.tur;
+  if (s && s.done) { toast('🧭 Turu zaten tamamladın! Şehri artık çok iyi biliyorsun 😎'); return; }
+  ME.q.tur = { i: (s && s.i) || 0, on: 1 }; saveMe(); tourUI(); const p = TOURP(); if (p) navTo(p.x, p.y, p.n);
+  toast('🧭 Şehri tanı turu başladı! 5 yere git, her biri +50 💰, sonunda +200 💰', 5000);
+}
+function tourUI() {
+  const p = TOURP();
+  if (!TOUREL) { TOUREL = document.createElement('div'); TOUREL.style.cssText = 'position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 96px);transform:translateX(-50%);z-index:24;background:rgba(243,156,18,.95);color:#fff;font:800 13px system-ui;padding:6px 8px 6px 12px;border-radius:18px;display:none;align-items:center;gap:8px;white-space:nowrap;box-shadow:0 3px 10px rgba(0,0,0,.3)'; document.body.appendChild(TOUREL); }
+  if (!p || ROOM.on) { TOUREL.style.display = 'none'; return; }
+  TOUREL.innerHTML = `🧭 ${ME.q.tur.i + 1}/5: ${esc(p.n)} <button style="border:0;background:rgba(0,0,0,.25);color:#fff;border-radius:12px;padding:4px 8px;font:800 12px system-ui">📍 Yol</button><button style="border:0;background:rgba(0,0,0,.25);color:#fff;border-radius:50%;width:24px;height:24px">✕</button>`;
+  const bs = TOUREL.querySelectorAll('button'); bs[0].onclick = () => navTo(p.x, p.y, p.n); bs[1].onclick = () => { ME.q.tur.on = 0; saveMe(); tourUI(); toast('Tur durdu. Haritadan 🧭 ile devam edebilirsin'); };
+  TOUREL.style.display = NAV && NAV.label !== p.n ? 'none' : 'flex';
+}
+setInterval(() => {
+  if (!ME) return; tourUI();
+  const p = TOURP(); if (!p || ME.inside) return;
+  if (Math.hypot(ME.x / T - p.x, ME.y / T - p.y) < 3.2) {
+    const s = ME.q.tur; s.i++; earn(50, `🧭 ${p.n} bulundu!`);
+    if (s.i >= 5) { s.on = 0; s.done = 1; earn(200, '🏆 Şehri tanı turu bitti!'); say(`🧭 <b>${esc(ME.name)}</b> Şehri Tanı turunu bitirdi! Artık gerçek bir Komşukentli 🏙️`, true); }
+    else { const n = TOURP(); if (n) setTimeout(() => navTo(n.x, n.y, n.n), 1200); }
+    saveMe(); tourUI();
+  }
+}, 1000);
+let tourAsked = 0;
+setInterval(() => {
+  if (!ME || tourAsked || !myId || ROOM.on || ME.inside) return; tourAsked = 1;
+  let seen = 0; try { seen = localStorage.getItem('kk_tour_' + myId); } catch (e) { }
+  if (seen || (ME.q && ME.q.tur) || !(ME.joined > now() - 3 * 86400000)) return;
+  try { localStorage.setItem('kk_tour_' + myId, '1'); } catch (e) { }
+  setTimeout(() => { if (modalEl.style.display === 'flex') return; modal('🧭 Komşukent\'e hoş geldin!', [{ label: '🧭 Şehri tanı (+450 💰)', cls: 'blue', fn: () => { closeModal(); tourStart(); } }, { label: 'Sonra', cls: 'gray', fn: closeModal }],
+    '<p>Şehirde 5 önemli yere seni götürelim. Her yer +50 💰, hepsini bitirince +200 💰 daha!</p><p>Haritayı sağ üstteki 🗺 ya da sol üstteki küçük haritadan açabilirsin. Haritada bir yere dokun, karakterin oraya kendi yürür.</p>'); }, 6000);
+}, 8000);
+// ---- duraktaki buton + harita butonu
+function mapActs(L, t) {
+  if (!ME || ME.inside) return; stopsInit();
+  for (const s of STOPS) if (Math.hypot(ME.x / T - s.x, ME.y / T - s.y) < 2.2) { L.push({ label: `🚌 ${s.n} durağı • otobüse bin`, cls: 'blue', fn: () => busMenu(s) }); break; }
+}
+(function () {
+  const side = document.getElementById('side'); if (!side || document.getElementById('bMap')) return;
+  const b = document.createElement('button'); b.id = 'bMap'; b.textContent = '🗺'; b.title = 'Harita'; b.onclick = () => ME && mapOpen(); side.insertBefore(b, side.firstChild);
+})();
 
 // ================= EVENTS =================
 const EV_NAMES = { yangin: '🔥 YANGIN', soygun: '🚨 SOYGUN', festival: '🎉 FESTİVAL' };
