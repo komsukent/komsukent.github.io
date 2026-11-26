@@ -173,7 +173,7 @@ const COUNTRIES = {
 let FULL1 = true; try { FULL1 = localStorage.getItem('kk_full1') !== '0'; } catch (e) { }   // Komşukent dolu mu: yönetici panelden açar/kapatır (pub/full1)
 const C = (() => { let c = 0; try { const u = +new URLSearchParams(location.search).get('c'), st = +localStorage.getItem('kk_c'), known = !!(localStorage.getItem('kk_me') || localStorage.getItem('kk_id')); c = u || (known ? st : 0) || (FULL1 ? 2 + Math.floor(Math.random() * 2) : 1); } catch (e) { c = 1; } if (!COUNTRIES[c] || !COUNTRIES[c].cfg) c = 1; try { localStorage.setItem('kk_c', String(c)); } catch (e) { } return c; })();
 const FB = {};
-const APP_V = '2026112221';
+const APP_V = '2026112222';
 let CAP = 0;   // bump on every upload (yyyymmddNN)
 const ADMIN = location.hash === '#yonetim';
 let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off, orderByChild, equalTo;
@@ -946,7 +946,7 @@ function bagMenu() {
 function vehMenu() {
   const vs = Object.entries(ME.veh);
   shopScreen('🚗 Araçlarım', '#2c3e50', [{ n: 'Garaj', info: vs.length ? 'Binmek istediğine dokun. Bozulan araç sanayide tamir edilir.' : 'Aracın yok. Sanayideki galeriden alabilirsin.',
-    items: [...(ME.drive ? [{ e: '🚶', n: 'Araçtan in', fn: () => { ME.drive = null; pub({ drive: null }); }, stay: false }] : []),
+    items: [{ e: SND.on ? '🔊' : '🔇', n: 'Motor ve egzoz sesi', r: SND.on ? 'Açık • kapat' : 'Kapalı • aç', stay: false, fn: sndToggle }, ...(ME.drive ? [{ e: '🚶', n: 'Araçtan in', fn: () => { ME.drive = null; pub({ drive: null }); }, stay: false }] : []),
       ...vs.map(([id, v]) => ({ e: VEH[v.t].e, n: VEH[v.t].n, on: ME.drive === id, r: (v.br ? (v.br === 'motor' ? '💥 Motor arızalı' : '🛞 Lastik patlak') : ME.drive === id ? 'Biniyorsun ✓' : 'Bin') + ` • 🧼%${v.kir || 0} 🔧%${v.hs || 0}`, off: !!v.br || ME.inside || ME.jail > now(), stay: false,
         fn: () => { if (ME.job === 'Taksici') { toast('Taksiciler taksiyle gezer 🚕'); return; } ME.drive = id; pub({ drive: v.t, dc: v.c || null, df: v.f || null, dc2: v.c2 || null, vm: vmStr(v) || null }); toast(`${VEH[v.t].e} ${VEH[v.t].n}'a bindin!`); } }))] }]);
 }
@@ -3615,6 +3615,7 @@ function ecoActs(L, b, t) {
   if (b && b.id === 'tarla') tarlaActs(L, t);
   if (b && b.id === 'fabrika' && ME.inside !== 'fabrika') L.push({ label: '🏭 Fabrika mağazası (yerli ürünler)', cls: 'blue', fn: fabShopMenu });
   if (b && b.id === 'liman' && ME.inside !== 'liman') L.push({ label: '📈 Borsa', cls: 'blue', fn: borsaMenu });
+  if (b && b.id === 'cumhur' && ME.inside !== 'cumhur') cbShiftActs(L, b);
   if (b && b.id === 'cumhur' && ME.inside !== 'cumhur') L.push({ label: isCB() ? '🏛 Makamına geç' : '🏛 Cumhurbaşkanlığı', cls: 'blue', fn: isCB() ? cbMenu : cumhurInfo });
   if (ME.sw) L.push({ label: '🏖 Kıyıya çık', cls: 'blue', fn: () => { ME.x = (SEA_X - 1.2) * T; sendPos(true); } });
   else if (nearShore() && ECOCFG.swim !== false) L.push({ label: '🏊 Denize gir • yüz', cls: 'blue', fn: () => { ME.swimOk = 1; if (ME.drive) { ME.drive = null; pub({ drive: null }); } ME.x = (SEA_X + 1.5) * T; sendPos(true); toast('🏊 Yüzüyorsun! Çok açılma, dikkat et 🌊', 3000); } });
@@ -7105,7 +7106,7 @@ const BDESC = { belediye: 'Başkan, memurlar, seçimler', market: 'Yiyecek, içe
   sanayi: 'Tamir, boya, araç', kuafor: 'Saç, sakal, manikür', itfaiye: 'İtfaiyeciler', cami: 'İmam', konser: 'Konser sahnesi', petshop: 'Evcil hayvan', veteriner: 'Hayvan sağlığı', avm: 'Mağazalar + yemek katı',
   tarla: 'Çiftçilik', maden: 'Madencilik', fabrika: 'Fabrika işçiliği', liman: 'Liman işleri', cankurtaran: 'Sahil güvenliği', balikci: 'Olta, kayık, balık sat', kafe: 'Falezde kafe', kulup: 'Futbol kulübü',
   kurs: 'Ehliyet al', ssite: 'Oto ustaları, satılık dükkan', galeri: 'Araba al-sat, 2. el' };
-function bDoor(b) { return b.open ? { x: b.x + b.w / 2, y: b.y + b.h / 2 } : { x: b.x + b.w / 2, y: b.y + b.h + 0.8 }; }
+function bDoor(b) { return b.open ? { x: b.x + b.w / 2, y: b.y + b.h / 2 } : { x: b.x + b.w / 2, y: b.y + b.h + 0.4 }; }
 const LANDM = [
   { id: 'stad', e: '🏟', n: 'Stadyum', x: 36, y: 117, d: 'Maçlar, tribün' }, { id: 'hali', e: '⚽', n: 'Halı sahalar', x: 83.5, y: 126, d: 'Halı saha maçları' },
   { id: 'sahil', e: '🏖', n: 'Sahil', x: 116.5, y: 40, d: 'Denize gir, güneşlen' }, { id: 'falez', e: '⛰', n: 'Falez', x: 112, y: 132, d: 'Manzara, paraşüt, kafe' },
@@ -7451,6 +7452,74 @@ function mapActs(L, t) {
   const b = document.createElement('button'); b.id = 'bMap'; b.textContent = '🗺'; b.title = 'Harita'; b.onclick = () => ME && mapOpen(); side.insertBefore(b, side.firstChild);
 })();
 
+// ================= v21: CUMHURBAŞKANI MESAİSİ • MOTOR / EGZOZ SESİ =================
+const CB_PAY = 300;
+function cbShiftActs(L, b) {
+  if (!ME || !isCB() || !b || b.id !== 'cumhur' || task) return;
+  const pay = Math.round(CB_PAY * kidemBonus() * (1 + 0.1 * (ME.lvl || 0)) * (ME.sick ? 0.5 : 1));
+  L.push({ label: `🏛 Makamda mesai yap (+${pay} 💰, -${SHIFT_E}⚡)`, cls: 'blue', disabled: ME.energy < SHIFT_E, fn: () => startTask('work', SHIFT_MS * (ME.inv.laptop ? 0.75 : 1), () => nearB(BMAP.cumhur), () => { ME.energy -= SHIFT_E; stat('worked'); earn(pay, '🏛 Makam mesaisi bitti!'); }, '🏛 Makamda mesai') });
+}
+// ---- ses
+const SND = { on: (() => { try { return localStorage.getItem('kk_snd') !== '0'; } catch (e) { return true; } })(), ctx: null };
+function sndCtx() {
+  if (!SND.on) return null;
+  if (!SND.ctx) { try { SND.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { SND.on = false; return null; } }
+  if (SND.ctx.state === 'suspended') SND.ctx.resume().catch(() => { });
+  return SND.ctx;
+}
+['pointerdown', 'touchend', 'keydown'].forEach(ev => addEventListener(ev, () => { if (SND.on && ME && ME.drive) sndCtx(); }, { passive: true }));
+function engNew(c, sport) {
+  const g = c.createGain(); g.gain.value = 0; g.connect(c.destination);
+  const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 400; lp.Q.value = sport ? 6 : 2; lp.connect(g);
+  const ws = c.createWaveShaper(); const cv = new Float32Array(256); for (let i = 0; i < 256; i++) { const x = i / 128 - 1; cv[i] = Math.tanh(x * (sport ? 4 : 1.6)); } ws.curve = cv; ws.connect(lp);
+  const o1 = c.createOscillator(); o1.type = 'sawtooth'; const o2 = c.createOscillator(); o2.type = 'square'; const o3 = c.createOscillator(); o3.type = 'sawtooth';
+  const g2 = c.createGain(); g2.gain.value = sport ? 0.6 : 0.3; const g3 = c.createGain(); g3.gain.value = 0.25;
+  o1.connect(ws); o2.connect(g2); g2.connect(ws); o3.connect(g3); g3.connect(ws);
+  // titreme (egzoz guruldaması)
+  const lfo = c.createOscillator(); lfo.frequency.value = sport ? 11 : 7; const lg = c.createGain(); lg.gain.value = sport ? 0.35 : 0.12; lfo.connect(lg); lg.connect(g.gain);
+  [o1, o2, o3, lfo].forEach(o => o.start());
+  return { g, lp, o1, o2, o3, lfo, lg, sport };
+}
+function engKill(e) { if (!e) return; try { e.g.gain.setTargetAtTime(0, SND.ctx.currentTime, 0.08); setTimeout(() => { [e.o1, e.o2, e.o3, e.lfo].forEach(o => { try { o.stop(); } catch (x) { } }); try { e.g.disconnect(); } catch (x) { } }, 400); } catch (x) { } }
+function engPop(c, vol) {   // egzoz patlaması (pat pat)
+  const n = c.sampleRate * 0.09, buf = c.createBuffer(1, n, c.sampleRate), d = buf.getChannelData(0);
+  for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 3);
+  const s = c.createBufferSource(); s.buffer = buf; const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 900; const g = c.createGain(); g.gain.value = vol;
+  s.connect(f); f.connect(g); g.connect(c.destination); s.start();
+}
+const ENG = { me: null, meK: '', sp: 0, lx: 0, ly: 0, lt: 0, oth: {} };
+function engSet(e, sp, vol, t) {
+  const c = SND.ctx, base = e.sport ? 34 : 48, f = base + sp * (e.sport ? 95 : 70);
+  e.o1.frequency.setTargetAtTime(f, t, 0.12); e.o2.frequency.setTargetAtTime(f * 0.5, t, 0.12); e.o3.frequency.setTargetAtTime(f * 1.01, t, 0.12);
+  e.lp.frequency.setTargetAtTime((e.sport ? 260 : 320) + sp * (e.sport ? 900 : 600), t, 0.15);
+  e.g.gain.setTargetAtTime(vol * (0.55 + sp * 0.45), t, 0.12); e.lg.gain.setTargetAtTime(vol * (e.sport ? 0.3 : 0.08), t, 0.2);
+}
+setInterval(() => {
+  if (!ME) return;
+  const v = ME.drive && ME.veh && ME.veh[ME.drive], ok = SND.on && v && v.t !== 'bisiklet' && !ME.inside && !document.hidden;
+  const c = ok ? sndCtx() : SND.ctx;
+  if (!ok || !c || c.state !== 'running') { if (ENG.me) { engKill(ENG.me); ENG.me = null; } }
+  else {
+    const k = v.t + (v.ex ? 'e' : ''); if (ENG.meK !== k && ENG.me) { engKill(ENG.me); ENG.me = null; }
+    if (!ENG.me) { ENG.me = engNew(c, !!v.ex || v.t === 'spor'); ENG.meK = k; }
+    const t = performance.now(), d = Math.hypot(ME.x - ENG.lx, ME.y - ENG.ly), dt = Math.max(16, t - ENG.lt), raw = Math.min(1, d / dt / 0.35);
+    const prev = ENG.sp; ENG.sp += (raw - ENG.sp) * 0.25; ENG.lx = ME.x; ENG.ly = ME.y; ENG.lt = t;
+    engSet(ENG.me, ENG.sp, v.ex ? 0.22 : 0.1, c.currentTime);
+    if (v.ex && prev - ENG.sp > 0.05 && prev > 0.4 && Math.random() < 0.7) { engPop(c, 0.5); if (Math.random() < 0.6) setTimeout(() => engPop(c, 0.35), 90 + Math.random() * 80); }
+  }
+  // yakındaki egzozlu araçlar
+  const live2 = {};
+  if (ok && c && c.state === 'running' && !ME.inside) for (const id in others) {
+    const o = others[id]; if (!o || !o.drive || o.drive === 'bisiklet' || !o.hasPos || !live(o) || o.inside || !String(o.vm || '').includes('e')) continue;
+    const dd = Math.hypot(o.x - ME.x, o.y - ME.y) / T; if (dd > 18) continue; live2[id] = 1;
+    let e = ENG.oth[id]; if (!e) e = ENG.oth[id] = Object.assign(engNew(c, true), { lx: o.x, ly: o.y, lt: performance.now(), sp: 0 });
+    const t = performance.now(), raw = Math.min(1, Math.hypot(o.x - e.lx, o.y - e.ly) / Math.max(16, t - e.lt) / 0.35), pv = e.sp; e.sp += (raw - e.sp) * 0.25; e.lx = o.x; e.ly = o.y; e.lt = t;
+    const vol = 0.16 * Math.max(0, 1 - dd / 18); engSet(e, e.sp, vol, c.currentTime);
+    if (pv - e.sp > 0.06 && pv > 0.4 && Math.random() < 0.5) engPop(c, vol * 2);
+  }
+  for (const id in ENG.oth) if (!live2[id]) { engKill(ENG.oth[id]); delete ENG.oth[id]; }
+}, 80);
+function sndToggle() { SND.on = !SND.on; try { localStorage.setItem('kk_snd', SND.on ? '1' : '0'); } catch (e) { } if (SND.on) sndCtx(); toast(SND.on ? '🔊 Motor sesleri açık' : '🔇 Motor sesleri kapalı'); }
 // ================= EVENTS =================
 const EV_NAMES = { yangin: '🔥 YANGIN', soygun: '🚨 SOYGUN', festival: '🎉 FESTİVAL' };
 function evStart() { if (EV && !EV.done) { const b = evB(); toast(`${EV_NAMES[EV.type]}${b ? ' — ' + b.n : ''}!`, 5000); } }
