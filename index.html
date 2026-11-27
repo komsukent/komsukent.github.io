@@ -173,7 +173,7 @@ const COUNTRIES = {
 let FULL1 = true; try { FULL1 = localStorage.getItem('kk_full1') !== '0'; } catch (e) { }   // Komşukent dolu mu: yönetici panelden açar/kapatır (pub/full1)
 const C = (() => { let c = 0; try { const u = +new URLSearchParams(location.search).get('c'), st = +localStorage.getItem('kk_c'), known = !!(localStorage.getItem('kk_me') || localStorage.getItem('kk_id')); c = u || (known ? st : 0) || (FULL1 ? 2 + Math.floor(Math.random() * 2) : 1); } catch (e) { c = 1; } if (!COUNTRIES[c] || !COUNTRIES[c].cfg) c = 1; try { localStorage.setItem('kk_c', String(c)); } catch (e) { } return c; })();
 const FB = {};
-const APP_V = '2026112232';
+const APP_V = '2026112233';
 let CAP = 0;   // bump on every upload (yyyymmddNN)
 const ADMIN = location.hash === '#yonetim';
 let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off, orderByChild, equalTo;
@@ -7316,7 +7316,7 @@ function mapBars() {
   sc.innerHTML = ''; for (const [n, ok, fn] of B) { const b = document.createElement('button'); b.className = 'mch'; b.textContent = n; if (!ok) b.style.opacity = .5; b.onclick = fn; sc.appendChild(b); }
   const LY = [['sale', '🟢 Satılık'], ['shop', '🏪 Dükkanlar'], ['friend', '👥 Arkadaşlar'], ['event', '🎉 Etkinlik'], ['stop', '🚌 Duraklar']];
   ly.innerHTML = ''; for (const [k, n] of LY) { const b = document.createElement('button'); b.className = 'mch' + (MAPL[k] ? ' on' : ''); b.textContent = n; b.onclick = () => { MAPL[k] = !MAPL[k]; try { localStorage.setItem('kk_mapl', JSON.stringify(MAPL)); } catch (e) { } mapBars(); mapDraw(); }; ly.appendChild(b); }
-  const mm = document.createElement('button'); mm.className = 'mch' + (MMON() ? ' on' : ''); mm.textContent = '⭕ Mini harita'; mm.onclick = () => { try { localStorage.setItem('kk_mm', MMON() ? '0' : '1'); } catch (e) { } mmUpdate(true); mapBars(); }; ly.appendChild(mm);
+  const mm = document.createElement('button'); mm.className = 'mch' + (MMON() ? ' on' : ''); mm.textContent = '⭕ Mini harita'; mm.onclick = () => { try { localStorage.setItem('kk_mm', MMON() ? '0' : '1'); } catch (e) { } mmUpdate(true); mapBars(); }; if (MMON()) ly.appendChild(mm);
 }
 function mapDraw() {
   if (!MAPV) return; const c = MAPV.querySelector('#mapC'), x = c.getContext('2d'), dp = devicePixelRatio, s = MV.s;
@@ -7389,7 +7389,7 @@ setInterval(() => { if (TCSET && ME && ME.ride) { TCSET = 0; pub({ tc: null }); 
 let MYF = 0, MYL = null;
 setInterval(() => { if (!ME) return; if (MYL) { const dx = ME.x - MYL.x, dy = ME.y - MYL.y; if (Math.hypot(dx, dy) > 2) MYF = Math.atan2(dx, -dy); } MYL = { x: ME.x, y: ME.y }; }, 150);
 // ---- mini harita
-const MMON = () => { try { return localStorage.getItem('kk_mm') !== '0'; } catch (e) { return true; } };
+const MMON = () => false; // mini harita kaldırıldı (Harita butonu duruyor)
 let MM = null;
 function mmUpdate(force) {
   if (!ME) return;
