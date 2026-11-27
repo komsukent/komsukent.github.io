@@ -68,7 +68,7 @@ button:disabled{opacity:.45}
 .pf{display:flex;gap:12px;align-items:center;margin:2px 0 8px}.pf svg{flex:none;background:#22314f;border-radius:12px}.pfb{display:flex;flex-wrap:wrap;gap:5px;margin:4px 0}.pfb span{background:#2a3b60;border-radius:9px;padding:2px 8px;font-size:12px}.pfs{display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;font-size:13px;margin:6px 0}.pfq{font-style:italic;opacity:.9;margin:4px 0}
 .k-sys{color:#ffd23f}.k-ann{color:#d6a5ff;font-weight:700}.k-mod{color:#ff8a8a}.k-chat{color:#fff}
 #mega{background:#8e44ad!important;padding:0 10px!important;font-size:18px}
-#emo{display:flex;gap:6px;pointer-events:auto}#emo button{flex:1;padding:7px 0;font-size:20px;background:rgba(15,25,45,.85);border-radius:14px}
+#emo{display:flex;gap:6px;pointer-events:auto}#emo button{flex:1;padding:7px 0;font-size:18px;min-width:0;background:rgba(15,25,45,.85);border-radius:14px}
 .badge{position:absolute;top:-4px;right:-4px;background:#e74c3c;color:#fff;font-size:11px;min-width:18px;height:18px;border-radius:9px;line-height:18px;display:none}
 #side button{position:relative}
 .shop{width:min(94vw,460px)}
@@ -115,7 +115,7 @@ table.pl{width:100%;font-size:12px;border-collapse:collapse}table.pl td{padding:
 <div id="toast" class="ui"></div>
 <div id="ann" class="ui"></div>
 <div id="log" class="ui"></div>
-<div id="bottom" class="ui"><div id="ctabs"><button data-c="g" class="on">💬 Yakın<i></i></button><button data-c="p">🏛 Parti<i></i></button><button data-c="f">👥 Arkadaş<i></i></button><button data-c="r" style="display:none">📻 Telsiz<i></i></button></div><div id="chatList"></div><div id="emo"><button>👋</button><button>😂</button><button>👍</button><button>😡</button><button>❤️</button><button>🎉</button></div><div id="bar"><input id="msg" maxlength="60" placeholder="Yakınındakilere yaz…"><button id="mega" title="Megafon: herkese duyur">📢</button><button id="send">Gönder</button></div></div>
+<div id="bottom" class="ui"><div id="ctabs"><button data-c="g" class="on">💬 Yakın<i></i></button><button data-c="p">🏛 Parti<i></i></button><button data-c="f">👥 Arkadaş<i></i></button><button data-c="r" style="display:none">📻 Telsiz<i></i></button></div><div id="chatList"></div><div id="emo"><button>👋</button><button>😂</button><button>👍</button><button>😡</button><button>😮</button><button>😢</button><button>❤️</button><button>🎉</button></div><div id="bar"><input id="msg" maxlength="60" placeholder="Yakınındakilere yaz…"><button id="mega" title="Megafon: herkese duyur">📢</button><button id="send">Gönder</button></div></div>
 <div id="elnight"></div>
 <div id="sleepEl" style="display:none"><div class="slb"><div style="font-size:54px">😴</div><h2>Uyudun</h2><p>2 dakika hareket etmediğin için şehirden çıktın, başkalarına yer açılsın diye.</p><button id="sleepBtn">☀️ Devam et</button></div></div>
 <button id="adminToggle" class="ui">☰ Yönetim</button>
@@ -173,7 +173,7 @@ const COUNTRIES = {
 let FULL1 = true; try { FULL1 = localStorage.getItem('kk_full1') !== '0'; } catch (e) { }   // Komşukent dolu mu: yönetici panelden açar/kapatır (pub/full1)
 const C = (() => { let c = 0; try { const u = +new URLSearchParams(location.search).get('c'), st = +localStorage.getItem('kk_c'), known = !!(localStorage.getItem('kk_me') || localStorage.getItem('kk_id')); c = u || (known ? st : 0) || (FULL1 ? 2 + Math.floor(Math.random() * 2) : 1); } catch (e) { c = 1; } if (!COUNTRIES[c] || !COUNTRIES[c].cfg) c = 1; try { localStorage.setItem('kk_c', String(c)); } catch (e) { } return c; })();
 const FB = {};
-const APP_V = '2026112231';
+const APP_V = '2026112232';
 let CAP = 0;   // bump on every upload (yyyymmddNN)
 const ADMIN = location.hash === '#yonetim';
 let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off, orderByChild, equalTo;
@@ -8243,6 +8243,109 @@ hsFrame = function () {
   }
   if (HSME >= 0 && hsOn(HSME) && ME && pn - HSPOS > 300) { HSPOS = pn; if (Math.hypot(ME.x - sentX, ME.y - sentY) > 8) sendPos(true); }
 };
+// ================= YÜZLER & İFADELER =================
+const FACE_SKIN = '#f2c9a0', FACEC = {};
+function faceTex(mood, ml, bl) {
+  const key = mood + '|' + ml + '|' + bl; if (FACEC[key]) return FACEC[key];
+  const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
+  g.fillStyle = FACE_SKIN; g.fillRect(0, 0, 128, 128);
+  const ell = (x, y, rx, ry, f, s, w) => { g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); if (f) { g.fillStyle = f; g.fill(); } if (s) { g.strokeStyle = s; g.lineWidth = w || 2; g.stroke(); } };
+  const ln = (pts, col, w) => { g.beginPath(); g.moveTo(pts[0], pts[1]); for (let i = 2; i < pts.length; i += 2) g.lineTo(pts[i], pts[i + 1]); g.strokeStyle = col; g.lineWidth = w; g.lineCap = 'round'; g.lineJoin = 'round'; g.stroke(); };
+  const qd = (x0, y0, cx, cy, x1, y1, col, w) => { g.beginPath(); g.moveTo(x0, y0); g.quadraticCurveTo(cx, cy, x1, y1); g.strokeStyle = col; g.lineWidth = w; g.lineCap = 'round'; g.stroke(); };
+  // yanaklar
+  const ck = mood === 'sick' ? 'rgba(120,190,90,.55)' : mood === 'angry' ? 'rgba(235,70,60,.5)' : 'rgba(255,110,120,.45)';
+  ell(24, 88, 12, 7, ck); ell(104, 88, 12, 7, ck);
+  // gözler
+  const EY = 62, big = mood === 'shock';
+  for (const ex of [40, 88]) {
+    const sd = ex < 64 ? -1 : 1;
+    if (mood === 'laugh') { qd(ex - 13, EY + 4, ex, EY - 12, ex + 13, EY + 4, '#2a1a12', 6); continue; }
+    if (bl) { qd(ex - 13, EY, ex, EY + 7, ex + 13, EY, '#2a1a12', 5); continue; }
+    const rx = big ? 17 : 15, ry = big ? 20 : 17;
+    ell(ex, EY, rx, ry, '#fff', '#2a1a12', 3);
+    const pr = big ? 5.5 : 9, py = mood === 'sad' ? 5 : mood === 'sick' ? 4 : 2;
+    ell(ex + (big ? 0 : sd * -1), EY + py, pr, pr, '#2b1a10'); ell(ex - 3 + sd * -1, EY + py - 4, big ? 2 : 3.5, big ? 2 : 3.5, '#fff');
+    if (mood === 'sick' || mood === 'angry') { // göz kapağı
+      g.beginPath(); if (mood === 'sick') { g.rect(ex - rx - 2, EY - ry - 3, rx * 2 + 4, ry + 2); }
+      else { g.moveTo(ex - rx - 3, EY - ry - 3); g.lineTo(ex + rx + 3, EY - ry - 3); if (sd < 0) { g.lineTo(ex + rx + 3, EY - 3); g.lineTo(ex - rx - 3, EY - ry + 4); } else { g.lineTo(ex + rx + 3, EY - ry + 4); g.lineTo(ex - rx - 3, EY - 3); } }
+      g.closePath(); g.fillStyle = FACE_SKIN; g.fill();
+      if (mood === 'sick') ln([ex - rx, EY - 1, ex + rx, EY - 1], '#2a1a12', 3);
+    }
+  }
+  // kaşlar
+  const BC = '#3b2a1e', BW = 6;
+  const BR = { n: [26, 38, 52, 36, 76, 36, 102, 38], happy: [26, 34, 52, 31, 76, 31, 102, 34], laugh: [26, 32, 52, 29, 76, 29, 102, 32], shock: [26, 28, 52, 24, 76, 24, 102, 28], sad: [26, 42, 52, 33, 76, 33, 102, 42], sick: [26, 40, 52, 36, 76, 36, 102, 40], angry: [24, 34, 54, 46, 74, 46, 104, 34] }[mood] || [26, 38, 52, 36, 76, 36, 102, 38];
+  if (mood === 'happy' || mood === 'laugh' || mood === 'shock') { qd(BR[0], BR[1], 39, BR[1] - 6, BR[2], BR[3], BC, BW); qd(BR[4], BR[5], 89, BR[5] - 6, BR[6], BR[7], BC, BW); }
+  else { ln(BR.slice(0, 4), BC, BW); ln(BR.slice(4), BC, BW); }
+  // ağız
+  const MX = 64, MY = 102;
+  const openM = (rx, ry) => { ell(MX, MY, rx, ry, '#6b1f24', '#2a1a12', 2.5); if (ry > 5) { g.save(); g.beginPath(); g.ellipse(MX, MY, rx, ry, 0, 0, Math.PI * 2); g.clip(); ell(MX, MY + ry * 0.8, rx * 0.7, ry * 0.55, '#ff7f8f'); g.fillStyle = '#fff'; g.fillRect(MX - rx, MY - ry, rx * 2, Math.min(4, ry * 0.4)); g.restore(); ell(MX, MY, rx, ry, null, '#2a1a12', 2.5); } };
+  const dMouth = (w, h) => { const P = () => { g.beginPath(); g.moveTo(MX - w, MY - 4); g.quadraticCurveTo(MX, MY - 6, MX + w, MY - 4); g.quadraticCurveTo(MX + w * 0.8, MY + h, MX, MY + h); g.quadraticCurveTo(MX - w * 0.8, MY + h, MX - w, MY - 4); g.closePath(); }; P(); g.fillStyle = '#6b1f24'; g.fill(); g.save(); g.clip(); g.fillStyle = '#fff'; g.fillRect(MX - w, MY - 7, w * 2, 6); ell(MX, MY + h * 0.95, w * 0.55, h * 0.4, '#ff7f8f'); g.restore(); P(); g.strokeStyle = '#2a1a12'; g.lineWidth = 2.5; g.stroke(); };
+  if (ml > 0) { if (mood === 'happy' || mood === 'laugh') dMouth(12 + ml * 2, 4 + ml * 5); else openM(8 + ml * 2, 3 + ml * 5); }
+  else if (mood === 'happy') dMouth(15, 11);
+  else if (mood === 'laugh') dMouth(18, 17);
+  else if (mood === 'shock') openM(8, 11);
+  else if (mood === 'sad') qd(MX - 12, MY + 5, MX, MY - 6, MX + 12, MY + 5, '#2a1a12', 4);
+  else if (mood === 'angry') { g.fillStyle = '#fff'; g.strokeStyle = '#2a1a12'; g.lineWidth = 2.5; g.beginPath(); g.rect(MX - 12, MY - 3, 24, 8); g.fill(); g.stroke(); ln([MX - 4, MY - 3, MX - 4, MY + 5], '#2a1a12', 1.5); ln([MX + 4, MY - 3, MX + 4, MY + 5], '#2a1a12', 1.5); }
+  else if (mood === 'sick') ln([MX - 13, MY + 2, MX - 6, MY - 2, MX, MY + 2, MX + 6, MY - 2, MX + 13, MY + 2], '#2a1a12', 3.5);
+  else qd(MX - 11, MY - 2, MX, MY + 7, MX + 11, MY - 2, '#2a1a12', 4);
+  // ekstralar
+  if (mood === 'sad') { g.beginPath(); g.moveTo(92, 82); g.quadraticCurveTo(86, 94, 92, 97); g.quadraticCurveTo(98, 94, 92, 82); g.fillStyle = '#5dade2'; g.fill(); }
+  if (mood === 'sick') { g.beginPath(); g.moveTo(110, 20); g.quadraticCurveTo(103, 34, 110, 37); g.quadraticCurveTo(117, 34, 110, 20); g.fillStyle = '#85c1e9'; g.fill(); }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+  return FACEC[key] = t;
+}
+let faceGeo = null;
+function faceAdd(m, robber) {
+  const g = m.g; m.faceMat = new THREE.MeshLambertMaterial({ map: faceTex(robber ? 'angry' : 'n', 0, 0) });
+  m.fkey = robber ? 'angry|0|0' : 'n|0|0';
+  const f = new THREE.Mesh(faceGeo || (faceGeo = new THREE.PlaneGeometry(0.46, 0.46)), m.faceMat); f.position.set(0, 1.55, 0.2215); f.receiveShadow = true; g.add(f); m.face = f;
+  // eller (kolun ucunda, ten renkli) — kol ölçeğine göre ters ölçek
+  for (const a of [m.armL, m.armR]) box(0.2 / 0.16, 0.17 / 0.6, 0.22 / 0.2, FACE_SKIN, 0, -0.6, 0, a, false);
+  // küçük küp perçem
+  const hf = new THREE.Group(); m.hairF = hf; g.add(hf);
+  const hc = robber ? '#111' : '#3b2a1e';
+  [[-0.17, 1.735], [-0.04, 1.715], [0.1, 1.73], [0.19, 1.75]].forEach(([x, y]) => box(0.13, 0.13, 0.13, hc, x, y, 0.19, hf, false));
+}
+const EMO_MOOD = [[/😂|🤣|😆|😁|haha|hahah|jsjs|ksks/i, 'laugh'], [/😮|😱|😲|😳|😨|vay|oha/i, 'shock'], [/😢|😭|☹|🙁|😞|😔/, 'sad'], [/😡|😠|🤬|💢/, 'angry'], [/🤒|🤢|🤮|😷/, 'sick'], [/😀|😃|😄|😊|🙂|👋|👍|❤|🎉|🥳|😍|💰/, 'happy']];
+let FACE_GOAL = 0;
+function faceMood(p, me, t, id) {
+  const N = now();
+  if (me && ME._fm && ME._fm.u > performance.now()) return ME._fm.k;
+  if (p.msg && t - (p.msgAt || 0) < 5000) for (const [r, k] of EMO_MOOD) if (r.test(p.msg)) return k;
+  if (FACE_GOAL > performance.now() && (p.trib || me)) return (Math.floor(t / 900) % 2) ? 'laugh' : 'happy';
+  if (p.dr > N) return 'shock';
+  if (p.jail > N) return 'sad';
+  if (p.sick) return 'sick';
+  if (p.wanted > N) return 'angry';
+  if (danceMode(me ? myId : id, p)) return 'happy';
+  return 'n';
+}
+function faceTick(m, p, t, id, me) {
+  if (!m.faceMat || !m.g.visible) return;
+  const cp = camera3.position, dx = m.g.position.x - cp.x, dz = m.g.position.z - cp.z;
+  let key;
+  if (dx * dx + dz * dz > 1600) key = 'n|0|0';
+  else {
+    if (me) { // kendi otomatik ifadelerim
+      const pj = ME.jail > now(); if (pj && !m._wj) setMood('shock', 2500); m._wj = pj;
+      if (m._lm !== undefined && ME.money < m._lm - 30 && performance.now() - (spend._at || 0) > 1500) setMood('shock', 2500);
+      m._lm = ME.money;
+    }
+    const mood = faceMood(p, me, t, id);
+    const seed = m._seed ?? (m._seed = (String(id).split('').reduce((a, c) => a + c.charCodeAt(0), 0) * 613) % 4000);
+    const bl = mood !== 'laugh' && ((t + seed) % 3800) < 140 ? 1 : 0;
+    let ml = 0; const dur = Math.min(4500, 1000 + String(p.msg || '').length * 75);
+    if (p.msg && t - (p.msgAt || 0) < dur && /[a-zçğıöşü0-9]/i.test(p.msg)) { const s = Math.sin(t / 65) + Math.sin(t / 41 + 1); ml = s > 0.9 ? 2 : s > -0.3 ? 1 : 0; }
+    key = mood + '|' + ml + '|' + bl;
+  }
+  if (key !== m.fkey) { m.fkey = key; const [a, b, c] = key.split('|'); m.faceMat.map = faceTex(a, +b, +c); }
+}
+function setMood(k, ms = 2500) { if (ME) ME._fm = { k, u: performance.now() + ms }; }
+{ const _e = earn; earn = function (a, why) { _e(a, why); if (a >= 20) setMood(a >= 200 ? 'laugh' : 'happy', 2200); }; }
+{ const _s = spend; spend = function (...a) { spend._at = performance.now(); return _s.apply(this, a); }; }
+{ const _g = gkBanner; gkBanner = function (big, ...r) { if (/GO+L/i.test(String(big))) FACE_GOAL = performance.now() + 4000; return _g(big, ...r); }; }
+
 // ================= EVENTS =================
 const EV_NAMES = { yangin: '🔥 YANGIN', soygun: '🚨 SOYGUN', festival: '🎉 FESTİVAL' };
 function evStart() { if (EV && !EV.done) { const b = evB(); toast(`${EV_NAMES[EV.type]}${b ? ' — ' + b.n : ''}!`, 5000); } }
@@ -8605,9 +8708,10 @@ function personMesh(color, robber) {
   const armL = box(0.16, 0.6, 0.2, color, -0.4, 0.95, 0, g), armR = box(0.16, 0.6, 0.2, color, 0.4, 0.95, 0, g);
   box(0.46, 0.46, 0.44, '#f2c9a0', 0, 1.55, 0, g);
   const hair = box(0.5, 0.16, 0.48, robber ? '#111' : '#3b2a1e', 0, 1.82, -0.02, g);
-  if (robber) box(0.48, 0.14, 0.46, '#111', 0, 1.6, 0.01, g, false); else { box(0.08, 0.08, 0.02, '#222', -0.1, 1.58, 0.225, g, false); box(0.08, 0.08, 0.02, '#222', 0.1, 1.58, 0.225, g, false); }
+  if (robber) box(0.48, 0.12, 0.46, '#111', 0, 1.74, 0.01, g, false);
   const acc = new THREE.Group(); g.add(acc);
-  scene.add(g); return { g, legL, legR, armL, armR, acc, color, hair, wearKey: '' };
+  const M = { g, legL, legR, armL, armR, acc, color, hair, wearKey: '' }; faceAdd(M, robber);
+  scene.add(g); return M;
 }
 function carMesh(color, f, c2, md) {
   const g = new THREE.Group();
@@ -8629,6 +8733,7 @@ function buildAcc(m, wear) {
   if (e === 'gozluk') { box(0.44, 0.1, 0.04, '#111', 0, 1.6, 0.235, a, false); }
   const hs = wear && wear.hair, hc = (wear && wear.hc) || '#3b2a1e';
   if (m.hair) { m.hair.visible = !hs || hs === 'kisa'; m.hair.material = mat(hc); }
+  if (m.hairF) { m.hairF.visible = !!(m.hair && m.hair.visible) && !(h === 'kep' || h === 'sapka' || h === 'kovboy'); m.hairF.children.forEach(c => c.material = mat(hc)); }
   if (hs === 'uzun') { box(0.52, 0.18, 0.5, hc, 0, 1.84, -0.02, a); box(0.5, 0.62, 0.14, hc, 0, 1.5, -0.25, a); }
   if (hs === 'atkuyrugu') { box(0.5, 0.18, 0.48, hc, 0, 1.84, -0.02, a); box(0.16, 0.42, 0.16, hc, 0, 1.62, -0.3, a); }
   if (hs === 'kivircik') for (let i = 0; i < 9; i++) box(0.2, 0.2, 0.2, hc, -0.2 + (i % 3) * 0.2, 1.86 + (i % 2) * 0.05, -0.2 + Math.floor(i / 3) * 0.2, a);
@@ -8670,6 +8775,7 @@ function syncPerson(id, p, me, t) {
   m.g.rotation.z = 0; const dm = danceMode(me ? myId : id, p); if (dm) { if (dm === 2) m.g.position.y += 0.62; danceAnim(m, dm, t, (String(id).charCodeAt(1) || 0) % 4); }
   swimAnim(m, p, t);
   kkPerson(m, p, t, x, z);
+  faceTick(m, p, t, id, me);
   syncPet(m, p, t);
   const r = me ? myRole() : roleOf(id), wanted = p.wanted > now(), jailed = p.jail > now();
   const cls = jailed ? 'jail' : wanted ? 'bad' : r ? 'role' : me ? 'me' : '';
