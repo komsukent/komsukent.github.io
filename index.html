@@ -173,7 +173,7 @@ const COUNTRIES = {
 let FULL1 = true; try { FULL1 = localStorage.getItem('kk_full1') !== '0'; } catch (e) { }   // Komşukent dolu mu: yönetici panelden açar/kapatır (pub/full1)
 const C = (() => { let c = 0; try { const u = +new URLSearchParams(location.search).get('c'), st = +localStorage.getItem('kk_c'), known = !!(localStorage.getItem('kk_me') || localStorage.getItem('kk_id')); c = u || (known ? st : 0) || (FULL1 ? 2 + Math.floor(Math.random() * 2) : 1); } catch (e) { c = 1; } if (!COUNTRIES[c] || !COUNTRIES[c].cfg) c = 1; try { localStorage.setItem('kk_c', String(c)); } catch (e) { } return c; })();
 const FB = {};
-const APP_V = '2026112229';
+const APP_V = '2026112231';
 let CAP = 0;   // bump on every upload (yyyymmddNN)
 const ADMIN = location.hash === '#yonetim';
 let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off, orderByChild, equalTo;
@@ -5644,7 +5644,7 @@ function kkSky(nk) {
   const k = w === 'yagmur' ? 0.45 : 0.75;
   hemi.intensity *= 1 - 0.35 * k; sun.intensity *= 1 - 0.6 * k;
   scene.background.lerp(KGREY.c || (KGREY.c = new THREE.Color('#566573')), k * 0.65); scene.fog.color.copy(scene.background);
-  if (w === 'firtina') { if (Math.random() < 0.004) KFLASH = performance.now() + 140; if (performance.now() < KFLASH) { hemi.intensity += 2.2; scene.background.set('#dfe9ff'); } }
+  if (w === 'firtina') { const pn = performance.now(); if (pn - (kkSky.last || 0) > 25000 && Math.random() < 0.002) { KFLASH = pn + 160; kkSky.last = pn; } if (pn < KFLASH) { const q = 1 - (KFLASH - pn) / 160; hemi.intensity += 0.6 * (1 - q); scene.background.lerp(KGREY.w || (KGREY.w = new THREE.Color('#aab7cf')), 0.35 * (1 - q)); } }   // şimşek: seyrek ve yumuşak
 }
 
 // ================= v11: KOMŞU OL • KOMŞU SOKAĞI =================
@@ -7769,7 +7769,7 @@ function hsActs(L) {
     if (on) {
       const left = Math.max(0, m.st + HS_MS - snow()), mm = Math.floor(left / 60000), ss = Math.floor(left / 1000) % 60;
       L.push({ label: `⚽ Halı Saha ${i + 1} • 🔴 ${m.s0 || 0} - ${m.s1 || 0} 🔵 • ⏱ ${mm}:${String(ss).padStart(2, '0')}`, cls: 'gray', dyn: 1, disabled: true });
-      if (me) { L.push({ label: '⚽ ŞUT (kaleye)', cls: 'blue', dyn: 1, fn: hsShoot }, { label: '👟 Pas (takım arkadaşına)', dyn: 1, fn: hsPass }); L.push({ label: `${me.t ? '🔵 Mavi' : '🔴 Kırmızı'} takımdasın • kaleye doğru: ${me.t ? 'yukarı ⬆' : 'aşağı ⬇'}`, cls: 'gray', dyn: 1, disabled: true }); }
+      if (me) { const own = HSBALL[i] && HSBALL[i].own === myId; L.push({ label: own ? '⚽ ŞUT! (top sende)' : '⚽ Şut (topa yaklaş)', cls: own ? 'blue' : 'gray', dyn: 1, fn: hsShoot }, { label: '👟 Pas (takım arkadaşına)', dyn: 1, fn: hsPass }); L.push({ label: `${me.t ? '🔵 Mavi' : '🔴 Kırmızı'} takımdasın • kaleye doğru: ${me.t ? 'yukarı ⬆' : 'aşağı ⬇'}`, cls: 'gray', dyn: 1, disabled: true }); }
       else if (hsTeamN(m, 0) + hsTeamN(m, 1) < 10) L.push({ label: '⚽ Maça sonradan katıl', cls: 'blue', fn: () => hsJoin(i) });
       return;
     }
@@ -8166,6 +8166,83 @@ async function richList() {
 const _kkAdminHTML25 = kkAdminHTML, _kkAdminWire25 = kkAdminWire;
 kkAdminHTML = () => _kkAdminHTML25() + `<div style="margin-top:8px"><button id="aRich" style="background:#c0392b">🚨 En zenginler • para kontrolü</button></div>`;
 kkAdminWire = el => { _kkAdminWire25(el); const b = el.querySelector('#aRich'); if (b) b.onclick = richList; };
+// ================= v24: HALI SAHA • TOP AYAKTA (topa sahip olma), şut ve pas her zaman çalışır =================
+const HSDIR = {};   // oyuncu yönü (ben + diğerleri)
+function hsFeet(id) {   // topun sahibinin ayağının önündeki nokta (karo)
+  const me = id === myId, o = me ? null : others[id]; if (!me && (!o || !o.hasPos)) return null;
+  const x = (me ? ME.x : o.x) / T, z = (me ? ME.y : o.y) / T, d = HSDIR[id] || { x: 0, z: 1 };
+  return { x: x + d.x * 0.55, z: z + d.z * 0.55 };
+}
+function hsTrackDirs() {
+  const upd = (id, x, z) => { const p = HSDIR['_' + id]; if (p) { const dx = x - p.x, dz = z - p.z, d = Math.hypot(dx, dz); if (d > 0.04) HSDIR[id] = { x: dx / d, z: dz / d }; } HSDIR['_' + id] = { x, z }; };
+  if (ME) upd(myId, ME.x / T, ME.y / T);
+  for (const i of [0, 1]) { const m = HSM[i]; if (m && m.p) for (const id in m.p) if (id !== myId && others[id] && others[id].hasPos) upd(id, others[id].x / T, others[id].y / T); }
+}
+function hsWriteB(i, B) { B.n = (B.n || 0) + 1; B.u = myId; const o = { x: +B.x.toFixed(2), z: +B.z.toFixed(2), vx: +(B.vx || 0).toFixed(2), vz: +(B.vz || 0).toFixed(2), n: B.n, u: myId, own: B.own || null }; set(ref(db, `hs/${i}/b`), o).catch(() => { }); }
+hsBallIn = function (i, v) {
+  if (!v) { HSBALL[i] = null; return; }
+  const cur = HSBALL[i]; if (cur && cur.n === v.n && cur.u === v.u) return;
+  HSBALL[i] = { x: v.x, z: v.z, vx: v.vx || 0, vz: v.vz || 0, n: v.n || 0, u: v.u || null, own: v.own || null, gl: -1, glT: 0, pt: performance.now() };
+};
+function hsKick(i, B, tx, tz, sp) {
+  const dx = tx - B.x, dz = tz - B.z, L = Math.hypot(dx, dz) || 1;
+  B.own = null; B.vx = dx / L * sp; B.vz = dz / L * sp; B.gl = -1; B.pt = performance.now(); HSLAST = B.pt; hsWriteB(i, B);
+}
+hsShoot = function () {
+  const i = HSME, B = HSBALL[i]; if (i < 0 || !B || !hsOn(i)) return;
+  if (B.own !== myId && Math.hypot(B.x - ME.x / T, B.z - ME.y / T) > 1.6) return toast(B.own ? 'Top rakipte! Üstüne yürü, kap ⚽' : 'Topa yaklaş ⚽');
+  if (B.own === myId) { const f = hsFeet(myId); B.x = f.x; B.z = f.z; }
+  const my = HSM[i].p[myId].t, c = hsC(i), gz = my === 0 ? c.z1 + 0.6 : c.z0 - 0.6;
+  hsKick(i, B, c.cx + (Math.random() - 0.5) * 2.4, gz, 16 + Math.random() * 3);
+};
+hsPass = function () {
+  const i = HSME, B = HSBALL[i]; if (i < 0 || !B || !hsOn(i)) return;
+  if (B.own !== myId && Math.hypot(B.x - ME.x / T, B.z - ME.y / T) > 1.6) return toast('Topa yaklaş ⚽');
+  if (B.own === myId) { const f = hsFeet(myId); B.x = f.x; B.z = f.z; }
+  const m = HSM[i], my = m.p[myId].t; let best = null, bd = 1e9;
+  for (const id in m.p) { if (id === myId || m.p[id].t !== my) continue; const o = others[id]; if (!o || !o.hasPos) continue; const dd = Math.hypot(o.x / T - B.x, o.y / T - B.z); if (dd < bd && dd > 1.2) { bd = dd; best = o; } }
+  if (!best) return hsShoot();
+  hsKick(i, B, best.x / T, best.y / T, Math.min(13, 4 + bd * 1.1));
+};
+hsFrame = function () {
+  const pn = performance.now(), dt = Math.min(0.05, (pn - (HSFT || pn)) / 1000); HSFT = pn;
+  hsTrackDirs();
+  for (let i = 0; i < 2; i++) {
+    const m = HSM[i], B = HSBALL[i], c = hsC(i);
+    if (!HS3[i] && THREE && scene) { HS3[i] = new THREE.Mesh(new THREE.SphereGeometry(HSB, 12, 10), new THREE.MeshLambertMaterial({ color: '#ffffff' })); HS3[i].visible = false; scene.add(HS3[i]); }
+    const showB = !!(m && m.st && B); if (HS3[i]) HS3[i].visible = showB; if (!showB) continue;
+    const running = hsOn(i);
+    if (B.own) {   // top birinin ayağında
+      const f = hsFeet(B.own);
+      if (!f || (B.own !== myId && !(others[B.own] && live(others[B.own])))) { if (hsHost(i) && pn - B.pt > 2500) { B.own = null; B.vx = B.vz = 0; hsWriteB(i, B); } }
+      else { B.x += (f.x - B.x) * Math.min(1, dt * 18); B.z += (f.z - B.z) * Math.min(1, dt * 18); B.vx = B.vz = 0;
+        B.x = Math.max(c.x0, Math.min(c.x1, B.x));
+        if (B.own === myId && running && B.gl < 0 && Math.abs(B.x - c.cx) < 1.5 && (B.z < c.z0 || B.z > c.z1)) { B.gl = B.z < c.z0 ? 1 : 0; B.glT = pn; B.z = B.z < c.z0 ? c.z0 - 0.5 : c.z1 + 0.5; }
+        else B.z = Math.max(c.z0 - (Math.abs(B.x - c.cx) < 1.5 ? 0.8 : 0), Math.min(c.z1 + (Math.abs(B.x - c.cx) < 1.5 ? 0.8 : 0), B.z)); }
+    } else if (running && B.gl < 0) {   // serbest top
+      const steps = Math.max(1, Math.ceil(dt * 120)), h = dt / steps;
+      for (let s = 0; s < steps; s++) {
+        const fr = Math.exp(-1.15 * h); B.vx *= fr; B.vz *= fr; B.x += B.vx * h; B.z += B.vz * h;
+        const inMouth = Math.abs(B.x - c.cx) < 1.5;
+        if (B.z < c.z0 && inMouth) { B.gl = 1; B.z = c.z0 - 0.5; B.vx = B.vz = 0; B.glT = pn; break; }
+        if (B.z > c.z1 && inMouth) { B.gl = 0; B.z = c.z1 + 0.5; B.vx = B.vz = 0; B.glT = pn; break; }
+        if (B.x < c.x0) { B.x = c.x0; B.vx = Math.abs(B.vx) * 0.7; } if (B.x > c.x1) { B.x = c.x1; B.vx = -Math.abs(B.vx) * 0.7; }
+        if (B.z < c.z0) { B.z = c.z0; B.vz = Math.abs(B.vz) * 0.7; } if (B.z > c.z1) { B.z = c.z1; B.vz = -Math.abs(B.vz) * 0.7; }
+        if (Math.abs(B.vx) + Math.abs(B.vz) < 0.05) B.vx = B.vz = 0;
+      }
+    }
+    if (B.gl >= 0 && running && (B.u === myId || B.own === myId || (pn - B.glT > 2500 && hsHost(i))) && !B.sent) { B.sent = 1; hsGoal(i, B.gl, B); }
+    const sp = Math.hypot(B.vx, B.vz); HS3[i].position.set(B.x, HSB + Math.min(0.5, Math.max(0, sp - 11) * 0.08), B.z); HS3[i].rotation.x += (B.vz || (B.own ? 2 : 0)) * dt * 3; HS3[i].rotation.z -= B.vx * dt * 3;
+    // topu kap: serbest topa dokun ya da rakibin ayağından al
+    if (HSME === i && running && B.gl < 0 && ME && !ME.drive && B.own !== myId && pn - HSLAST > 350) {
+      const d = Math.hypot(B.x - ME.x / T, B.z - ME.y / T), mine = m.p[myId] && m.p[myId].t, ownT = B.own && m.p[B.own] ? m.p[B.own].t : -1;
+      const can = !B.own ? d < 0.75 : (ownT !== mine && d < 0.8 && pn - B.pt > 900);
+      if (can) { const stole = !!B.own; B.own = myId; B.vx = B.vz = 0; B.pt = pn; HSLAST = pn; hsWriteB(i, B); if (stole) toast('⚽ Topu kaptın!', 1200); }
+    }
+    if (m && m.st && !m.end && snow() > m.st + HS_MS && (HSME === i) && !hsEnd['e' + m.st]) { hsEnd['e' + m.st] = 1; hsEnd(i); }
+  }
+  if (HSME >= 0 && hsOn(HSME) && ME && pn - HSPOS > 300) { HSPOS = pn; if (Math.hypot(ME.x - sentX, ME.y - sentY) > 8) sendPos(true); }
+};
 // ================= EVENTS =================
 const EV_NAMES = { yangin: '🔥 YANGIN', soygun: '🚨 SOYGUN', festival: '🎉 FESTİVAL' };
 function evStart() { if (EV && !EV.done) { const b = evB(); toast(`${EV_NAMES[EV.type]}${b ? ' — ' + b.n : ''}!`, 5000); } }
