@@ -173,7 +173,7 @@ const COUNTRIES = {
 let FULL1 = true; try { FULL1 = localStorage.getItem('kk_full1') !== '0'; } catch (e) { }   // Komşukent dolu mu: yönetici panelden açar/kapatır (pub/full1)
 const C = (() => { let c = 0; try { const u = +new URLSearchParams(location.search).get('c'), st = +localStorage.getItem('kk_c'), known = !!(localStorage.getItem('kk_me') || localStorage.getItem('kk_id')); c = u || (known ? st : 0) || (FULL1 ? 2 + Math.floor(Math.random() * 2) : 1); } catch (e) { c = 1; } if (!COUNTRIES[c] || !COUNTRIES[c].cfg) c = 1; try { localStorage.setItem('kk_c', String(c)); } catch (e) { } return c; })();
 const FB = {};
-const APP_V = '2026112224';
+const APP_V = '2026112225';
 let CAP = 0;   // bump on every upload (yyyymmddNN)
 const ADMIN = location.hash === '#yonetim';
 let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off, orderByChild, equalTo;
@@ -7920,7 +7920,7 @@ async function adEdit(i, cur, slots) {
 // ================= v23: GENİŞ ŞEHİR • YOL KENARI DURAKLAR + GERÇEK OTOBÜS • PANOLAR DÜZELDİ • KOMŞUKENT BANKASI =================
 // ---- yollar (şehir ızgarası + dış yollar)
 const XROADS = [[98, 113.6, -23.5, -22.5], [98, 113.6, -8.5, -7.5], [98, 113.6, 36.5, 37.5], [98, 113.6, 81.5, 82.5], [98, 113.6, 96.5, 97.5],
-  [112.6, 114.6, CO, WN], [0, 102, 112, 114], [34.4, 37.6, 113.6, 120.5], [82, 85, 113.8, 127.8], [99, 102, 113, 196], [2, 102, 193, 196]];
+  [112.6, 114.6, CO, WN], [0, 102, 112, 114], [34.4, 37.6, 113.6, 120.5], [82, 85, 113.8, 127.8], [99, 102, 113, 196], [2, 102, 193, 196], [2, 101, 168, 170]];
 function roadAt(x, y) { if (isRoad(x, y)) return true; const cx = x + 0.5, cy = y + 0.5; return XROADS.some(([x0, x1, y0, y1]) => cx >= x0 && cx <= x1 && cy >= y0 && cy <= y1); }
 const XR = XROADS.slice(0, 5).map(r => r[2] + 0.5);   // hangi doğu bağlantıları çizildi
 // ---- duraklar: yol kenarında, yola paralel
@@ -7928,7 +7928,7 @@ STOPS.length = 0;
 (function () {
   const front = id => { const b = BMAP[id], by = Math.floor((b.y + b.h - CO) / BLK), rz = CO + (by + 1) * BLK; return { x: b.x + b.w - 1.3, y: rz - 0.8, r: 0 }; };
   STOPS.push({ n: 'Belediye', ...front('belediye') }, { n: 'AVM', ...front('avm') }, { n: 'Hastane', ...front('hastane') },
-    { n: 'Stadyum', x: 44, y: 114.85, r: Math.PI }, { n: 'Sahil', x: 115.9, y: 40, r: -Math.PI / 2 }, { n: 'Falez', x: 103.2, y: 139, r: -Math.PI / 2 },
+    { n: 'Stadyum', x: 36, y: 167.4, r: 0 }, { n: 'Sahil', x: 115.9, y: 40, r: -Math.PI / 2 }, { n: 'Falez', x: 103.2, y: 139, r: -Math.PI / 2 },
     { n: 'Sanayi', x: 103.2, y: 186.5, r: -Math.PI / 2 }, { n: 'Banka', x: BMAP.banka.x + BMAP.banka.w - 1.3, y: -9.8, r: 0 });
 })();
 stopsInit = function () { STOPS_READY = 1; };
@@ -7985,7 +7985,7 @@ adSlots = function () {
   if (ADSLOTS) return ADSLOTS;
   const S = [], P = (n, x, z, w = 4.2, h = 2, y = 3.3) => S.push({ n, k: 'pole', x, z, w, h, y, ry: 0 });
   const blockBottom = b => CO + (Math.floor((b.y + b.h - CO) / BLK) + 1) * BLK;
-  P('Halı saha yolu 1', 70, 115.4); P('Halı saha yolu 2', 90, 115.4); P('Stadyum yolu sol', 24, 117.6); P('Stadyum yolu sağ', 54, 117.6);
+  P('Halı saha yolu 1', 70, 115.4); P('Halı saha yolu 2', 90, 115.4); P('Stadyum güney yolu sol', 24, 171.6); P('Stadyum güney yolu sağ', 54, 171.6);
   P('Halı saha arkası', 92, 160.5); P('Sanayi yolu 1', 105.2, 170); P('Sanayi yolu 2', 105.2, 181);
   const B = BMAP.belediye; P('Belediye meydanı', B.x - 1.75, blockBottom(B) - 1.3, 3.1, 1.5, 2.6);
   P('Cumhurbaşkanlığı', 106, 100.4);
@@ -7996,7 +7996,7 @@ adSlots = function () {
   S.push({ n: 'Stadyum kuzey sol (dev)', k: 'big', x: STX - 9, z: nz, y: hy, w: 8, h: 3.2, ry: 0 }, { n: 'Stadyum kuzey sağ (dev)', k: 'big', x: STX + 9, z: nz, y: hy, w: 8, h: 3.2, ry: 0 });
   S.push({ n: 'Stadyum güney sol (dev)', k: 'big', x: STX - 13, z: sz, y: hy, w: 8, h: 3.2, ry: 0 }, { n: 'Stadyum güney sağ (dev)', k: 'big', x: STX + 13, z: sz, y: hy, w: 8, h: 3.2, ry: 0 });
   S.push({ n: 'Stadyum LED bant (kuzey)', k: 'band', x: STX, z: STZ - SPZ - 0.9, y: 0.45, w: 2 * SPX - 2, h: 0.8, ry: 0 }, { n: 'Stadyum LED bant (güney)', k: 'band', x: STX, z: STZ + SPZ + 0.9, y: 0.45, w: 2 * SPX - 2, h: 0.8, ry: 0 });
-  HSAHA.forEach((h, i) => S.push({ n: `Halı saha ${i + 1} çiti`, k: 'band', x: h.x + 2.4, z: h.y + h.h + 0.14, y: 0.65, w: 3.6, h: 0.8, ry: 0 }));
+  HSAHA.forEach((h, i) => S.push({ n: `Halı saha ${i + 1} çiti`, k: 'band', x: h.x + 2.4, z: h.y - 0.14, y: 0.65, w: 3.6, h: 0.8, ry: 0 }));
   STOPS.slice(0, 7).forEach(s => S.push({ n: `Durak • ${s.n}`, k: 'pole', ...(s.r === -Math.PI / 2 ? { x: s.x + 0.3, z: s.y + 2.5 } : { x: s.x - 2.3, z: s.y + (s.r ? -0.2 : 0.2) }), w: 1.5, h: 1.05, y: 1.6, ry: 0 }));
   const BK = BMAP.banka, bs = STOPS[7];
   S.push({ n: 'Durak • Banka', k: 'pole', x: bs.x - 2.3, z: bs.y + 0.2, w: 1.5, h: 1.05, y: 1.6, ry: 0 });
@@ -8019,6 +8019,14 @@ adBuild = function (i, s) {
   AD3[i] = { g, key, tex };
 };
 for (const k in AD3) { try { scene && scene.remove(AD3[k].g); } catch (e) { } delete AD3[k]; }
+// stadyumun güneyinden geçen yeni yol (durak ve panolar görünür kalsın diye)
+let SROAD3 = 0;
+setInterval(() => {
+  if (SROAD3 || !THREE || !scene || !boxG) return; SROAD3 = 1;
+  const x0 = 2, x1 = 99, cx = (x0 + x1) / 2, L = x1 - x0;
+  box(L, 0.06, 2.6, '#c9c9c9', cx, 0.03, 169, null, false); box(L, 0.08, 2, '#4a4f57', cx, 0.04, 169, null, false);
+  for (let x = x0 + 1; x < x1 - 1; x += 2) box(0.9, 0.01, 0.1, '#eeeeee', x + 0.5, 0.09, 169, null, false);
+}, 2500);
 
 // ================= KOMŞUKENT BANKASI =================
 Object.assign(JOBPAY, { Bankacı: 60, Veznedar: 45 });
