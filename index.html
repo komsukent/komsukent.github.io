@@ -173,7 +173,7 @@ const COUNTRIES = {
 let FULL1 = true; try { FULL1 = localStorage.getItem('kk_full1') !== '0'; } catch (e) { }   // Komşukent dolu mu: yönetici panelden açar/kapatır (pub/full1)
 const C = (() => { let c = 0; try { const u = +new URLSearchParams(location.search).get('c'), st = +localStorage.getItem('kk_c'), known = !!(localStorage.getItem('kk_me') || localStorage.getItem('kk_id')); c = u || (known ? st : 0) || (FULL1 ? 2 + Math.floor(Math.random() * 2) : 1); } catch (e) { c = 1; } if (!COUNTRIES[c] || !COUNTRIES[c].cfg) c = 1; try { localStorage.setItem('kk_c', String(c)); } catch (e) { } return c; })();
 const FB = {};
-const APP_V = '2026112226';
+const APP_V = '2026112227';
 let CAP = 0;   // bump on every upload (yyyymmddNN)
 const ADMIN = location.hash === '#yonetim';
 let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off, orderByChild, equalTo;
@@ -5439,10 +5439,10 @@ function emlakAuto() {
 const nearStad = () => ME && Math.abs(ME.x / T - STX) < SPX + SOUT + 3 && Math.abs(ME.y / T - STZ) < SPZ + SOUT + 3;
 function tribGo() {
   if (!spend(20)) return; cityIncome(20); saveMe();
-  const r = Math.floor(Math.random() * SROWS), d = SGAP + r * SRD + SRD / 2, south = ME.y / T > STZ;
+  const r = Math.floor(Math.random() * Math.min(SROWS, 4)), d = SGAP + r * SRD + SRD / 2, south = false;
   const x = STX + (Math.random() - 0.5) * 2 * (SPX - 1.5), z = south ? STZ + SPZ + d : STZ - SPZ - d;
   ME.trib = { r, x, z, a: south ? Math.PI : 0 }; ME.x = x * T; ME.y = z * T; target = null;
-  pub({ trib: ME.trib }); sendPos(true); toast('🎟 Tribündesin! Canlı skor aşağıda 📺', 3500); stat('fun');
+  pub({ trib: ME.trib }); sendPos(true); toast('🎟 Tribündesin! İyi seyirler ⚽ Kalkınca kamera normale döner', 3500); stat('fun'); TRIBCAM = 0;
 }
 // ---------- AKSİYONLAR (ek) ----------
 function kk10Acts(L, b, t) {
@@ -7530,7 +7530,7 @@ setInterval(() => {
 }, 80);
 function sndToggle() { SND.on = !SND.on; try { localStorage.setItem('kk_snd', SND.on ? '1' : '0'); } catch (e) { } if (SND.on) sndCtx(); toast(SND.on ? '🔊 Motor sesleri açık' : '🔇 Motor sesleri kapalı'); }
 // ================= v22: STADYUM GOL ANİMASYONU + TEKRAR + TRİBÜN COŞKUSU • HALI SAHADA GERÇEK MAÇ • REKLAM PANOLARI =================
-let SOFF = 0; const snow = () => Date.now() + SOFF;
+let TRIBCAM = 0; let SOFF = 0; const snow = () => Date.now() + SOFF;
 setTimeout(() => { try { onValue(ref(db, '.info/serverTimeOffset'), s => { SOFF = s.val() || 0; }); } catch (e) { } }, 4000);
 // ---------- ses: tribün uğultusu
 function crowdRoar(vol = 0.5, dur = 3.2) {
@@ -8020,6 +8020,7 @@ adBuild = function (i, s) {
   if (s.k === 'wall') box(w + 0.25, h + 0.25, 0.04, '#111111', 0, y, -0.06, g, false);
   if (s.k === 'band') box(w + 0.1, h + 0.1, 0.06, '#111111', 0, y, -0.08, g, false);
   const front = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat2); front.position.set(0, y, 0.02); front.renderOrder = 2; g.add(front);
+  if (s.k === 'band' || s.k === 'big') { const back = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat2); back.position.set(0, y, s.k === 'big' ? -0.23 : -0.13); back.rotation.y = Math.PI; g.add(back); }   // tribünden bakınca da okunsun
   AD3[i] = { g, key, tex };
 };
 for (const k in AD3) { try { scene && scene.remove(AD3[k].g); } catch (e) { } delete AD3[k]; }
@@ -8678,7 +8679,13 @@ function frame(t) {
   } else { const a = t / 9000; fx = WN / 2 + Math.sin(a) * 8; fz = WN / 2 + Math.cos(a) * 8; }
   for (const id in others) { const o = others[id]; if (!o.hasPos) continue; const ox = o.x, oy = o.y, ddx = o.tx - o.x, ddy = o.ty - o.y, dd = Math.hypot(ddx, ddy); if (dd > 600 || !o._sp) { o.x += ddx * 0.09; o.y += ddy * 0.09; } else if (dd > 0.01) { const st = Math.min(dd, o._sp * dt); o.x += ddx / dd * st; o.y += ddy / dd * st; } o._mv = Math.hypot(o.x - ox, o.y - oy) > 0.3; }
   ecoAnim3D(t); abAnim(t); futAnim(t); kkAnim(t); kk10Anim(t); sokakAnim();
-  const dist3 = 15 * zoom; camera3.position.set(fx, dist3 * 1.05, fz + dist3 * 0.95); camera3.lookAt(fx, 0.8, fz);
+  const dist3 = 15 * zoom;
+  if (ME && ME.trib && ME.trib.x && !ME.inside && !(IS_ADMIN && admView)) {
+    const s = ME.trib, sy = (s.r + 1) * SRH, cy = Math.max(sy + 3.2, SROWS * SRH + 2.2) * Math.max(0.8, Math.min(1.6, zoom)), k = Math.min(1, (TRIBCAM += 0.04));
+    const tx = s.x, ty = cy, tz = s.z - 4.2 * Math.max(0.8, Math.min(1.6, zoom)), nx = fx, ny = dist3 * 1.05, nz = fz + dist3 * 0.95;
+    camera3.position.set(nx + (tx - nx) * k, ny + (ty - ny) * k, nz + (tz - nz) * k);
+    camera3.lookAt(fx + (s.x - fx) * k, 0.8 * (1 - k), fz + (STZ + 2 - fz) * k);
+  } else { TRIBCAM = 0; camera3.position.set(fx, dist3 * 1.05, fz + dist3 * 0.95); camera3.lookAt(fx, 0.8, fz); }
   sun.position.set(fx + 12, 25, fz + 8); sun.target.position.set(fx, 0, fz);
   // day / night
   const nk = nightK() * (cityOn('lamp') ? 0.6 : 1);
