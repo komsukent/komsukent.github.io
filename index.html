@@ -173,7 +173,7 @@ const COUNTRIES = {
 let FULL1 = true; try { FULL1 = localStorage.getItem('kk_full1') !== '0'; } catch (e) { }   // Komşukent dolu mu: yönetici panelden açar/kapatır (pub/full1)
 const C = (() => { let c = 0; try { const u = +new URLSearchParams(location.search).get('c'), st = +localStorage.getItem('kk_c'), known = !!(localStorage.getItem('kk_me') || localStorage.getItem('kk_id')); c = u || (known ? st : 0) || (FULL1 ? 2 + Math.floor(Math.random() * 2) : 1); } catch (e) { c = 1; } if (!COUNTRIES[c] || !COUNTRIES[c].cfg) c = 1; try { localStorage.setItem('kk_c', String(c)); } catch (e) { } return c; })();
 const FB = {};
-const APP_V = '2026112227';
+const APP_V = '2026112228';
 let CAP = 0;   // bump on every upload (yyyymmddNN)
 const ADMIN = location.hash === '#yonetim';
 let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off, orderByChild, equalTo;
@@ -7924,7 +7924,7 @@ async function adEdit(i, cur, slots) {
 // ================= v23: GENİŞ ŞEHİR • YOL KENARI DURAKLAR + GERÇEK OTOBÜS • PANOLAR DÜZELDİ • KOMŞUKENT BANKASI =================
 // ---- yollar (şehir ızgarası + dış yollar)
 const XROADS = [[98, 113.6, -23.5, -22.5], [98, 113.6, -8.5, -7.5], [98, 113.6, 36.5, 37.5], [98, 113.6, 81.5, 82.5], [98, 113.6, 96.5, 97.5],
-  [112.6, 114.6, CO, WN], [0, 102, 112, 114], [34.4, 37.6, 113.6, 120.5], [82, 85, 113.8, 127.8], [99, 102, 113, 196], [2, 102, 193, 196], [2, 101, 168, 170]];
+  [112.6, 114.6, CO, WN], [0, 102, 112, 114], [34.4, 37.6, 113.6, 120.5], [82, 85, 113.8, 127.8], [99, 102, 113, 196], [2, 102, 193, 196], [2, 101, 168, 170], [37, 39, 97, 113], [97.2, 99.2, 97, 113], [112.6, 114.6, 97, 114], [101, 114.6, 112, 114]];
 function roadAt(x, y) { if (isRoad(x, y)) return true; const cx = x + 0.5, cy = y + 0.5; return XROADS.some(([x0, x1, y0, y1]) => cx >= x0 && cx <= x1 && cy >= y0 && cy <= y1); }
 const XR = XROADS.slice(0, 5).map(r => r[2] + 0.5);   // hangi doğu bağlantıları çizildi
 // ---- duraklar: yol kenarında, yola paralel
@@ -8031,6 +8031,10 @@ setInterval(() => {
   const x0 = 2, x1 = 99, cx = (x0 + x1) / 2, L = x1 - x0;
   box(L, 0.06, 2.6, '#c9c9c9', cx, 0.03, 169, null, false); box(L, 0.08, 2, '#4a4f57', cx, 0.04, 169, null, false);
   for (let x = x0 + 1; x < x1 - 1; x += 2) box(0.9, 0.01, 0.1, '#eeeeee', x + 0.5, 0.09, 169, null, false);
+  // şehirden güneye ve sahile bağlantı yolları
+  for (const [a, b, c, d] of [[37, 39, 97.5, 112.2], [97.2, 99.2, 97.5, 112.2], [112.6, 114.6, 97.5, 114], [101.5, 114.6, 112, 114]]) {
+    const w = b - a, l = d - c; box(w + 0.6, 0.06, l + 0.2, '#c9c9c9', (a + b) / 2, 0.03, (c + d) / 2, null, false); box(w, 0.08, l, '#4a4f57', (a + b) / 2, 0.041, (c + d) / 2, null, false);
+  }
 }, 2500);
 
 // ================= KOMŞUKENT BANKASI =================
@@ -8681,10 +8685,10 @@ function frame(t) {
   ecoAnim3D(t); abAnim(t); futAnim(t); kkAnim(t); kk10Anim(t); sokakAnim();
   const dist3 = 15 * zoom;
   if (ME && ME.trib && ME.trib.x && !ME.inside && !(IS_ADMIN && admView)) {
-    const s = ME.trib, sy = (s.r + 1) * SRH, cy = Math.max(sy + 3.2, SROWS * SRH + 2.2) * Math.max(0.8, Math.min(1.6, zoom)), k = Math.min(1, (TRIBCAM += 0.04));
-    const tx = s.x, ty = cy, tz = s.z - 4.2 * Math.max(0.8, Math.min(1.6, zoom)), nx = fx, ny = dist3 * 1.05, nz = fz + dist3 * 0.95;
+    const s = ME.trib, cy = SROWS * SRH + 2.6, k = Math.min(1, (TRIBCAM += 0.04));
+    const tx = s.x, ty = cy, tz = s.z - 2.5, nx = fx, ny = dist3 * 1.05, nz = fz + dist3 * 0.95;
     camera3.position.set(nx + (tx - nx) * k, ny + (ty - ny) * k, nz + (tz - nz) * k);
-    camera3.lookAt(fx + (s.x - fx) * k, 0.8 * (1 - k), fz + (STZ + 2 - fz) * k);
+    camera3.lookAt(fx + (s.x - fx) * k, 0.8 + 1.2 * k, fz + (STZ + 4 - fz) * k);
   } else { TRIBCAM = 0; camera3.position.set(fx, dist3 * 1.05, fz + dist3 * 0.95); camera3.lookAt(fx, 0.8, fz); }
   sun.position.set(fx + 12, 25, fz + 8); sun.target.position.set(fx, 0, fz);
   // day / night
