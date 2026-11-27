@@ -173,7 +173,7 @@ const COUNTRIES = {
 let FULL1 = true; try { FULL1 = localStorage.getItem('kk_full1') !== '0'; } catch (e) { }   // Komşukent dolu mu: yönetici panelden açar/kapatır (pub/full1)
 const C = (() => { let c = 0; try { const u = +new URLSearchParams(location.search).get('c'), st = +localStorage.getItem('kk_c'), known = !!(localStorage.getItem('kk_me') || localStorage.getItem('kk_id')); c = u || (known ? st : 0) || (FULL1 ? 2 + Math.floor(Math.random() * 2) : 1); } catch (e) { c = 1; } if (!COUNTRIES[c] || !COUNTRIES[c].cfg) c = 1; try { localStorage.setItem('kk_c', String(c)); } catch (e) { } return c; })();
 const FB = {};
-const APP_V = '2026112233';
+const APP_V = '2026112234';
 let CAP = 0;   // bump on every upload (yyyymmddNN)
 const ADMIN = location.hash === '#yonetim';
 let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off, orderByChild, equalTo;
@@ -8127,11 +8127,20 @@ async function adminBank() {
   el.querySelector('#bkGo').onclick = async () => {
     const H = D[1]; if (!H) return alert("Komşukent'e bağlanılamadı");
     if (!confirm('3 ülkenin banka kasası sıfırlanıp Komşukent hesabına aktarılsın mı?')) return;
-    let got = 0;
-    for (const c in D) { let taken = 0; const r = await runTransaction(ref(D[c].db, 'bank/kasa'), k => { taken = Math.floor(k || 0); return taken > 0 ? 0 : undefined; }).catch(() => null); if (r && r.committed) got += taken; }
-    if (got > 0) await runTransaction(ref(H.db, `players/${H.uid}/money`), m => Math.floor((m || 0) + got)).catch(e => alert(e.message));
+    let got = 0; const errs = [];
+    for (const c in D) {
+      let taken = 0;
+      // not: ilk çağrıda yerel önbellek boş (null) gelir; undefined dönersek işlem iptal olur. 0 yazmayı dener, sunucu gerçek değerle tekrar çağırır.
+      const r = await runTransaction(ref(D[c].db, 'bank/kasa'), k => { taken = Math.floor(k || 0); return 0; }).catch(e => { errs.push(`${COUNTRIES[c].n}: ${e.message || e}`); return null; });
+      if (r && r.committed) got += Math.floor(taken);
+    }
+    if (got > 0) {
+      const r2 = await runTransaction(ref(H.db, `players/${H.uid}/money`), m => Math.floor((m || 0) + got)).catch(e => { errs.push('Hesap: ' + (e.message || e)); return null; });
+      if (!(r2 && r2.committed)) { errs.push('Para hesabına yazılamadı, kasalara geri konuyor'); await runTransaction(ref(H.db, 'bank/kasa'), k => (k || 0) + got).catch(() => { }); got = 0; }
+      else if (H.db === db && ME) { ME.money = Math.floor(r2.snapshot.val()); hud(); }
+    }
     await push(ref(H.db, 'bank/log'), { a: Math.floor(got), t: Date.now() }).catch(() => { });
-    alert(`✅ ${Math.floor(got).toLocaleString('tr')} 💰 Komşukent hesabına aktarıldı`); adminBank();
+    alert(`✅ ${Math.floor(got).toLocaleString('tr')} 💰 Komşukent hesabına aktarıldı` + (errs.length ? '\n\n⚠️ ' + errs.join('\n') : '')); adminBank();
   };
 }
 const _kkAdminHTML23 = kkAdminHTML, _kkAdminWire23 = kkAdminWire;
