@@ -173,7 +173,7 @@ const COUNTRIES = {
 let FULL1 = true; try { FULL1 = localStorage.getItem('kk_full1') !== '0'; } catch (e) { }   // Komşukent dolu mu: yönetici panelden açar/kapatır (pub/full1)
 const C = (() => { let c = 0; try { const u = +new URLSearchParams(location.search).get('c'), st = +localStorage.getItem('kk_c'), known = !!(localStorage.getItem('kk_me') || localStorage.getItem('kk_id')); c = u || (known ? st : 0) || (FULL1 ? 2 + Math.floor(Math.random() * 2) : 1); } catch (e) { c = 1; } if (!COUNTRIES[c] || !COUNTRIES[c].cfg) c = 1; try { localStorage.setItem('kk_c', String(c)); } catch (e) { } return c; })();
 const FB = {};
-const APP_V = '2026112223';
+const APP_V = '2026112224';
 let CAP = 0;   // bump on every upload (yyyymmddNN)
 const ADMIN = location.hash === '#yonetim';
 let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off, orderByChild, equalTo;
@@ -196,9 +196,10 @@ const fbReady = (async () => {
 fbReady.catch(() => {});
 
 // ================= WORLD =================
-const T = 40, BLK = 12, RW = 2, NBK = 8, WN = BLK * NBK + RW, WORLD = T * WN, ZS = 400, NZ = Math.ceil(WORLD / ZS);
-const isRoad = (gx, gy) => gx % BLK < RW || gy % BLK < RW;
-const BP = (bx, by) => ({ x: bx * BLK + 4, y: by * BLK + 4 });
+const T = 40, BLK = 15, RW = 2, NBK = 8, CW = BLK * NBK + RW, WN = 98, CO = WN - CW, WORLD = T * WN, ZS = 400, NZ = Math.ceil(WORLD / ZS);   // şehir CO..WN (eski 12'lik bloklar 15'e genişledi)
+const bmod = v => ((v - CO) % BLK + BLK) % BLK;
+const isRoad = (gx, gy) => gx >= CO && gy >= CO && gx < WN && gy < WN && (bmod(gx) < RW || bmod(gy) < RW);
+const BP = (bx, by) => ({ x: CO + bx * BLK + RW + 3.5, y: CO + by * BLK + RW + 3.5 });
 const BUILD = [
   { id: 'belediye', n: 'Belediye', jobs: ['Memur', 'Emlakçı'], c: '#3d5a80', r: '#c0392b', ...BP(3, 3), H: 5 },
   { id: 'market', n: 'Market', jobs: ['Marketçi', 'Kasiyer', 'Kasap', 'Manav'], c: '#f5f5f5', r: '#d63a2f', ...BP(2, 2) },
@@ -214,7 +215,9 @@ const BUILD = [
   { id: 'konser', n: 'Konser Alanı', jobs: [], c: '#2c2c54', r: '#ff4d6d', ...BP(7, 3), H: 2.6, open: true },
   { id: 'petshop', n: 'Petshop', jobs: ['Petshopçu'], c: '#fff3e0', r: '#e67e22', ...BP(2, 7), H: 3 },
   { id: 'veteriner', n: 'Veteriner Kliniği', jobs: ['Veteriner'], c: '#e8fff4', r: '#16a085', ...BP(4, 7), H: 3.2 },
-  { id: 'avm', n: 'KOMŞU AVM', jobs: ['AVM Çalışanı', 'Garson', 'Aşçı', 'Güvenlik Görevlisi'], c: '#dfe6ee', r: '#6c3483', x: 51, y: 3, w: 8, h: 8, H: 8.2 },
+  { id: 'avm', n: 'KOMŞU AVM', jobs: ['AVM Çalışanı', 'Garson', 'Aşçı', 'Güvenlik Görevlisi'], c: '#dfe6ee', r: '#6c3483', x: CO + 4 * BLK + RW + 2.5, y: CO + RW + 2, w: 8, h: 8, H: 8.2 },
+  // yeni alan (kuzey-doğu): Komşukent Bankası
+  { id: 'banka', n: 'Komşukent Bankası', jobs: ['Bankacı', 'Veznedar'], c: '#f4f1e8', r: '#1e8449', x: 102, y: -19, w: 8, h: 6, H: 5.2 },
   // sahil şeridi (doğu)
   { id: 'tarla', n: 'Tarlalar', jobs: ['Çiftçi'], c: '#6d4c2f', r: '#5d8a2c', x: 98.8, y: 2.6, w: 13.4, h: 21, H: 0.3, open: true, noShift: true },
   { id: 'maden', n: 'Maden Ocağı', jobs: ['Madenci'], c: '#6d5d4b', r: '#3e3328', x: 101, y: 27.5, w: 8, h: 6, H: 3.4 },
@@ -248,16 +251,16 @@ const SHOPTYPES = { Market: '🛒', Kafe: '☕', Restoran: '🍔', Butik: '👗'
 // plots: keyed by coordinates
 const PLOTS = [];
 for (let by = 0; by < NBK; by++) for (let bx = 0; bx < NBK; bx++) {
-  const ox = bx * BLK + RW, oy = by * BLK + RW;
-  if (BUILD.some(b => b.x < ox + 10 && b.x + b.w > ox && b.y < oy + 10 && b.y + b.h > oy)) continue;
-  for (const [dx, dy] of [[1, 1], [6, 1], [1, 6], [6, 6]]) PLOTS.push({ k: (ox + dx) + '_' + (oy + dy), x: ox + dx, y: oy + dy, w: 3, h: 3 });
+  const ox = CO + bx * BLK + RW, oy = CO + by * BLK + RW, IN = BLK - RW, o12x = bx * 12 + 2, o12y = by * 12 + 2;   // anahtarlar eski 12'lik düzenden: sahiplikler korunur
+  if (BUILD.some(b => b.x < ox + IN && b.x + b.w > ox && b.y < oy + IN && b.y + b.h > oy)) continue;
+  [[1, 1, 2, 2], [6, 1, 8, 2], [1, 6, 2, 8], [6, 6, 8, 8]].forEach(([dx, dy, nx, ny]) => PLOTS.push({ k: (o12x + dx) + '_' + (o12y + dy), x: ox + nx, y: oy + ny, w: 3, h: 3, ox: o12x + dx, oy: o12y + dy }));
 }
 const PMAP = Object.fromEntries(PLOTS.map(p => [p.k, p]));
 const HOUSE_PRICE = 1500, SHOP_PRICE = 2500, SHIFT_MS = 45000, SHIFT_PAY = 40, SHIFT_E = 20, REST_MS = 20000;
 const JOBPAY = { Hakim: 70, Savcı: 70, Doktor: 70, Avukat: 55, Öğretmen: 55, Eczacı: 55, Veteriner: 55, Polis: 55, Jandarma: 55, Asker: 55, İtfaiyeci: 55, Elektrikçi: 50, Hemşire: 45, Memur: 45, Emlakçı: 45, Tamirci: 45, Kaportacı: 45, Galerici: 45, İnşaatçı: 45, İmam: 45, 'Güvenlik Görevlisi': 45, Çiftçi: 40, Madenci: 50, 'Fabrika İşçisi': 50, 'Liman İşçisi': 45, Koruma: 60, Cankurtaran: 45 };
 const JAIL_MS = 90000, WANTED_MS = 90000, DAY_MS = 60 * 60000;
 const COURT_DOOR = { x: (BMAP.adalet.x + 3) * T, y: (BMAP.adalet.y + 6) * T + 30 }, JAIL_SPOT = { x: (BMAP.polis.x + 3) * T, y: (BMAP.polis.y + 6) * T + 30 };
-const SPAWN = { x: (3 * BLK + 7) * T, y: (4 * BLK + 1) * T };
+const SPAWN = { x: (CO + 3 * BLK + 9) * T, y: (CO + 4 * BLK + 1) * T };
 
 // ================= STATE =================
 const COLORS = ['#e74c3c', '#3498db', '#2ecc71', '#f1c40f', '#9b59b6', '#e67e22', '#1abc9c', '#ff6fb5', '#34495e'];
@@ -406,7 +409,7 @@ async function enter2(mode) {
       acc: prev.acc || {}, wear: prev.wear || {}, m: prev.m || {}, inv: prev.inv || {}, veh: prev.veh || {}, q: prev.q || {}, dq: prev.dq ? { d: prev.dq.d, c: prev.dq.c || {}, got: prev.dq.got || {}, bonus: prev.dq.bonus || 0 } : null, fan: prev.fan || null, fpw: prev.fpw || 50, ftr: prev.ftr || 0, lvl: prev.lvl || 0, sick: prev.sick || 0,
       play: prev.play || 0, pleft: prev.pleft || 0, jobDay: prev.jobDay || '', payDay: prev.payDay || '', jobChanged: prev.jobChanged || 0, jx: prev.jxv === 1 ? (prev.jx || 0) : (prev.jx || 0) + 1, jxv: 1, pet: prev.pet || null, bio: prev.bio || '', gocUsed: prev.gocUsed || 0, cbPd: prev.cbPd || '', preJob: prev.preJob || '', kd: undefined, stealDay: prev.stealDay || null, islah: prev.islah || 0, islahN: prev.islahN || 0, pd: prev.pd || {}, joined: prev.joined || now(), taxDay: prev.taxDay || '', drive: null, inside: null, bag: 0,
       x: prev.x ?? (SPAWN.x + (Math.random() - .5) * 200), y: prev.y ?? SPAWN.y, wanted: 0, jail: 0, ride: null, pv: prev.pv || null, kmb: prev.kmb || null, ust: prev.ust || 0, ehl: prev.ehl || 0, ehlc: prev.ehlc || 0 };
-    if (blocked(ME.x, ME.y) || ME.x > XMAX || ME.y > YMAX || (prev.v || 0) < 3) { ME.x = SPAWN.x + (Math.random() - .5) * 200; ME.y = SPAWN.y; }
+    if (blocked(ME.x, ME.y) || ME.x > XMAX || ME.y > YMAX || ME.x < CO * T || ME.y < CO * T || (prev.v || 0) < 3) { ME.x = SPAWN.x + (Math.random() - .5) * 200; ME.y = SPAWN.y; }
     try { localStorage.setItem('kk_me', JSON.stringify({ name, job, color: myColor })); } catch (e) { }
     devAdd(myId); update(ref(db, 'players/' + myId), { dev: devId() }).catch(() => { });
     if (isG && prev.money == null) setTimeout(() => toast('🎁 Google ile girdiğin için +200 💰 hoş geldin bonusu!', 5000), 3500);
@@ -1703,7 +1706,7 @@ function showResult(r, res) {
 // ---------- posters & rally (3D) ----------
 const BOARDS = [];
 for (const [bx, by] of [[1, 1], [3, 1], [5, 1], [2, 2], [4, 2], [1, 3], [5, 3], [2, 4], [4, 4], [1, 5], [3, 5], [5, 5]]) {
-  const x = bx * BLK + RW + 5, y = by * BLK + RW + 0.55;
+  const x = CO + bx * BLK + RW + 6.5, y = CO + by * BLK + RW + 0.55;
   if (BUILD.some(b => x > b.x - 1.5 && x < b.x + b.w + 1.5 && y > b.y - 0.8 && y < b.y + b.h + 0.8)) continue;
   BOARDS.push({ x, y }); if (BOARDS.length >= 6) break;
 }
@@ -3798,9 +3801,9 @@ function ecoDeco(b, bg, bx, after) {
 }
 function ecoWorld3D(o) {
   const roadM = mat('#4a4f57'), curb = mat('#c9c9c9');
-  for (let k = 0; k <= WN - RW; k += BLK) { const c = k + RW / 2; box(16.6, 0.06, RW + 0.6, '', 106.3, 0.03, c, null, false, curb); box(16.6, 0.08, RW, '', 106.3, 0.04, c, null, false, roadM); }
-  box(RW + 0.6, 0.065, WN + 0.6, '', 113.6, 0.032, WN / 2, null, false, curb); box(RW, 0.085, WN, '', 113.6, 0.042, WN / 2, null, false, roadM);
-  for (let i = 3; i < WN; i += 2) box(0.1, 0.01, 0.9, '#eeeeee', 113.6, 0.09, i + 0.5, null, false);
+  for (let k = CO; k <= WN - RW; k += BLK) { const c = k + RW / 2; if (BUILD.some(b => b.x > 97 && b.x < 114 && c > b.y - 1.6 && c < b.y + b.h + 1.6)) continue; box(16.6, 0.06, RW + 0.6, '', 106.3, 0.03, c, null, false, curb); box(16.6, 0.08, RW, '', 106.3, 0.04, c, null, false, roadM); }
+  box(RW + 0.6, 0.065, CW + 0.6, '', 113.6, 0.032, (CO + WN) / 2, null, false, curb); box(RW, 0.085, CW, '', 113.6, 0.042, (CO + WN) / 2, null, false, roadM);
+  for (let i = CO + 3; i < WN; i += 2) box(0.1, 0.01, 0.9, '#eeeeee', 113.6, 0.09, i + 0.5, null, false);
   // kum + deniz
   const sand = new THREE.Mesh(new THREE.PlaneGeometry(SEA_X - BEACH_X + 0.4, 320), mat('#f1d9a0')); sand.rotation.x = -Math.PI / 2; sand.position.set((SEA_X + BEACH_X) / 2 + 0.2, 0.02, 49); sand.receiveShadow = true; scene.add(sand);
   const wet = new THREE.Mesh(new THREE.PlaneGeometry(1, 320), mat('#d9bf86')); wet.rotation.x = -Math.PI / 2; wet.position.set(SEA_X - 0.3, 0.025, 49); scene.add(wet);
@@ -5646,7 +5649,7 @@ function kkSky(nk) {
 // ================= v11: KOMŞU OL • KOMŞU SOKAĞI =================
 let KOMSU = {}, KREQ = {}, SOKAK = {};
 const KOMSU_MAX = 3, SOKAK_COST = 1000, MOVE_COST = 300;
-const plotBlk = k => { const p = PMAP[k]; return p ? Math.floor(p.x / BLK) + '_' + Math.floor(p.y / BLK) : null; };
+const plotBlk = k => { const p = PMAP[k]; return p ? Math.floor(p.ox / 12) + '_' + Math.floor(p.oy / 12) : null; };
 const homeOf = id => id === myId ? (ME && ME.home && PMAP[ME.home] ? PMAP[ME.home] : null) : PLOTS.find(p => plots[p.k] && plots[p.k].id === id && ['ev', 'apt'].includes(plots[p.k].type)) || null;
 function komsuListen() {
   if (komsuListen.on || !db || !myId) return; komsuListen.on = 1;
@@ -5739,7 +5742,7 @@ function sokakAnim() {
   if (typeof camera3 === 'undefined' || !camera3) return;
   const cx = camera3.position.x, cz = camera3.position.z;
   for (const [b, L] of Object.entries(SOKL)) {
-    const [bx, by] = b.split('_').map(Number), x = bx * BLK + RW + 5, z = by * BLK + RW + 5;
+    const [bx, by] = b.split('_').map(Number), x = CO + bx * BLK + RW + 6.5, z = CO + by * BLK + RW + 6.5;
     if (Math.hypot(x - cx, z - cz) < 70) placeLabel(L, x, 4.5, z); else if (L.style.display !== 'none') L.style.display = 'none';
   }
 }
@@ -7125,7 +7128,7 @@ let STOPS3D = 0;
 setInterval(() => {
   if (STOPS3D || !THREE || !scene) return; STOPS3D = 1; stopsInit();
   for (const s of STOPS) {
-    const g = new THREE.Group(); g.position.set(s.x, 0, s.y); scene.add(g);
+    const g = new THREE.Group(); g.position.set(s.x, 0, s.y); g.rotation.y = s.r || 0; scene.add(g);
     box(0.12, 2.4, 0.12, '#2c3e50', -1.1, 1.2, -0.4, g); box(0.12, 2.4, 0.12, '#2c3e50', 1.1, 1.2, -0.4, g); box(2.6, 0.12, 1.2, '#2e86de', 0, 2.45, -0.2, g); box(2.4, 1.2, 0.06, '#bfe3ff', 0, 1.3, -0.75, g, false);
     box(2.0, 0.1, 0.45, '#8d6e63', 0, 0.5, -0.5, g);
     const m = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 0.5), new THREE.MeshBasicMaterial({ map: signTex('DURAK • ' + s.n.toLocaleUpperCase('tr'), '#2e86de', '#ffffff') })); m.position.set(0, 2.85, -0.2); g.add(m);
@@ -7140,10 +7143,11 @@ function busMenu(from) {
 }
 // ---- yol bulma (A*, karo ızgarası)
 let NAV = null;
-function navPath(sx, sy, gx, gy) {
-  const W_ = Math.ceil(XMAX / T) + 1, H_ = Math.ceil(YMAX / T) + 1, idx = (x, y) => y * W_ + x;
-  const cost = new Float32Array(W_ * H_).fill(-1), walk = c => { if (cost[c] >= 0) return cost[c]; const x = c % W_, y = (c / W_) | 0, px = (x + 0.5) * T, py = (y + 0.5) * T;
-    let v = blocked(px, py) ? 0 : inWater(px, py) ? 8 : (x < WN && y < WN && isRoad(x, y)) ? 1 : 1.35; cost[c] = v; return v; };
+function navPath(sx, sy, gx, gy, bus) {
+  sx -= CO; sy -= CO; gx -= CO; gy -= CO;
+  const W_ = Math.ceil(XMAX / T) + 1 - CO, H_ = Math.ceil(YMAX / T) + 1 - CO, idx = (x, y) => y * W_ + x;
+  const cost = new Float32Array(W_ * H_).fill(-1), walk = c => { if (cost[c] >= 0) return cost[c]; const x = c % W_ + CO, y = ((c / W_) | 0) + CO, px = (x + 0.5) * T, py = (y + 0.5) * T;
+    let v = blocked(px, py) ? 0 : inWater(px, py) ? (bus ? 0 : 8) : roadAt(x, y) ? 1 : (bus ? 7 : 1.35); cost[c] = v; return v; };
   const s = idx(Math.max(0, Math.min(W_ - 1, sx | 0)), Math.max(0, Math.min(H_ - 1, sy | 0))), g = idx(Math.max(0, Math.min(W_ - 1, gx | 0)), Math.max(0, Math.min(H_ - 1, gy | 0)));
   const gs = new Float32Array(W_ * H_).fill(Infinity), from = new Int32Array(W_ * H_).fill(-1), closed = new Uint8Array(W_ * H_);
   const heap = []; const hpush = (f, c) => { heap.push([f, c]); let i = heap.length - 1; while (i > 0) { const p = (i - 1) >> 1; if (heap[p][0] <= heap[i][0]) break; [heap[p], heap[i]] = [heap[i], heap[p]]; i = p; } };
@@ -7161,7 +7165,8 @@ function navPath(sx, sy, gx, gy) {
     }
   }
   if (from[g] < 0 && g !== s) return null;
-  const pts = []; for (let c = g; c >= 0 && c !== s; c = from[c]) pts.push({ x: (c % W_ + 0.5) * T, y: (((c / W_) | 0) + 0.5) * T }); pts.reverse();
+  const pts = []; for (let c = g; c >= 0 && c !== s; c = from[c]) pts.push({ x: (c % W_ + CO + 0.5) * T, y: (((c / W_) | 0) + CO + 0.5) * T }); pts.reverse();
+  if (bus) return pts.filter((p, i) => i % 2 === 1 || i === pts.length - 1);
   // görüş hattıyla sadeleştir
   const clear = (a, b) => { const d = Math.hypot(b.x - a.x, b.y - a.y), n2 = Math.ceil(d / (T * 0.4)); for (let i = 1; i < n2; i++) { const x = a.x + (b.x - a.x) * i / n2, y = a.y + (b.y - a.y) * i / n2; if (blocked(x, y) || inWater(x, y)) return false; } return true; };
   const out = []; let cur = { x: ME.x, y: ME.y }, i = 0;
@@ -7237,12 +7242,12 @@ let MAPBASE = null;
 const MPX = 4;
 function mapBase() {
   if (MAPBASE) return MAPBASE;
-  const c = document.createElement('canvas'); c.width = MAPW * MPX; c.height = MAPH * MPX; const x = c.getContext('2d');
-  x.fillStyle = '#86c66f'; x.fillRect(0, 0, c.width, c.height);
-  for (let gy = 0; gy < MAPH; gy++) for (let gx = 0; gx < MAPW; gx++) {
+  const c = document.createElement('canvas'); c.width = (MAPW - CO) * MPX; c.height = (MAPH - CO) * MPX; const x = c.getContext('2d'); x.translate(-CO * MPX, -CO * MPX);
+  x.fillStyle = '#86c66f'; x.fillRect(CO * MPX, CO * MPX, c.width, c.height);
+  for (let gy = CO; gy < MAPH; gy++) for (let gx = CO; gx < MAPW; gx++) {
     const px = (gx + 0.5) * T, py = (gy + 0.5) * T;
     if (gy * T > YMAX + 20) { x.fillStyle = '#5a8f4a'; x.fillRect(gx * MPX, gy * MPX, MPX, MPX); continue; }
-    if (inWater(px, py)) x.fillStyle = '#4aa3df'; else if (gx >= BEACH_X && gx < SEA_X) x.fillStyle = '#f3dca2'; else if (gx < WN && gy < WN && isRoad(gx, gy)) x.fillStyle = '#5d636b'; else continue;
+    if (inWater(px, py)) x.fillStyle = '#4aa3df'; else if (gx >= BEACH_X && gx < SEA_X) x.fillStyle = '#f3dca2'; else if (roadAt(gx, gy)) x.fillStyle = '#5d636b'; else continue;
     x.fillRect(gx * MPX, gy * MPX, MPX, MPX);
   }
   x.fillStyle = '#5d636b';
@@ -7315,7 +7320,7 @@ function mapBars() {
 function mapDraw() {
   if (!MAPV) return; const c = MAPV.querySelector('#mapC'), x = c.getContext('2d'), dp = devicePixelRatio, s = MV.s;
   x.setTransform(dp, 0, 0, dp, 0, 0); x.fillStyle = '#4aa3df'; x.fillRect(0, 0, c.width, c.height);
-  x.imageSmoothingEnabled = false; x.drawImage(mapBase(), MV.ox, MV.oy, MAPW * s, MAPH * s);
+  x.imageSmoothingEnabled = false; x.drawImage(mapBase(), MV.ox + CO * s, MV.oy + CO * s, (MAPW - CO) * s, (MAPH - CO) * s);
   mapPlotsDraw(x, s, MV.ox, MV.oy);
   if (NAV) { x.strokeStyle = '#2e86de'; x.lineWidth = 4; x.setLineDash([8, 6]); x.beginPath(); x.moveTo(MV.ox + ME.x / T * s, MV.oy + ME.y / T * s); for (let i = NAV.i; i < NAV.pts.length; i++) x.lineTo(MV.ox + NAV.pts[i].x / T * s, MV.oy + NAV.pts[i].y / T * s); x.stroke(); x.setLineDash([]); }
   const P = mapPOIs(), t = now(); MV.pois = P;
@@ -7392,7 +7397,7 @@ function mmUpdate(force) {
   MM.style.display = on ? 'block' : 'none'; if (!on) return;
   const x = MM.getContext('2d'), s = 6, cx = ME.x / T, cy = ME.y / T, ox = 110 - cx * s, oy = 110 - cy * s;
   x.save(); x.clearRect(0, 0, 220, 220); x.beginPath(); x.arc(110, 110, 110, 0, 7); x.clip(); x.fillStyle = '#4aa3df'; x.fillRect(0, 0, 220, 220);
-  x.imageSmoothingEnabled = false; x.drawImage(mapBase(), ox, oy, MAPW * s, MAPH * s); mapPlotsDraw(x, s, ox, oy);
+  x.imageSmoothingEnabled = false; x.drawImage(mapBase(), ox + CO * s, oy + CO * s, (MAPW - CO) * s, (MAPH - CO) * s); mapPlotsDraw(x, s, ox, oy);
   x.textAlign = 'center'; x.textBaseline = 'middle'; x.font = '20px system-ui';
   for (const b of BUILD) { if (!BICON[b.id]) continue; const px = ox + (b.x + b.w / 2) * s, py = oy + (b.y + b.h / 2) * s; if (px > -20 && py > -20 && px < 240 && py < 240) x.fillText(BICON[b.id], px, py); }
   if (NAV) { x.strokeStyle = '#2e86de'; x.lineWidth = 5; x.beginPath(); x.moveTo(110, 110); for (let i = NAV.i; i < NAV.pts.length; i++) x.lineTo(ox + NAV.pts[i].x / T * s, oy + NAV.pts[i].y / T * s); x.stroke(); }
@@ -7785,7 +7790,7 @@ function adFind(ax, az, len, ry, avoid) {
     for (let k = -len / 2; k <= len / 2 + 0.01; k += 0.5) {
       const px = ry ? x : x + k, pz = ry ? z + k : z;
       if (blocked(px * T, pz * T) || inWater(px * T, pz * T)) return false;
-      if (px < WN && pz < WN && isRoad(Math.floor(px), Math.floor(pz))) return false;
+      if (roadAt(Math.floor(px), Math.floor(pz))) return false;
       if (PLOTS.some(p => px > p.x - 0.6 && px < p.x + (p.w || 3) + 0.6 && pz > p.y - 0.6 && pz < p.y + (p.h || 3) + 0.6)) return false;
     }
     if (STOPS.some(s => Math.hypot(s.x - x, s.y - z) < 3.5)) return false;
@@ -7912,11 +7917,215 @@ async function adEdit(i, cur, slots) {
   };
 }
 
+// ================= v23: GENİŞ ŞEHİR • YOL KENARI DURAKLAR + GERÇEK OTOBÜS • PANOLAR DÜZELDİ • KOMŞUKENT BANKASI =================
+// ---- yollar (şehir ızgarası + dış yollar)
+const XROADS = [[98, 113.6, -23.5, -22.5], [98, 113.6, -8.5, -7.5], [98, 113.6, 36.5, 37.5], [98, 113.6, 81.5, 82.5], [98, 113.6, 96.5, 97.5],
+  [112.6, 114.6, CO, WN], [0, 102, 112, 114], [34.4, 37.6, 113.6, 120.5], [82, 85, 113.8, 127.8], [99, 102, 113, 196], [2, 102, 193, 196]];
+function roadAt(x, y) { if (isRoad(x, y)) return true; const cx = x + 0.5, cy = y + 0.5; return XROADS.some(([x0, x1, y0, y1]) => cx >= x0 && cx <= x1 && cy >= y0 && cy <= y1); }
+const XR = XROADS.slice(0, 5).map(r => r[2] + 0.5);   // hangi doğu bağlantıları çizildi
+// ---- duraklar: yol kenarında, yola paralel
+STOPS.length = 0;
+(function () {
+  const front = id => { const b = BMAP[id], by = Math.floor((b.y + b.h - CO) / BLK), rz = CO + (by + 1) * BLK; return { x: b.x + b.w - 1.3, y: rz - 0.8, r: 0 }; };
+  STOPS.push({ n: 'Belediye', ...front('belediye') }, { n: 'AVM', ...front('avm') }, { n: 'Hastane', ...front('hastane') },
+    { n: 'Stadyum', x: 44, y: 114.85, r: Math.PI }, { n: 'Sahil', x: 115.9, y: 40, r: -Math.PI / 2 }, { n: 'Falez', x: 103.2, y: 139, r: -Math.PI / 2 },
+    { n: 'Sanayi', x: 103.2, y: 186.5, r: -Math.PI / 2 }, { n: 'Banka', x: BMAP.banka.x + BMAP.banka.w - 1.3, y: -9.8, r: 0 });
+})();
+stopsInit = function () { STOPS_READY = 1; };
+// ---- otobüs: ışınlanma yok, gerçekten yollardan gider
+let BUS = null;
+busMenu = function (from) {
+  if (ME.drive) return toast('Önce araçtan in 🚗');
+  modal(`🚌 ${from.n} durağı • nereye?`, STOPS.filter(s => s !== from).map(s => ({ label: `🚌 ${s.n}`, right: '10 💰', disabled: ME.money < 10, fn: () => busGo(from, s) })), '<p>Otobüse bin, şehrin içinden geçerek durağa git. Bilet 10 💰.</p>');
+};
+function busGo(from, to) {
+  if (BUS) return; if (ME.sit != null || ME.trib) kkStand();
+  const pts = navPath(ME.x / T, ME.y / T, to.x, to.y, true);
+  if (!pts || !pts.length) return toast('Bu durağa yol bulunamadı 😕');
+  if (!spend(10)) return; cityIncome(7); payJob(['Otobüs Şoförü', 'Şoför'], 3, `🚌 ${ME.name} otobüse bindi`); saveMe(); closeModal();
+  pts.push({ x: to.x * T, y: to.y * T });
+  let L = 0; for (let i = 1; i < pts.length; i++) L += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+  BUS = { pts, i: 0, to, sp: Math.max(9, L / T / 22) * T, lt: performance.now(), sent: 0 }; NAV = null; navUI && navUI(); target = null;
+  pub({ bus: 1 }); toast(`🚌 ${to.n} durağına gidiyorsun…`, 3000);
+}
+function busTick() {
+  if (!BUS || !ME) return; const pn = performance.now(), dt = Math.min(0.1, (pn - BUS.lt) / 1000); BUS.lt = pn;
+  let move = BUS.sp * dt;
+  while (move > 0 && BUS.i < BUS.pts.length) { const p = BUS.pts[BUS.i], dx = p.x - ME.x, dy = p.y - ME.y, d = Math.hypot(dx, dy); if (d <= move) { ME.x = p.x; ME.y = p.y; move -= d; BUS.i++; } else { ME.x += dx / d * move; ME.y += dy / d * move; BUS.dir = Math.atan2(dx, dy); move = 0; } }
+  if (pn - BUS.sent > 600) { BUS.sent = pn; sendPos(true); }
+  if (BUS.i >= BUS.pts.length) { const to = BUS.to; BUS = null; pub({ bus: null }); sendPos(true); toast(`🚌 ${to.n} durağına vardın!`, 3000); stat('nav'); }
+}
+const _inputVec22 = inputVec;
+inputVec = function () { if (BUS) return [0, 0, 0]; return _inputVec22(); };
+// otobüs gövdesi (benim ve başkalarının)
+const BUSM = {};
+function busMesh() {
+  const g = new THREE.Group();
+  box(1.55, 1.5, 3.9, '#f1c40f', 0, 1.05, 0, g); box(1.6, 0.5, 3.6, '#7fb3d5', 0, 1.45, 0.05, g, false); box(1.58, 0.12, 3.95, '#2e86de', 0, 0.55, 0, g, false);
+  for (const sx of [-0.7, 0.7]) for (const sz of [-1.25, 1.25]) box(0.25, 0.55, 0.55, '#222222', sx, 0.28, sz, g, false);
+  box(1.4, 0.3, 0.06, '#ffffff', 0, 1.6, 1.97, g, false); scene.add(g); return g;
+}
+function busRender() {
+  if (!THREE || !scene || !boxG) return;
+  const want = {};
+  if (BUS && ME) want.me = [ME.x / T, ME.y / T, BUS.dir || 0];
+  for (const id in others) { const o = others[id]; if (o && o.bus && o.hasPos && live(o)) { const p = BUSM[id], d = p && p.lx != null ? Math.atan2(o.x / T - p.lx, o.y / T - p.lz) : 0; want[id] = [o.x / T, o.y / T, Math.hypot(o.x / T - ((p && p.lx) || 0), o.y / T - ((p && p.lz) || 0)) > 0.05 ? d : (p ? p.g.rotation.y : 0)]; } }
+  for (const id in want) { let m = BUSM[id]; if (!m) m = BUSM[id] = { g: busMesh() }; const [x, z, r] = want[id]; m.g.position.set(x, 0, z); m.g.rotation.y = r; m.lx = x; m.lz = z; m.g.visible = true; }
+  for (const id in BUSM) if (!want[id]) { scene.remove(BUSM[id].g); delete BUSM[id]; }
+}
+const _futAnim22 = futAnim;
+futAnim = function (t) { _futAnim22(t); try { busTick(); busRender(); } catch (e) { console.log('bus', e); } };
+// yolculukta başka buton yok
+const _mapActs22 = mapActs;
+mapActs = function (L, t) { if (BUS) { L.splice(0); L.push({ label: `🚌 ${BUS.to.n} durağına gidiyorsun…`, cls: 'gray', dyn: 1, disabled: true }); return; } _mapActs22(L, t); };
+
+// ---- REKLAM PANOLARI: hepsi kameraya bakar, bina önüne/arkasına girmez
+ADSLOTS = null;
+adSlots = function () {
+  if (ADSLOTS) return ADSLOTS;
+  const S = [], P = (n, x, z, w = 4.2, h = 2, y = 3.3) => S.push({ n, k: 'pole', x, z, w, h, y, ry: 0 });
+  const blockBottom = b => CO + (Math.floor((b.y + b.h - CO) / BLK) + 1) * BLK;
+  P('Halı saha yolu 1', 70, 115.4); P('Halı saha yolu 2', 90, 115.4); P('Stadyum yolu sol', 24, 117.6); P('Stadyum yolu sağ', 54, 117.6);
+  P('Halı saha arkası', 92, 160.5); P('Sanayi yolu 1', 105.2, 170); P('Sanayi yolu 2', 105.2, 181);
+  const B = BMAP.belediye; P('Belediye meydanı', B.x - 1.75, blockBottom(B) - 1.3, 3.1, 1.5, 2.6);
+  P('Cumhurbaşkanlığı', 106, 100.4);
+  const A = BMAP.avm; S.push({ n: 'AVM dev ekran', k: 'wall', x: A.x + A.w / 2, z: A.y + A.h + 0.08, y: 4.9, w: 6, h: 2.5, ry: 0 });
+  P('Sahil', 117.6, 47); P('Falez Kafe', 112, 158.6); P('Galericiler Sitesi girişi', 80, 176.6); P('Sanayi Sitesi girişi', 30, 176.6);
+  const H = BMAP.hastane; P('Şehre giriş (yeni gelenler)', H.x - 1.75, blockBottom(H) - 1.3, 3.1, 1.5, 2.6);
+  const nz = STZ - SPZ - SOUT - 0.6, sz = STZ + SPZ + SOUT + 0.6, hy = SROWS * SRH + 3;
+  S.push({ n: 'Stadyum kuzey sol (dev)', k: 'big', x: STX - 9, z: nz, y: hy, w: 8, h: 3.2, ry: 0 }, { n: 'Stadyum kuzey sağ (dev)', k: 'big', x: STX + 9, z: nz, y: hy, w: 8, h: 3.2, ry: 0 });
+  S.push({ n: 'Stadyum güney sol (dev)', k: 'big', x: STX - 13, z: sz, y: hy, w: 8, h: 3.2, ry: 0 }, { n: 'Stadyum güney sağ (dev)', k: 'big', x: STX + 13, z: sz, y: hy, w: 8, h: 3.2, ry: 0 });
+  S.push({ n: 'Stadyum LED bant (kuzey)', k: 'band', x: STX, z: STZ - SPZ - 0.9, y: 0.45, w: 2 * SPX - 2, h: 0.8, ry: 0 }, { n: 'Stadyum LED bant (güney)', k: 'band', x: STX, z: STZ + SPZ + 0.9, y: 0.45, w: 2 * SPX - 2, h: 0.8, ry: 0 });
+  HSAHA.forEach((h, i) => S.push({ n: `Halı saha ${i + 1} çiti`, k: 'band', x: h.x + 2.4, z: h.y + h.h + 0.14, y: 0.65, w: 3.6, h: 0.8, ry: 0 }));
+  STOPS.slice(0, 7).forEach(s => S.push({ n: `Durak • ${s.n}`, k: 'pole', ...(s.r === -Math.PI / 2 ? { x: s.x + 0.3, z: s.y + 2.5 } : { x: s.x - 2.3, z: s.y + (s.r ? -0.2 : 0.2) }), w: 1.5, h: 1.05, y: 1.6, ry: 0 }));
+  const BK = BMAP.banka, bs = STOPS[7];
+  S.push({ n: 'Durak • Banka', k: 'pole', x: bs.x - 2.3, z: bs.y + 0.2, w: 1.5, h: 1.05, y: 1.6, ry: 0 });
+  P('Banka meydanı', BK.x - 2.2, BK.y + BK.h + 1.6, 3.1, 1.5, 2.6);
+  return ADSLOTS = S;
+};
+const _adBuild22 = adBuild;
+adBuild = function (i, s) {
+  const a = ADS[i] || null, key = JSON.stringify(a || 0) + adOn(a) + ((a && a.img && (ADIMG[a.img] || {}).ok) ? 'i' : '');
+  if (AD3[i] && AD3[i].key === key) return; if (AD3[i]) { scene.remove(AD3[i].g); try { AD3[i].tex.dispose(); } catch (e) { } }
+  const g = new THREE.Group(); g.position.set(s.x, typeof elevAt === 'function' ? elevAt(s.x, s.z) : 0, s.z); scene.add(g);
+  const tex = adTex(a, s, () => { if (AD3[i]) AD3[i].key = ''; adBuild(i, s); });
+  const mat2 = new THREE.MeshBasicMaterial({ map: tex, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+  const { w, h, y } = s, leg = y - h / 2;
+  if (s.k === 'pole') { const lw = w > 2 ? 0.16 : 0.1; box(lw, leg, lw, '#2c3e50', -w / 2 + 0.25, leg / 2, -0.12, g); box(lw, leg, lw, '#2c3e50', w / 2 - 0.25, leg / 2, -0.12, g); box(w + 0.2, h + 0.2, 0.08, '#1b2633', 0, y, -0.12, g, false); }
+  if (s.k === 'big') { box(0.3, leg, 0.3, '#2c3e50', -w / 2 + 0.6, leg / 2, -0.2, g); box(0.3, leg, 0.3, '#2c3e50', w / 2 - 0.6, leg / 2, -0.2, g); box(w + 0.3, h + 0.3, 0.1, '#111111', 0, y, -0.15, g, false); }
+  if (s.k === 'wall') box(w + 0.25, h + 0.25, 0.04, '#111111', 0, y, -0.06, g, false);
+  if (s.k === 'band') box(w + 0.1, h + 0.1, 0.06, '#111111', 0, y, -0.08, g, false);
+  const front = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat2); front.position.set(0, y, 0.02); front.renderOrder = 2; g.add(front);
+  AD3[i] = { g, key, tex };
+};
+for (const k in AD3) { try { scene && scene.remove(AD3[k].g); } catch (e) { } delete AD3[k]; }
+
+// ================= KOMŞUKENT BANKASI =================
+Object.assign(JOBPAY, { Bankacı: 60, Veznedar: 45 });
+['Bankacı', 'Veznedar'].forEach(j => { if (!JOBS.includes(j)) JOBS.push(j); }); JOBS.sort((a, b) => a.localeCompare(b, 'tr'));
+const VADE = [{ d: 1, r: 0.02 }, { d: 3, r: 0.07 }, { d: 7, r: 0.18 }], KREDI_FAIZ = 0.10, KREDI_GUN = 7, HAVALE_UCRET = 0.01, VADELI_MAX = 50000;
+let BANK = null;
+function bankRef(p = '') { return ref(db, 'bank/acc/' + myId + p); }
+async function bankLoad() { BANK = (await get(bankRef()).catch(() => null))?.val() || {}; return BANK; }
+const bankKasa = v => { if (v > 0) runTransaction(ref(db, 'bank/kasa'), k => (k || 0) + Math.round(v)).catch(() => { }); };
+const kLimit = () => Math.min(20000, 2000 + workedOf(ME) * 40 + (ME.lvl || 0) * 500);
+async function bankMenu() {
+  await bankLoad(); const B = BANK, t = now(), f = n => Math.floor(n || 0).toLocaleString('tr');
+  const vad = B.v ? (B.vt + B.vd * 864e5 <= t ? '✅ vadesi doldu' : `⏳ ${Math.ceil((B.vt + B.vd * 864e5 - t) / 3600000)} saat kaldı`) : '';
+  const items = [
+    { label: '💵 Hesaba para yatır', fn: () => bankAmt('Hesaba yatır', ME.money, v => { if (!spend(v)) return; bankSet({ d: (B.d || 0) + v }, `💵 ${f(v)} 💰 hesabına yatırıldı`); }) },
+    { label: `🏧 Hesaptan para çek (${f(B.d)} 💰)`, disabled: !(B.d > 0), fn: () => bankAmt('Hesaptan çek', B.d, v => { bankSet({ d: B.d - v }, `🏧 ${f(v)} 💰 çektin`).then(() => earn(v, '🏧 Para çekildi')); }) },
+    B.v ? { label: `📈 Vadeli hesap: ${f(B.v)} 💰 • ${vad}`, fn: vadeliBoz } : { label: '📈 Vadeli hesap aç (faiz kazan)', fn: vadeliAc },
+    B.l ? { label: `💳 Kredi borcu: ${f(B.l)} 💰 • öde`, cls: 'blue', fn: krediOde } : { label: `💳 Kredi çek (en fazla ${f(kLimit())} 💰)`, disabled: !!B.bl, fn: krediCek },
+    { label: '💸 Havale gönder (%1 ücret)', fn: havaleMenu },
+  ];
+  modal('🏦 Komşukent Bankası', items, `<p>💰 Cebin: <b>${f(ME.money)}</b> • 🏦 Hesabın: <b>${f(B.d)}</b>${B.v ? ` • 📈 Vadeli: <b>${f(B.v)}</b>` : ''}${B.l ? ` • 💳 Borç: <b>${f(B.l)}</b> (${B.lt > t ? Math.ceil((B.lt - t) / 864e5) + ' gün' : '⚠️ gecikti'})` : ''}</p>
+    <p style="font-size:12px;opacity:.85">Bankadaki para güvende: hırsızlar sadece cebindekini çalabilir. Vadeli hesap: 1 gün %2, 3 gün %7, 7 gün %18 faiz.${B.bl ? '<br>⛔ Geciken borç yüzünden kredi çekemezsin.' : ''}</p>`);
+}
+function bankSet(o, msg) { Object.assign(BANK, o); return update(bankRef(), o).then(() => { saveMe(); if (msg) toast(msg, 3500); }).catch(e => toast('Banka hatası: ' + e.message)); }
+function bankAmt(title, max, fn) {
+  max = Math.floor(max || 0); if (max <= 0) return toast('Yeterli para yok');
+  const opts = [100, 500, 1000, 5000, 10000].filter(v => v <= max);
+  modal(title, [...opts.map(v => ({ label: `${v.toLocaleString('tr')} 💰`, fn: () => fn(v) })), { label: `Hepsi (${max.toLocaleString('tr')} 💰)`, cls: 'blue', fn: () => fn(max) }, { label: '⬅ Geri', fn: bankMenu }]);
+}
+function vadeliAc() {
+  modal('📈 Vadeli hesap', VADE.map(o => ({ label: `${o.d} gün • %${Math.round(o.r * 100)} faiz`, fn: () => bankAmt(`${o.d} gün vadeli`, Math.min(ME.money, VADELI_MAX), v => { if (!spend(v)) return; bankSet({ v, vt: now(), vd: o.d, vr: o.r }, `📈 ${v.toLocaleString('tr')} 💰 ${o.d} günlük vadeliye yatırıldı`); }) })).concat([{ label: '⬅ Geri', fn: bankMenu }]),
+    `<p>Paranı kilitle, vade dolunca faiziyle geri al. En fazla ${VADELI_MAX.toLocaleString('tr')} 💰. Erken bozarsan faiz alamazsın.</p>`);
+}
+function vadeliBoz() {
+  const B = BANK, done = B.vt + B.vd * 864e5 <= now(), faiz = done ? Math.round(B.v * (B.vr || 0)) : 0;
+  modal('📈 Vadeli hesap', [{ label: done ? `✅ Faiziyle çek: ${(B.v + faiz).toLocaleString('tr')} 💰` : `⚠️ Erken boz (faizsiz ${B.v.toLocaleString('tr')} 💰)`, cls: done ? 'blue' : 'red', fn: () => { const v = B.v + faiz; bankSet({ v: null, vt: null, vd: null, vr: null }, done ? `📈 Faiz +${faiz} 💰!` : 'Vadeli bozuldu').then(() => earn(v, '📈 Vadeli hesap')); } }, { label: '⬅ Geri', fn: bankMenu }]);
+}
+function krediCek() {
+  const lim = kLimit(), opts = [1000, 2500, 5000, 10000, 20000].filter(v => v <= lim);
+  modal('💳 Kredi', opts.map(v => ({ label: `${v.toLocaleString('tr')} 💰 al → ${Math.round(v * (1 + KREDI_FAIZ)).toLocaleString('tr')} öde`, fn: () => {
+    if (!confirm(`${v.toLocaleString('tr')} 💰 kredi çekilsin mi?\n${KREDI_GUN} gün içinde ${Math.round(v * (1 + KREDI_FAIZ)).toLocaleString('tr')} 💰 ödemen gerekir. Gecikirse paran ve hesabından otomatik kesilir.`)) return;
+    bankSet({ l: Math.round(v * (1 + KREDI_FAIZ)), lp: v, lt: now() + KREDI_GUN * 864e5 }, `💳 ${v.toLocaleString('tr')} 💰 kredi hesabına geçti`).then(() => earn(v, '💳 Kredi'));
+  } })).concat([{ label: '⬅ Geri', fn: bankMenu }]), `<p>Faiz %${KREDI_FAIZ * 100}, vade ${KREDI_GUN} gün. Limitin mesai sayına ve seviyene göre artar.</p>`);
+}
+function krediPay(v) {   // v kadar öde; faiz payı bankanın kasasına
+  const B = BANK; v = Math.min(v, B.l || 0); if (v <= 0) return Promise.resolve();
+  const faizPay = Math.round(v * Math.max(0, (B.l0 || B.l) - (B.lp || 0)) / Math.max(1, B.l0 || B.l)); bankKasa(faizPay);
+  const kalan = B.l - v; return bankSet(kalan > 0 ? { l: kalan, l0: B.l0 || B.l } : { l: null, l0: null, lp: null, lt: null, bl: null }, kalan > 0 ? `💳 ${v.toLocaleString('tr')} 💰 ödendi, kalan ${kalan.toLocaleString('tr')}` : '✅ Kredi borcun bitti!');
+}
+function krediOde() { bankAmt('💳 Kredi öde', Math.min(ME.money, BANK.l), v => { if (!spend(v)) return; krediPay(v); }); }
+async function havaleMenu() {
+  const fr = Object.keys(friends || {}), near = Object.entries(others).filter(([, o]) => o && o.name && live(o)).slice(0, 12);
+  const ids = [...new Set([...fr, ...near.map(([id]) => id)])].filter(id => id !== myId).slice(0, 20);
+  const names = {}; for (const id of ids) names[id] = (others[id] && others[id].name) || ((await get(ref(db, `players/${id}/name`)).catch(() => null))?.val()) || 'Komşu';
+  modal('💸 Kime havale?', ids.map(id => ({ label: `👤 ${esc(names[id])}${fr.includes(id) ? ' ⭐' : ''}`, fn: () => havaleAmt(id, names[id]) })).concat([{ label: '⬅ Geri', fn: bankMenu }]), ids.length ? '<p>Arkadaşların ⭐ ve şu an çevrimiçi olanlar.</p>' : '<p>Henüz arkadaşın ya da çevrimiçi kimse yok.</p>');
+}
+function havaleAmt(id, name) {
+  bankAmt(`💸 ${esc(name)}'e havale`, Math.min(50000, Math.floor(ME.money / (1 + HAVALE_UCRET))), v => {
+    const fee = Math.max(1, Math.round(v * HAVALE_UCRET)); if (!spend(v + fee)) return;
+    payBig(id, v); bankKasa(fee); saveMe(); notify(id, `💸 ${ME.name} sana ${v.toLocaleString('tr')} 💰 havale gönderdi (Komşukent Bankası)`);
+    toast(`💸 ${v.toLocaleString('tr')} 💰 gönderildi (ücret ${fee} 💰)`, 4000);
+  });
+}
+// gecikmiş kredi: otomatik tahsil
+setInterval(async () => {
+  if (!ME || !db || !myId) return; if (!BANK) await bankLoad(); const B = BANK;
+  if (!B.l || !(B.lt < now())) return;
+  let need = B.l, fromD = Math.min(need, B.d || 0); if (fromD > 0) { await bankSet({ d: B.d - fromD }); need -= fromD; }
+  const fromM = Math.min(need, Math.floor(ME.money)); if (fromM > 0) { ME.money -= fromM; saveMe(); }
+  await krediPay(fromD + fromM); if (BANK.l) { bankSet({ bl: 1 }); toast('⚠️ Kredi borcun gecikti! Paran geldikçe kesilecek', 5000); }
+}, 60000);
+// binaya gelince
+function bankActs(L) { if (!ME || ME.inside === 'banka') return; const b = BMAP.banka; if (b && nearB(b, 2 * T)) L.push({ label: '🏦 Komşukent Bankası', cls: 'blue', fn: bankMenu }); }
+const _mapActs23 = mapActs;
+mapActs = function (L, t) { _mapActs23(L, t); if (!BUS) bankActs(L); };
+OFFICE.banka = '🏦 Banka ofisi'; BICON.banka = '🏦'; BDESC.banka = 'Hesap, vadeli faiz, kredi, havale';
+// ---- yönetici: 3 ülkenin banka kasası → benim Komşukent hesabıma
+async function adminBank() {
+  const rows = [], D = {}; let sum = 0;
+  for (const c of Object.keys(COUNTRIES).map(Number)) {
+    try { D[c] = await connectCountry(c); const k = (await get(ref(D[c].db, 'bank/kasa'))).val() || 0; rows.push(`${COUNTRIES[c].f} ${COUNTRIES[c].n}: <b>${Math.floor(k).toLocaleString('tr')} 💰</b>`); sum += k; }
+    catch (e) { rows.push(`${COUNTRIES[c].f} ${COUNTRIES[c].n}: bağlanılamadı (${esc(e.message || '')})`); }
+  }
+  let el = document.getElementById('bkAdm'); if (!el) { el = document.createElement('div'); el.id = 'bkAdm'; el.style.cssText = 'position:fixed;inset:0;z-index:200;background:rgba(10,18,35,.96);color:#fff;padding:16px;font-family:system-ui'; document.body.appendChild(el); }
+  el.innerHTML = `<h2>🏦 Banka kasaları</h2><p style="line-height:1.8">${rows.join('<br>')}</p><p>Toplam: <b>${Math.floor(sum).toLocaleString('tr')} 💰</b></p>
+    <button id="bkGo" style="width:100%;padding:13px;border:0;border-radius:12px;background:#27ae60;color:#fff;font-weight:800;margin-bottom:8px">💰 Hepsini Komşukent'teki hesabıma aktar</button>
+    <button id="bkX" style="width:100%;padding:12px;border:0;border-radius:12px;background:#3a4a6b;color:#fff;font-weight:800">Kapat</button>`;
+  el.style.display = 'block'; el.querySelector('#bkX').onclick = () => el.remove();
+  el.querySelector('#bkGo').onclick = async () => {
+    const H = D[1]; if (!H) return alert("Komşukent'e bağlanılamadı");
+    if (!confirm('3 ülkenin banka kasası sıfırlanıp Komşukent hesabına aktarılsın mı?')) return;
+    let got = 0;
+    for (const c in D) { let taken = 0; const r = await runTransaction(ref(D[c].db, 'bank/kasa'), k => { taken = Math.floor(k || 0); return taken > 0 ? 0 : undefined; }).catch(() => null); if (r && r.committed) got += taken; }
+    if (got > 0) await runTransaction(ref(H.db, `players/${H.uid}/money`), m => Math.floor((m || 0) + got)).catch(e => alert(e.message));
+    await push(ref(H.db, 'bank/log'), { a: Math.floor(got), t: Date.now() }).catch(() => { });
+    alert(`✅ ${Math.floor(got).toLocaleString('tr')} 💰 Komşukent hesabına aktarıldı`); adminBank();
+  };
+}
+const _kkAdminHTML23 = kkAdminHTML, _kkAdminWire23 = kkAdminWire;
+kkAdminHTML = () => _kkAdminHTML23() + `<div style="margin-top:8px"><button id="aBank" style="background:#1e8449">🏦 Banka kasaları (3 ülke) → hesabıma aktar</button></div>`;
+kkAdminWire = el => { _kkAdminWire23(el); const b = el.querySelector('#aBank'); if (b) b.onclick = adminBank; };
+
 // ================= EVENTS =================
 const EV_NAMES = { yangin: '🔥 YANGIN', soygun: '🚨 SOYGUN', festival: '🎉 FESTİVAL' };
 function evStart() { if (EV && !EV.done) { const b = evB(); toast(`${EV_NAMES[EV.type]}${b ? ' — ' + b.n : ''}!`, 5000); } }
 function robberPos(i, t) {
-  const b = BMAP[EV.b], bx = Math.floor(b.x / BLK) * BLK, by = Math.floor(b.y / BLK) * BLK;
+  const b = BMAP[EV.b], bx = CO + Math.floor((b.x - CO) / BLK) * BLK, by = CO + Math.floor((b.y - CO) / BLK) * BLK;
   const pts = [[bx, by], [bx + BLK, by], [bx + BLK, by + BLK], [bx, by + BLK]].map(([x, y]) => [x + 1, y + 1]);
   const per = 4 * BLK, s = ((t - EV.t0) / 1000 * 2.2 + i * per / 3) % per, seg = Math.floor(s / BLK), f = (s % BLK) / BLK;
   const [a, c] = [pts[seg], pts[(seg + 1) % 4]];
@@ -8097,17 +8306,18 @@ async function init3D() {
   winMat = new THREE.MeshLambertMaterial({ color: '#6fb6d8', emissive: '#ffd27a', emissiveIntensity: 0 });
   lampMat = new THREE.MeshLambertMaterial({ color: '#fffbe0', emissive: '#ffe08a', emissiveIntensity: 0 });
 
-  groundMesh = new THREE.Mesh(new THREE.PlaneGeometry(WN + 80, WN + 80), mat('#7cc06a'));
-  groundMesh.rotation.x = -Math.PI / 2; groundMesh.position.set(WN / 2, 0, WN / 2); groundMesh.receiveShadow = true; scene.add(groundMesh);
+  groundMesh = new THREE.Mesh(new THREE.PlaneGeometry(CW + 80, CW + 80), mat('#7cc06a'));
+  groundMesh.rotation.x = -Math.PI / 2; groundMesh.position.set((CO + WN) / 2, 0, (CO + WN) / 2); groundMesh.receiveShadow = true; scene.add(groundMesh);
   const dashes = [], lamps = [];
-  for (let k = 0; k <= WN - RW; k += BLK) {
+  const CM = (CO + WN) / 2;
+  for (let k = CO; k <= WN - RW; k += BLK) {
     const c = k + RW / 2;
-    box(WN + 0.6, 0.06, RW + 0.6, '#c9c9c9', WN / 2, 0.03, c, null, false);
-    box(RW + 0.6, 0.065, WN + 0.6, '#c9c9c9', c, 0.032, WN / 2, null, false);
-    box(WN, 0.08, RW, '#4a4f57', WN / 2, 0.04, c, null, false);
-    box(RW, 0.085, WN, '#4a4f57', c, 0.042, WN / 2, null, false);
-    for (let i = 0; i < WN; i += 2) { if (i % BLK >= RW + 1 && i % BLK < BLK - 1) { dashes.push([i + 0.5, c, 0]); dashes.push([c, i + 0.5, 1]); } }
-    for (let i = 0; i < WN; i++) if (i % BLK === 6) { lamps.push([i, k + RW + 0.25]); lamps.push([k + RW + 0.25, i]); }
+    box(CW + 0.6, 0.06, RW + 0.6, '#c9c9c9', CM, 0.03, c, null, false);
+    box(RW + 0.6, 0.065, CW + 0.6, '#c9c9c9', c, 0.032, CM, null, false);
+    box(CW, 0.08, RW, '#4a4f57', CM, 0.04, c, null, false);
+    box(RW, 0.085, CW, '#4a4f57', c, 0.042, CM, null, false);
+    for (let i = CO; i < WN; i += 2) { if (bmod(i) >= RW + 1 && bmod(i) < BLK - 1) { dashes.push([i + 0.5, c, 0]); dashes.push([c, i + 0.5, 1]); } }
+    for (let i = CO; i < WN; i++) if (bmod(i) === 8) { lamps.push([i, k + RW + 0.25]); lamps.push([k + RW + 0.25, i]); }
   }
   const o = new THREE.Object3D();
   const dm = new THREE.InstancedMesh(boxG, mat('#eeeeee'), dashes.length);
@@ -8147,7 +8357,7 @@ async function init3D() {
   ecoWorld3D(o); ab3D(); try { sz3D(); } catch (e) { console.warn('sz3D', e); }
   box(1.2, 1.4, 0.15, '#7f8c8d', JAIL_SPOT.x * S3, 0.7, JAIL_SPOT.y * S3 + 0.8);
   const trees = [];
-  for (let gy = 0; gy < WN; gy++) for (let gx = 0; gx < WN; gx++) {
+  for (let gy = CO; gy < WN; gy++) for (let gx = CO; gx < WN; gx++) {
     if (isRoad(gx, gy) || isRoad(gx - 1, gy) || isRoad(gx, gy - 1) || isRoad(gx + 1, gy) || isRoad(gx, gy + 1) || (gx * 7 + gy * 13) % 9) continue;
     if (BUILD.some(b => gx >= b.x - 1 && gx <= b.x + b.w && gy >= b.y - 1 && gy <= b.y + b.h + 1)) continue;
     if (PLOTS.some(p => gx >= p.x - 1 && gx <= p.x + p.w && gy >= p.y - 1 && gy <= p.y + p.h)) continue;
@@ -8410,7 +8620,7 @@ function frame(t) {
       if (jm > 0.08) {
         if (ME.sit != null || ME.trib) kkStand();
         const sp = (ME.job === 'Taksici' ? 0.32 : ME.drive && ME.veh[ME.drive] ? vehSp(ME.veh[ME.drive]) : ME.sick ? 0.12 : 0.18) * dt * jm * (cityOn('road') ? 1.15 : 1) * (ME.sw ? (ME.job === 'Cankurtaran' ? 0.8 : 0.55) : 1) * (ME.boat > now() ? 0.9 : 1);
-        const nx = Math.max(10, Math.min(XMAX, ME.x + jx * sp)), ny = Math.max(10, Math.min(YMAX, ME.y + jy * sp));
+        const nx = Math.max(CO * T + 10, Math.min(XMAX, ME.x + jx * sp)), ny = Math.max(CO * T + 10, Math.min(YMAX, ME.y + jy * sp));
         if (blocked(ME.x, ME.y) || !blocked(nx, ny)) { ME.x = nx; ME.y = ny; ME._mv = true; }
         else if (!blocked(nx, ME.y)) { ME.x = nx; ME._mv = true; }
         else if (!blocked(ME.x, ny)) { ME.y = ny; ME._mv = true; }
