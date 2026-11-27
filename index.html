@@ -173,7 +173,7 @@ const COUNTRIES = {
 let FULL1 = true; try { FULL1 = localStorage.getItem('kk_full1') !== '0'; } catch (e) { }   // Komşukent dolu mu: yönetici panelden açar/kapatır (pub/full1)
 const C = (() => { let c = 0; try { const u = +new URLSearchParams(location.search).get('c'), st = +localStorage.getItem('kk_c'), known = !!(localStorage.getItem('kk_me') || localStorage.getItem('kk_id')); c = u || (known ? st : 0) || (FULL1 ? 2 + Math.floor(Math.random() * 2) : 1); } catch (e) { c = 1; } if (!COUNTRIES[c] || !COUNTRIES[c].cfg) c = 1; try { localStorage.setItem('kk_c', String(c)); } catch (e) { } return c; })();
 const FB = {};
-const APP_V = '2026112225';
+const APP_V = '2026112226';
 let CAP = 0;   // bump on every upload (yyyymmddNN)
 const ADMIN = location.hash === '#yonetim';
 let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off, orderByChild, equalTo;
@@ -1037,6 +1037,7 @@ async function playersMenu() {
     const items = [{ label: '👤 Profili gör', fn: () => showProfile(id, p.name) }];
     if (IS_ADMIN) items.push({ label: '🏛 Cumhurbaşkanı yap', cls: 'blue', fn: () => cbAdminMenu(id, p.name) });
     items.push({ label: '🛡 Yönetim seçenekleri (sustur / at / moderatör)', fn: () => profileMenu(id, p.name) });
+    if (IS_ADMIN) items.push({ label: '💰 Parasını incele / düzelt', fn: () => moneyInspect(id, p) });
     if (del) items.push({ label: '🗑 Hesabı sil', fn: () => del.click() });
     modal(esc(p.name), items, `<p>${esc(p.job || '')} • ${Math.round((p.play || 0) / 3600000 * 10) / 10} saat oynadı • 💰 ${Math.floor(p.money || 0).toLocaleString('tr')}</p>`); });
   mcard.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
@@ -7394,7 +7395,10 @@ function mmUpdate(force) {
   if (!ME) return;
   const on = MMON() && !ROOM.on && !(IS_ADMIN && admView);
   if (!MM) { MM = document.createElement('canvas'); MM.id = 'mmap'; MM.width = MM.height = 220; MM.style.cssText = 'position:fixed;left:max(8px,env(safe-area-inset-left));top:calc(env(safe-area-inset-top) + 50px);width:104px;height:104px;border-radius:50%;border:3px solid rgba(255,255,255,.85);box-shadow:0 3px 10px rgba(0,0,0,.35);z-index:15;background:#86c66f'; MM.onclick = mapOpen; document.body.appendChild(MM); }
-  MM.style.display = on ? 'block' : 'none'; if (!on) return;
+  MM.style.display = on ? 'block' : 'none';
+  { const hb = document.getElementById('hud'), top = hb ? Math.round(hb.getBoundingClientRect().bottom) + 4 : 60; if (MM._top !== top) { MM._top = top; MM.style.top = top + 'px'; }
+    const kb = document.getElementById('kampB'); if (kb) kb.style.top = (on ? top + 112 : top + 4) + 'px'; }
+  if (!on) return;
   const x = MM.getContext('2d'), s = 6, cx = ME.x / T, cy = ME.y / T, ox = 110 - cx * s, oy = 110 - cy * s;
   x.save(); x.clearRect(0, 0, 220, 220); x.beginPath(); x.arc(110, 110, 110, 0, 7); x.clip(); x.fillStyle = '#4aa3df'; x.fillRect(0, 0, 220, 220);
   x.imageSmoothingEnabled = false; x.drawImage(mapBase(), ox + CO * s, oy + CO * s, (MAPW - CO) * s, (MAPH - CO) * s); mapPlotsDraw(x, s, ox, oy);
@@ -8129,6 +8133,34 @@ const _kkAdminHTML23 = kkAdminHTML, _kkAdminWire23 = kkAdminWire;
 kkAdminHTML = () => _kkAdminHTML23() + `<div style="margin-top:8px"><button id="aBank" style="background:#1e8449">🏦 Banka kasaları (3 ülke) → hesabıma aktar</button></div>`;
 kkAdminWire = el => { _kkAdminWire23(el); const b = el.querySelector('#aBank'); if (b) b.onclick = adminBank; };
 
+
+// ---- yönetici: para incele (nereden zengin oldu?)
+function moneyFacts(p) {
+  const m = p.m || {}, months = Object.keys(m).sort(), earned = months.reduce((s, k) => s + (m[k].earned || 0), 0), worked = months.reduce((s, k) => s + (m[k].worked || 0), 0);
+  return { earned: Math.floor(earned), worked, months, money: Math.floor(p.money || 0), hours: Math.round((p.play || 0) / 360000) / 10 };
+}
+async function moneyInspect(id, p) {
+  p = (await get(ref(db, 'players/' + id)).catch(() => null))?.val() || p; const F = moneyFacts(p);
+  const bank = (await get(ref(db, 'bank/acc/' + id)).catch(() => null))?.val() || {};
+  const fark = F.money - F.earned, sus = F.money > 20000 && F.money > F.earned * 1.5;
+  const f = n => Math.floor(n || 0).toLocaleString('tr');
+  modal(`💰 ${esc(p.name)}`, [
+    { label: '✏️ Parasını değiştir', fn: async () => { const v = prompt(`${p.name} kaç 💰 olsun? (şu an ${f(F.money)})`, String(Math.min(F.money, F.earned + 5000))); if (v == null) return; const n = Math.max(0, Math.floor(+v || 0)); await set(ref(db, `players/${id}/money`), n).then(() => { notify(id, `🏦 Hesabın yönetim tarafından düzenlendi: ${f(n)} 💰`); toast('✅ Kaydedildi'); }).catch(e => alert(e.message)); } },
+    { label: `↩️ Kazandığı kadarına indir (${f(F.earned + 5000)} 💰)`, cls: 'red', disabled: F.money <= F.earned + 5000, fn: async () => { if (!confirm('Parası kazandığı miktar + 5.000 💰 olarak ayarlansın mı?')) return; await set(ref(db, `players/${id}/money`), F.earned + 5000).then(() => toast('✅ Düzeltildi')).catch(e => alert(e.message)); } },
+    { label: '⬅ Geri', fn: () => playersMenu() },
+  ], `<p>💰 Şu anki parası: <b>${f(F.money)}</b><br>💵 Oyunda çalışarak/satarak kazandığı (kayıtlı): <b>${f(F.earned)}</b><br>👔 Mesai: <b>${F.worked}</b> • ⏱ ${F.hours} saat oynadı<br>🏦 Bankada: ${f(bank.d)}${bank.v ? ` • vadeli ${f(bank.v)}` : ''}${bank.l ? ` • borç ${f(bank.l)}` : ''}</p>
+    <p style="background:${sus ? '#7b241c' : '#1e4620'};padding:8px;border-radius:10px">${sus ? `⚠️ Parası kazandığından <b>${f(fark)} 💰 fazla</b>. Başkalarından gelen para (havale, satış, kira, göç) da olabilir ama bu kadar büyük fark genelde hile ya da hatadır.` : '✅ Parası kazandığıyla uyumlu görünüyor.'}</p>
+    <p style="font-size:12px;opacity:.8">Aylara göre kazanç: ${F.months.slice(-4).map(k => `${k}: ${f((p.m[k] || {}).earned)}`).join(' • ') || 'kayıt yok'}</p>`);
+}
+async function richList() {
+  const all = (await get(ref(db, 'players'))).val() || {};
+  const rows = Object.entries(all).filter(([, p]) => p && p.name && !p.moved).map(([id, p]) => ({ id, p, F: moneyFacts(p) })).sort((a, b) => b.F.money - a.F.money).slice(0, 25);
+  modal('🚨 En zenginler • para kontrolü', rows.map(r => { const sus = r.F.money > 20000 && r.F.money > r.F.earned * 1.5; return { label: `${sus ? '⚠️' : '✅'} ${esc(r.p.name)} • ${r.F.money.toLocaleString('tr')} 💰`, right: `kazandı ${r.F.earned.toLocaleString('tr')}`, fn: () => moneyInspect(r.id, r.p) }; }),
+    '<p>⚠️ = parası kazandığından çok fazla (hile ya da hata şüphesi). Dokun → incele / düzelt.</p>');
+}
+const _kkAdminHTML25 = kkAdminHTML, _kkAdminWire25 = kkAdminWire;
+kkAdminHTML = () => _kkAdminHTML25() + `<div style="margin-top:8px"><button id="aRich" style="background:#c0392b">🚨 En zenginler • para kontrolü</button></div>`;
+kkAdminWire = el => { _kkAdminWire25(el); const b = el.querySelector('#aRich'); if (b) b.onclick = richList; };
 // ================= EVENTS =================
 const EV_NAMES = { yangin: '🔥 YANGIN', soygun: '🚨 SOYGUN', festival: '🎉 FESTİVAL' };
 function evStart() { if (EV && !EV.done) { const b = evB(); toast(`${EV_NAMES[EV.type]}${b ? ' — ' + b.n : ''}!`, 5000); } }
