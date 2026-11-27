@@ -173,7 +173,7 @@ const COUNTRIES = {
 let FULL1 = true; try { FULL1 = localStorage.getItem('kk_full1') !== '0'; } catch (e) { }   // Komşukent dolu mu: yönetici panelden açar/kapatır (pub/full1)
 const C = (() => { let c = 0; try { const u = +new URLSearchParams(location.search).get('c'), st = +localStorage.getItem('kk_c'), known = !!(localStorage.getItem('kk_me') || localStorage.getItem('kk_id')); c = u || (known ? st : 0) || (FULL1 ? 2 + Math.floor(Math.random() * 2) : 1); } catch (e) { c = 1; } if (!COUNTRIES[c] || !COUNTRIES[c].cfg) c = 1; try { localStorage.setItem('kk_c', String(c)); } catch (e) { } return c; })();
 const FB = {};
-const APP_V = '2026112222';
+const APP_V = '2026112223';
 let CAP = 0;   // bump on every upload (yyyymmddNN)
 const ADMIN = location.hash === '#yonetim';
 let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off, orderByChild, equalTo;
@@ -1155,7 +1155,7 @@ function computeActs() {
   }
   if (ME.job === 'Taksici' && !b) L.push({ label: '🚕 Müşterilerin sana binebilir', cls: 'gray' });
   newJobActs(L, b, p, near, t);
-  ecoActs(L, b, t); abActs(L, b, t); futActs(L, b, t); kkActs(L, b, t); roomOutActs(L, b, p, t); szActs(L, t); mapActs(L, t);
+  ecoActs(L, b, t); abActs(L, b, t); futActs(L, b, t); kkActs(L, b, t); roomOutActs(L, b, p, t); szActs(L, t); mapActs(L, t); hsActs(L); adActs(L);
   // thief / con man
   if ((ME.job === 'Hırsız' && isNight()) || ME.job === 'Dolandırıcı') {
     const blk = stealBlock();
@@ -4577,7 +4577,7 @@ function futActs(L, b, t) {
   const live = futLiveRound();
   if (inS && live >= 0) L.push({ label: `🎟 Maçı izle (20 💰, +25⚡) • 🔴 ${futMin(live)}'`, disabled: ME.money < 20 || ME.energy >= 100, fn: () => { if (!spend(20)) return; cityIncome(20); startTask('rest', 30000, () => futInStad(ME.x, ME.y), () => { ME.energy = Math.min(100, ME.energy + 25); stat('fun'); hud(); saveMe(); toast('📣 Tribünler coştu! +25⚡'); }, '🎟 Maç izliyorsun'); } });
   if (ME.job === 'Futbolcu') L.push({ label: `🏃 Antrenman (-20⚡, güç ${ME.fpw || 50})`, disabled: ME.energy < 20, fn: futTrain });
-  if (inH) L.push({ label: '⚽ Halı saha maçı yap (eğlence, -10⚡)', disabled: ME.energy < 10, fn: () => startTask('rest', 20000, () => HSAHA.some(h => inside(h, ME.x, ME.y, 30)), () => { ME.energy -= 10; stat('fun'); hud(); saveMe(); toast('⚽ Maç bitti! Halı saha efsanesi 😄'); }, '⚽ Halı saha') });
+  if (inH && HSME < 0 && !hsOn(0) && !hsOn(1)) L.push({ label: '⚽ Halı saha maçı yap (eğlence, -10⚡)', disabled: ME.energy < 10, fn: () => startTask('rest', 20000, () => HSAHA.some(h => inside(h, ME.x, ME.y, 30)), () => { ME.energy -= 10; stat('fun'); hud(); saveMe(); toast('⚽ Maç bitti! Halı saha efsanesi 😄'); }, '⚽ Halı saha') });
 }
 
 // ---- 3D: stad (videodaki gibi siyah-beyaz kase) + halı sahalar
@@ -7467,7 +7467,7 @@ function sndCtx() {
   if (SND.ctx.state === 'suspended') SND.ctx.resume().catch(() => { });
   return SND.ctx;
 }
-['pointerdown', 'touchend', 'keydown'].forEach(ev => addEventListener(ev, () => { if (SND.on && ME && ME.drive) sndCtx(); }, { passive: true }));
+['pointerdown', 'touchend', 'keydown'].forEach(ev => addEventListener(ev, () => { if (SND.on && ME) sndCtx(); }, { passive: true }));
 function engNew(c, sport) {
   const g = c.createGain(); g.gain.value = 0; g.connect(c.destination);
   const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 400; lp.Q.value = sport ? 6 : 2; lp.connect(g);
@@ -7520,6 +7520,398 @@ setInterval(() => {
   for (const id in ENG.oth) if (!live2[id]) { engKill(ENG.oth[id]); delete ENG.oth[id]; }
 }, 80);
 function sndToggle() { SND.on = !SND.on; try { localStorage.setItem('kk_snd', SND.on ? '1' : '0'); } catch (e) { } if (SND.on) sndCtx(); toast(SND.on ? '🔊 Motor sesleri açık' : '🔇 Motor sesleri kapalı'); }
+// ================= v22: STADYUM GOL ANİMASYONU + TEKRAR + TRİBÜN COŞKUSU • HALI SAHADA GERÇEK MAÇ • REKLAM PANOLARI =================
+let SOFF = 0; const snow = () => Date.now() + SOFF;
+setTimeout(() => { try { onValue(ref(db, '.info/serverTimeOffset'), s => { SOFF = s.val() || 0; }); } catch (e) { } }, 4000);
+// ---------- ses: tribün uğultusu
+function crowdRoar(vol = 0.5, dur = 3.2) {
+  const c = SND.on && SND.ctx; if (!c || c.state !== 'running') return;
+  const n = Math.floor(c.sampleRate * dur), buf = c.createBuffer(1, n, c.sampleRate), d = buf.getChannelData(0);
+  for (let i = 0; i < n; i++) { const k = i / n, env = k < 0.12 ? k / 0.12 : Math.pow(1 - (k - 0.12) / 0.88, 1.6); d[i] = (Math.random() * 2 - 1) * env; }
+  const s = c.createBufferSource(); s.buffer = buf; const f = c.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 700; f.Q.value = 0.7; const g = c.createGain(); g.gain.value = vol;
+  s.connect(f); f.connect(g); g.connect(c.destination); s.start();
+}
+function whistle() {
+  const c = SND.on && SND.ctx; if (!c || c.state !== 'running') return;
+  const o = c.createOscillator(), g = c.createGain(); o.frequency.value = 2900; const l = c.createOscillator(), lg = c.createGain(); l.frequency.value = 38; lg.gain.value = 120; l.connect(lg); lg.connect(o.frequency);
+  g.gain.value = 0.0001; g.gain.exponentialRampToValueAtTime(0.12, c.currentTime + 0.03); g.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + 0.6);
+  o.connect(g); g.connect(c.destination); o.start(); l.start(); o.stop(c.currentTime + 0.65); l.stop(c.currentTime + 0.65);
+}
+// ---------- ekrandaki GOL yazısı + konfeti
+let GKEL = null;
+function gkBanner(big, small, ms = 4500, col = '#e74c3c') {
+  if (!GKEL) { GKEL = document.createElement('div'); GKEL.style.cssText = 'position:fixed;left:0;right:0;top:calc(env(safe-area-inset-top) + 120px);z-index:40;text-align:center;pointer-events:none;display:none'; document.body.appendChild(GKEL);
+    const st = document.createElement('style'); st.textContent = '@keyframes gkp{0%{transform:scale(.2)}60%{transform:scale(1.15)}100%{transform:scale(1)}}@keyframes gkc{to{transform:translate(var(--dx),110vh) rotate(720deg)}}'; document.head.appendChild(st); }
+  GKEL.innerHTML = `<div style="display:inline-block;animation:gkp .45s ease-out;background:${col};color:#fff;font:900 34px system-ui;padding:8px 22px;border-radius:18px;box-shadow:0 6px 20px rgba(0,0,0,.4);text-shadow:0 2px 0 rgba(0,0,0,.25)">${big}</div>${small ? `<div style="margin-top:8px"><span style="background:rgba(15,23,36,.85);color:#fff;font:800 14px system-ui;padding:6px 12px;border-radius:12px">${small}</span></div>` : ''}`;
+  GKEL.style.display = 'block'; clearTimeout(gkBanner.h); gkBanner.h = setTimeout(() => GKEL.style.display = 'none', ms);
+}
+function confettiDOM(n = 70) {
+  const C2 = ['#e74c3c', '#f1c40f', '#3498db', '#2ecc71', '#ff6fb5', '#ffffff'];
+  for (let i = 0; i < n; i++) { const e = document.createElement('div'); const dx = (Math.random() - 0.5) * 300 + 'px';
+    e.style.cssText = `position:fixed;z-index:39;left:${Math.random() * 100}vw;top:-12px;width:8px;height:12px;background:${C2[i % 6]};border-radius:2px;pointer-events:none;--dx:${dx};animation:gkc ${1.8 + Math.random() * 1.6}s linear forwards`;
+    document.body.appendChild(e); setTimeout(() => e.remove(), 3600); }
+}
+let RPEL = null;
+function replayLabel(on) {
+  if (!RPEL) { RPEL = document.createElement('div'); RPEL.style.cssText = 'position:fixed;right:max(70px,env(safe-area-inset-right));top:calc(env(safe-area-inset-top) + 56px);z-index:24;background:#c0392b;color:#fff;font:900 13px system-ui;padding:5px 10px;border-radius:8px;display:none'; RPEL.textContent = '🔁 TEKRAR'; document.body.appendChild(RPEL); }
+  RPEL.style.display = on ? 'block' : 'none';
+}
+// ---------- stadyum: gollere göre oynanan maç
+const GA = { r: -1, m: null, told: {} };
+const gaRnd = (k, s) => { const v = futHash(k + s) / 4294967295; return v * 2 - 1; };
+function gaShown(live) {
+  if (GA.r === live && GA.m) return GA.m;
+  if (!FUTLIVE.res || !FUTT) return null;
+  GA.r = live; GA.m = FUTLIVE.res.map(m => ({ m, s: futStr(futXI(FUTT[m.h], live)) + futStr(futXI(FUTT[m.a], live)) })).sort((a, b) => b.s - a.s)[0].m; GA.told = {};
+  return GA.m;
+}
+const L2 = (a, b, k) => a + (b - a) * k;
+function gaAttack(g, p) {   // p: 0..1 → top konumu ve atak bilgisi
+  const dir = g.sd ? -1 : 1, zr = gaRnd(g.k, 'z'), zr2 = gaRnd(g.k, 'q'), gX = STX + dir * SPX;
+  const S = [STX - dir * 2, STZ + zr * 4], W = [gX - dir * 7, STZ + zr * (SPZ - 3)], W2 = [gX - dir * 4.2, STZ + zr * 2.6], E = [gX + dir * 0.8, STZ + zr2 * 1.1];
+  let x, z, y = 0.25, shot = 0;
+  if (p < 0.55) { const k = p / 0.55; x = L2(S[0], W[0], k); z = L2(S[1], W[1], k) + Math.sin(k * 9) * 0.4; }
+  else if (p < 0.82) { const k = (p - 0.55) / 0.27; x = L2(W[0], W2[0], k); z = L2(W[1], W2[1], k); }
+  else { const k = Math.min(1, (p - 0.82) / 0.18); x = L2(W2[0], E[0], k); z = L2(W2[1], E[1], k); y = 0.25 + Math.sin(Math.PI * k) * 0.9; shot = 1; }
+  return { x, z, y, dir, shot, W2, E, zr };
+}
+function gaSetTeam(m, k, fn) { const d = gaSetTeam.o || (gaSetTeam.o = new THREE.Object3D()); for (let i = 0; i < 11; i++) { const [x, z, face, hop] = fn(i); d.position.set(x, 0.75 + (hop || 0), z); d.rotation.set(0, face, 0); d.scale.set(0.55, 1.5, 0.4); d.updateMatrix(); m.setMatrixAt(i, d.matrix); } m.instanceMatrix.needsUpdate = true; }
+const gaBase = (k, i) => [STX + (k ? 1 : -1) * (i === 0 ? SPX - 0.8 : (SPX * (0.15 + (i % 4) * 0.22))), STZ + (((i * 37) % 11) / 10 - 0.5) * 2 * (SPZ - 1.5)];
+function gaPose(bx, bz, atk, A, t, mode) {   // atk: atak yapan takım (0/1) ya da -1
+  [FUT3.pa, FUT3.pb].forEach((m, k) => gaSetTeam(m, k, i => {
+    const [hx, hz] = gaBase(k, i);
+    if (i === 0) { const gx = STX + (k ? 1 : -1) * (SPX - 0.6); const z = STZ + Math.max(-1.4, Math.min(1.4, (bz - STZ) * 0.3)); return [gx, z, Math.atan2(bx - gx, bz - z)]; }
+    if (mode === 'cel' && k === atk) { const cx = A.W2[0] + (A.dir) * 2.5 + Math.sin(i) * 0.9, cz = STZ + Math.sign(A.zr || 1) * (SPZ - 2) + Math.cos(i * 2) * 0.9; const q = Math.min(1, t); const x = L2(hx, cx, q), z = L2(hz, cz, q); return [x, z, 0, Math.abs(Math.sin(performance.now() / 120 + i)) * 0.35]; }
+    if (mode === 'cel') return [hx, hz, Math.atan2(STX - hx, STZ - hz)];
+    if (atk === k && i === 10) { const back = A && A.shot ? A.W2 : [bx - A.dir * 0.6, bz]; return [back[0], back[1], Math.atan2(A.dir, 0)]; }
+    const push = atk < 0 ? 0 : (k === atk ? 0.6 : 0.45), sh = (bx - STX) * push;
+    const x = hx + sh + Math.sin(performance.now() / 700 + i * 3 + k) * 0.5, z = hz + (bz - hz) * 0.25 + Math.cos(performance.now() / 800 + i * 2) * 0.5;
+    return [x, z, Math.atan2(bx - x, bz - z)];
+  }));
+}
+function gaTick() {
+  const live = FUTCFG ? futLiveRound() : -1;
+  if (live < 0 || !FUT3.pa) { replayLabel(false); return; }
+  const m = gaShown(live); if (!m) return;
+  const kick = futKicks()[live], tau = now() - kick, MS = 600000 / 90;
+  const goals = futEv(m).filter(e => e.ty === 'g').map(e => ({ ...e, tg: e.mn * MS, k: m.h + m.a + e.mn + e.pid }));
+  const near = ME && (nearStad() || ME.trib) && !ME.inside;
+  // atak (gol öncesi 8 sn) / sevinç / tekrar / santra
+  let done = false, rep = false;
+  for (const g of goals) {
+    const d = tau - g.tg;
+    if (d >= -8000 && d < 0) { const A = gaAttack(g, 1 + d / 8000); FUT3.ball.position.set(A.x, A.y, A.z); gaPose(A.x, A.z, g.sd, A, 0, 'atk'); done = true; break; }
+    if (d >= 0 && d < 2500) { const A = gaAttack(g, 1); FUT3.ball.position.set(A.E[0], 0.25, A.E[1]); gaPose(A.E[0], A.E[1], g.sd, A, d / 1500, 'cel'); done = true; gaCheer(g, m, near); break; }
+    if (d >= 2500 && d < 10500) { const A = gaAttack(g, (d - 2500) / 8000); FUT3.ball.position.set(A.x, A.y, A.z); gaPose(A.x, A.z, g.sd, A, 0, 'atk'); done = true; rep = true; break; }
+    if (d >= 10500 && d < 13000) { FUT3.ball.position.set(STX, 0.25, STZ); gaPose(STX, STZ, -1, null, 0, 'kick'); done = true; break; }
+  }
+  replayLabel(rep && near);
+  // tribün zıplar
+  const jg = goals.find(g => tau - g.tg >= 0 && tau - g.tg < 4000), jy = jg ? Math.abs(Math.sin((tau - jg.tg) / 140)) * 0.35 : 0;
+  if (FUT3.crowd) { FUT3.crowd.position.y = jy; if (FUT3.heads) FUT3.heads.position.y = jy; }
+  return done;
+}
+function gaCheer(g, m, near) {
+  if (GA.told[g.k]) return; GA.told[g.k] = 1; if (!near) return;
+  const tid = g.sd ? m.a : m.h, p = ((FUTT[tid] || {}).pl || {})[g.pid] || {}, ev = futEv(m).filter(e => e.ty === 'g' && e.mn <= g.mn);
+  gkBanner('⚽ GOOOL!', `${g.mn}' ${esc(p.n || '')} • ${esc((FUTT[m.h] || {}).n || '')} ${ev.filter(e => !e.sd).length}-${ev.filter(e => e.sd).length} ${esc((FUTT[m.a] || {}).n || '')}`);
+  confettiDOM(); crowdRoar(0.55); whistle(); try { navigator.vibrate && navigator.vibrate([80, 60, 80]); } catch (e) { }
+}
+let GA_KO = -1;
+setInterval(() => {   // başlama ve bitiş düdüğü (stadyumdakilere)
+  if (!ME || !FUTCFG || !(nearStad() || ME.trib)) return;
+  const live = futLiveRound(); if (live >= 0 && GA_KO !== live) { GA_KO = live; const m = gaShown(live); if (m && futMin(live) < 3) { whistle(); gkBanner('⚽ MAÇ BAŞLADI!', m ? `${esc(FUTT[m.h].n)} - ${esc(FUTT[m.a].n)}` : '', 3500, '#2e86de'); } }
+  if (live < 0 && GA_KO >= 0) { const r = GA_KO; GA_KO = -1; const m = GA.r === r ? GA.m : null; if (m && FUTT) { whistle(); setTimeout(whistle, 400); gkBanner('🏁 MAÇ BİTTİ', `${esc(FUTT[m.h].n)} ${m.hg}-${m.ag} ${esc(FUTT[m.a].n)}`, 5000, '#2c3e50'); } }
+}, 2000);
+// ---------- HALI SAHA: gerçek mini maç
+const HS_MS = 5 * 60000, HSB = 0.26;   // 5 dk, top yarıçapı (karo)
+const HSM = [null, null], HSBALL = [null, null], HSSUB = [null, null], HS3 = [null, null];
+let HSME = -1, HSLAST = 0, HSPOS = 0, HSMV = { x: 0, y: 0, vx: 0, vy: 0, t: 0 };
+const hsC = i => { const h = HSAHA[i]; return { cx: h.x + h.w / 2, cz: h.y + h.h / 2, x0: h.x + 0.7, x1: h.x + h.w - 0.7, z0: h.y + 0.7, z1: h.y + h.h - 0.7 }; };
+function hsWatch() {
+  if (!ME || !db) return;
+  for (let i = 0; i < 2; i++) {
+    const c = hsC(i), near = !ME.inside && Math.hypot(ME.x / T - c.cx, ME.y / T - c.cz) < 28;
+    if (near && !HSSUB[i]) {
+      HSSUB[i] = [onValue(ref(db, `hs/${i}/m`), s => hsMeta(i, s.val())), onValue(ref(db, `hs/${i}/b`), s => hsBallIn(i, s.val()))];
+    } else if (!near && HSSUB[i] && HSME !== i) { HSSUB[i].forEach(u => { try { u(); } catch (e) { } }); HSSUB[i] = null; HSM[i] = null; HSBALL[i] = null; if (HS3[i]) HS3[i].visible = false; }
+  }
+  // bekleme odasındaki çevrimdışı hayaletleri sil
+  for (let i = 0; i < 2; i++) { const m = HSM[i]; if (m && m.p && !hsOn(i) && hsHost(i)) for (const id in m.p) if (!hsLive(id)) remove(ref(db, `hs/${i}/m/p/${id}`)).catch(() => { }); }
+  // maçtan uzaklaşan ayrılır
+  if (HSME >= 0) { const c = hsC(HSME); if (ME.inside || Math.hypot(ME.x / T - c.cx, ME.y / T - c.cz) > 22) hsLeave(true); }
+}
+setInterval(hsWatch, 1200);
+function hsMeta(i, v) {
+  const old = HSM[i]; HSM[i] = v;
+  if (v && v.p && v.p[myId] && HSME < 0) HSME = i;
+  if (HSME === i && (!v || !v.p || !v.p[myId])) HSME = -1;
+  if (!v || !old) return;
+  const c = hsC(i), near = ME && Math.hypot(ME.x / T - c.cx, ME.y / T - c.cz) < 28;
+  if (near && v.st && old.st !== v.st) { whistle(); gkBanner('⚽ HALI SAHA MAÇI BAŞLADI', '5 dakika • topa dokun, sür, ⚽ Şut ile gol at!', 3500, '#2e86de'); }
+  if (near && ((v.s0 || 0) > (old.s0 || 0) || (v.s1 || 0) > (old.s1 || 0))) { const t1 = (v.s1 || 0) > (old.s1 || 0); gkBanner('⚽ GOL!', `${v.gn ? esc(v.gn) + ' • ' : ''}🔴 ${v.s0 || 0} - ${v.s1 || 0} 🔵`, 3500, t1 ? '#1f4e9e' : '#c0392b'); crowdRoar(0.25, 2); if (v.gu === myId) confettiDOM(40); }
+  if (v.end && !old.end && v.p && v.p[myId] && !hsMeta['r' + v.st]) {
+    hsMeta['r' + v.st] = 1; const my = v.p[myId].t, a = v.s0 || 0, b = v.s1 || 0, win = my === 0 ? a > b : b > a, draw = a === b;
+    earn(win ? 30 : draw ? 15 : 10, win ? '🏆 Halı saha maçını kazandın!' : draw ? '🤝 Berabere bitti' : '⚽ İyi maçtı, rövanş yakında!'); stat('fun'); ME.energy = Math.max(0, ME.energy - 10); saveMe(); hud();
+    whistle(); setTimeout(whistle, 350); gkBanner(win ? '🏆 KAZANDINIZ!' : draw ? '🤝 BERABERE' : '🏁 MAÇ BİTTİ', `🔴 ${a} - ${b} 🔵`, 5000, win ? '#27ae60' : '#2c3e50');
+  }
+}
+function hsBallIn(i, v) {
+  if (!v) { HSBALL[i] = null; return; }
+  const cur = HSBALL[i]; if (cur && cur.n === v.n && cur.u === v.u) return;   // kendi yazdığımızın yankısı
+  HSBALL[i] = { x: v.x, z: v.z, vx: v.vx || 0, vz: v.vz || 0, n: v.n || 0, u: v.u || null, gl: -1, glT: 0 };
+}
+const hsOn = i => { const m = HSM[i]; return !!(m && m.st && !m.end && snow() < m.st + HS_MS); };
+const hsLive = id => id === myId || (others[id] && live(others[id]));
+const hsTeamN = (m, t) => Object.entries((m && m.p) || {}).filter(([id, p]) => p.t === t && hsLive(id)).length;
+function hsJoin(i) {
+  const m = HSM[i] || {}, stale = m.st && snow() > m.st + HS_MS + 20000;
+  if (m.st && !stale && hsOn(i) && hsTeamN(m, 0) + hsTeamN(m, 1) >= 10) return toast('Saha dolu (10 kişi) 😕');
+  const t = hsTeamN(m, 0) <= hsTeamN(m, 1) ? 0 : 1;
+  const up = {}; if (stale || m.end) { up[`hs/${i}/m`] = { p: { [myId]: { t, n: ME.name.slice(0, 16) } } }; up[`hs/${i}/b`] = null; }
+  else up[`hs/${i}/m/p/${myId}`] = { t, n: ME.name.slice(0, 16) };
+  update(ref(db), up).then(() => { HSME = i; toast(t ? '🔵 Mavi takımdasın!' : '🔴 Kırmızı takımdasın!', 3000); }).catch(e => toast('Katılamadın: ' + e.message));
+}
+function hsLeave(auto) {
+  const i = HSME; if (i < 0) return; HSME = -1;
+  remove(ref(db, `hs/${i}/m/p/${myId}`)).catch(() => { });
+  if (auto) toast('Halı sahadan uzaklaştın, maçtan çıktın');
+}
+function hsSwap(i) { const m = HSM[i]; if (!m || !m.p || !m.p[myId]) return; set(ref(db, `hs/${i}/m/p/${myId}/t`), m.p[myId].t ? 0 : 1); }
+function hsStart(i) {
+  const c = hsC(i);
+  update(ref(db), { [`hs/${i}/m/st`]: serverTimestamp(), [`hs/${i}/m/s0`]: 0, [`hs/${i}/m/s1`]: 0, [`hs/${i}/m/end`]: null, [`hs/${i}/b`]: { x: c.cx, z: c.cz, vx: 0, vz: 0, n: Date.now() % 1e6, u: myId } }).catch(e => toast(e.message));
+}
+function hsHost(i) { const m = HSM[i]; if (!m || !m.p) return false; const ids = Object.keys(m.p).filter(id => id === myId || (others[id] && live(others[id]))).sort(); return ids[0] === myId; }
+function hsWrite(i, B) { B.n = (B.n || 0) + 1; B.u = myId; set(ref(db, `hs/${i}/b`), { x: +B.x.toFixed(2), z: +B.z.toFixed(2), vx: +B.vx.toFixed(2), vz: +B.vz.toFixed(2), n: B.n, u: myId }).catch(() => { }); }
+function hsShoot() {
+  const i = HSME, B = HSBALL[i]; if (i < 0 || !B || !hsOn(i)) return;
+  const d = Math.hypot(B.x - ME.x / T, B.z - ME.y / T); if (d > 1.5) return toast('Topa yaklaş ⚽');
+  const my = HSM[i].p[myId].t, c = hsC(i), gz = my === 0 ? c.z1 + 0.5 : c.z0 - 0.5, gx = c.cx + (Math.random() - 0.5) * 2.6;
+  const dx = gx - B.x, dz = gz - B.z, L = Math.hypot(dx, dz) || 1, sp = 15 + Math.random() * 3;
+  B.vx = dx / L * sp; B.vz = dz / L * sp; B.gl = -1; HSLAST = performance.now(); hsWrite(i, B);
+}
+function hsPass() {
+  const i = HSME, B = HSBALL[i]; if (i < 0 || !B || !hsOn(i)) return;
+  if (Math.hypot(B.x - ME.x / T, B.z - ME.y / T) > 1.5) return toast('Topa yaklaş ⚽');
+  const m = HSM[i], my = m.p[myId].t; let best = null, bd = 1e9;
+  for (const id in m.p) { if (id === myId || m.p[id].t !== my) continue; const o = others[id]; if (!o || !o.hasPos) continue; const dd = Math.hypot(o.x / T - B.x, o.y / T - B.z); if (dd < bd && dd > 1.5) { bd = dd; best = o; } }
+  if (!best) return hsShoot();
+  const dx = best.x / T - B.x, dz = best.y / T - B.z, L = Math.hypot(dx, dz) || 1, sp = Math.min(13, 4 + L * 1.1);
+  B.vx = dx / L * sp; B.vz = dz / L * sp; HSLAST = performance.now(); hsWrite(i, B);
+}
+function hsGoal(i, side, B) {   // side: golü atan takım
+  const m = HSM[i]; if (!m) return; const st = m.st, n = B.n, by = m.p && B.u && m.p[B.u] ? m.p[B.u].n : '';
+  runTransaction(ref(db, `hs/${i}/m`), v => { if (!v || v.st !== st || v.end || v.gk === n) return; v['s' + side] = (v['s' + side] || 0) + 1; v.gk = n; v.gn = by; v.gu = B.u || null; return v; })
+    .then(r => { if (r && r.committed) { const c = hsC(i); set(ref(db, `hs/${i}/b`), { x: c.cx, z: c.cz, vx: 0, vz: 0, n: n + 1, u: myId }).catch(() => { }); } }).catch(() => { });
+}
+function hsEnd(i) {
+  const m = HSM[i]; if (!m || !m.st || m.end) return; const st = m.st;
+  runTransaction(ref(db, `hs/${i}/m`), v => { if (!v || v.st !== st || v.end) return; v.end = 1; return v; }).then(r => {
+    if (!r || !r.committed) return; const v = r.snapshot.val();
+    say(`⚽ <b>Halı Saha ${i + 1}</b> maçı bitti: 🔴 Kırmızı ${v.s0 || 0} - ${v.s1 || 0} Mavi 🔵 (${Object.values(v.p || {}).map(p => esc(p.n)).join(', ')})`, true);
+    setTimeout(() => runTransaction(ref(db, `hs/${i}`), x => x && x.m && x.m.st === st && x.m.end ? null : undefined).catch(() => { }), 15000);
+  }).catch(() => { });
+}
+let HSFT = 0;
+function hsFrame() {
+  const pn = performance.now(), dt = Math.min(0.05, (pn - (HSFT || pn)) / 1000); HSFT = pn;
+  if (ME) { const mx = ME.x / T, my = ME.y / T, k = pn - HSMV.t; if (k > 60) { HSMV.vx = (mx - HSMV.x) / (k / 1000); HSMV.vy = (my - HSMV.y) / (k / 1000); HSMV.x = mx; HSMV.y = my; HSMV.t = pn; } }
+  for (let i = 0; i < 2; i++) {
+    const m = HSM[i], B = HSBALL[i], c = hsC(i);
+    if (!HS3[i] && THREE && scene) { HS3[i] = new THREE.Mesh(new THREE.SphereGeometry(HSB, 12, 10), new THREE.MeshLambertMaterial({ color: '#ffffff' })); HS3[i].visible = false; scene.add(HS3[i]); }
+    const showB = !!(m && m.st && B); if (HS3[i]) HS3[i].visible = showB;
+    if (!showB) continue;
+    const running = hsOn(i);
+    if (running && B.gl < 0) {
+      const steps = Math.max(1, Math.ceil(dt * 120)), h = dt / steps;
+      for (let s = 0; s < steps; s++) {
+        const f = Math.exp(-1.15 * h); B.vx *= f; B.vz *= f; B.x += B.vx * h; B.z += B.vz * h;
+        const inMouth = Math.abs(B.x - c.cx) < 1.5;
+        if (B.z < c.z0 && inMouth) { B.gl = 1; B.z = c.z0 - 0.5; B.vx = B.vz = 0; B.glT = pn; break; }    // kuzey kale → maviler attı
+        if (B.z > c.z1 && inMouth) { B.gl = 0; B.z = c.z1 + 0.5; B.vx = B.vz = 0; B.glT = pn; break; }    // güney kale → kırmızılar attı
+        if (B.x < c.x0) { B.x = c.x0; B.vx = Math.abs(B.vx) * 0.7; } if (B.x > c.x1) { B.x = c.x1; B.vx = -Math.abs(B.vx) * 0.7; }
+        if (B.z < c.z0) { B.z = c.z0; B.vz = Math.abs(B.vz) * 0.7; } if (B.z > c.z1) { B.z = c.z1; B.vz = -Math.abs(B.vz) * 0.7; }
+        if (Math.abs(B.vx) + Math.abs(B.vz) < 0.05) { B.vx = B.vz = 0; }
+      }
+    }
+    if (B.gl >= 0 && running && (B.u === myId || (pn - B.glT > 2500 && hsHost(i))) && !B.sent) { B.sent = 1; hsGoal(i, B.gl, B); }
+    const sp = Math.hypot(B.vx, B.vz); HS3[i].position.set(B.x, HSB + Math.min(0.5, Math.max(0, sp - 11) * 0.08), B.z); HS3[i].rotation.x += B.vz * dt * 3; HS3[i].rotation.z -= B.vx * dt * 3;
+    // ben topa dokunuyorum
+    if (HSME === i && running && B.gl < 0 && ME && !ME.drive) {
+      const dx = B.x - ME.x / T, dz = B.z - ME.y / T, d = Math.hypot(dx, dz);
+      if (d < 0.62 && pn - HSLAST > 220) {
+        const ms = Math.hypot(HSMV.vx, HSMV.vy), ux = d > 0.01 ? dx / d : 0, uz = d > 0.01 ? dz / d : 1;
+        const mx = ms > 0.5 ? HSMV.vx / ms : ux, mz = ms > 0.5 ? HSMV.vy / ms : uz, ax = ux * 0.5 + mx * 0.5, az = uz * 0.5 + mz * 0.5, al = Math.hypot(ax, az) || 1, v = Math.min(9, Math.max(3.2, ms * 1.45));
+        B.vx = ax / al * v; B.vz = az / al * v; B.x = ME.x / T + ux * 0.66; B.z = ME.y / T + uz * 0.66; HSLAST = pn; hsWrite(i, B);
+      }
+    }
+    if (m && m.st && !m.end && snow() > m.st + HS_MS && (HSME === i) && !hsEnd['e' + m.st]) { hsEnd['e' + m.st] = 1; hsEnd(i); }
+  }
+  // maçtayken konumu sık gönder (sadece yakındakiler görür)
+  if (HSME >= 0 && hsOn(HSME) && ME && pn - HSPOS > 300) { HSPOS = pn; if (Math.hypot(ME.x - sentX, ME.y - sentY) > 8) sendPos(true); }
+}
+function hsActs(L) {
+  if (!ME || ME.inside || ME.drive) return;
+  for (let i = 0; i < 2; i++) {
+    const h = HSAHA[i]; if (!inside(h, ME.x, ME.y, 3 * T)) continue;
+    const m = HSM[i], on = hsOn(i), me = m && m.p && m.p[myId];
+    const roster = t => Object.entries((m && m.p) || {}).filter(([id, p]) => p.t === t && hsLive(id)).map(([, p]) => p).map(p => esc(p.n)).join(', ') || '—';
+    if (on) {
+      const left = Math.max(0, m.st + HS_MS - snow()), mm = Math.floor(left / 60000), ss = Math.floor(left / 1000) % 60;
+      L.push({ label: `⚽ Halı Saha ${i + 1} • 🔴 ${m.s0 || 0} - ${m.s1 || 0} 🔵 • ⏱ ${mm}:${String(ss).padStart(2, '0')}`, cls: 'gray', dyn: 1, disabled: true });
+      if (me) { L.push({ label: '⚽ ŞUT (kaleye)', cls: 'blue', dyn: 1, fn: hsShoot }, { label: '👟 Pas (takım arkadaşına)', dyn: 1, fn: hsPass }); L.push({ label: `${me.t ? '🔵 Mavi' : '🔴 Kırmızı'} takımdasın • kaleye doğru: ${me.t ? 'yukarı ⬆' : 'aşağı ⬇'}`, cls: 'gray', dyn: 1, disabled: true }); }
+      else if (hsTeamN(m, 0) + hsTeamN(m, 1) < 10) L.push({ label: '⚽ Maça sonradan katıl', cls: 'blue', fn: () => hsJoin(i) });
+      return;
+    }
+    if (me) {
+      L.push({ label: `🔴 ${roster(0)}  vs  🔵 ${roster(1)}`, cls: 'gray', dyn: 1, disabled: true });
+      L.push({ label: hsTeamN(m, 0) && hsTeamN(m, 1) ? '▶ Maçı başlat (5 dk)' : '⏳ Rakip bekleniyor (her takımda en az 1 kişi)', cls: 'blue', dyn: 1, disabled: !(hsTeamN(m, 0) && hsTeamN(m, 1)), fn: () => hsStart(i) });
+      L.push({ label: '🔁 Takım değiştir', fn: () => hsSwap(i) }, { label: '🚪 Maçtan çık', cls: 'gray', fn: () => hsLeave() });
+    } else if (HSME < 0) L.push({ label: `⚽ Halı Saha ${i + 1}: maça katıl${m && m.p ? ` (${hsTeamN(m, 0) + hsTeamN(m, 1)} kişi bekliyor)` : ''}`, cls: 'blue', fn: () => hsJoin(i) });
+    return;
+  }
+}
+// ---------- futAnim'e bağla
+const _futAnim2_21 = futAnim2;
+futAnim2 = function (t) { _futAnim2_21(t); try { gaTick(); } catch (e) { console.log('ga', e); } };
+const _futAnim21 = futAnim;
+futAnim = function (t) { _futAnim21(t); try { hsFrame(); } catch (e) { console.log('hs', e); } };
+
+// ---------- REKLAM PANOLARI
+let ADSLOTS = null;
+function adFind(ax, az, len, ry, avoid) {
+  const ok = (x, z) => {
+    for (let k = -len / 2; k <= len / 2 + 0.01; k += 0.5) {
+      const px = ry ? x : x + k, pz = ry ? z + k : z;
+      if (blocked(px * T, pz * T) || inWater(px * T, pz * T)) return false;
+      if (px < WN && pz < WN && isRoad(Math.floor(px), Math.floor(pz))) return false;
+      if (PLOTS.some(p => px > p.x - 0.6 && px < p.x + (p.w || 3) + 0.6 && pz > p.y - 0.6 && pz < p.y + (p.h || 3) + 0.6)) return false;
+    }
+    if (STOPS.some(s => Math.hypot(s.x - x, s.y - z) < 3.5)) return false;
+    if (avoid.some(a => a.x != null && Math.hypot(a.x - x, a.z - z) < 5)) return false;
+    return true;
+  };
+  for (let r = 0; r < 14; r += 0.5) for (let a = 0; a < 24; a++) { const x = ax + Math.cos(a * Math.PI / 12) * r, z = az + Math.sin(a * Math.PI / 12) * r; if (ok(x, z)) return { x, z }; if (!r) break; }
+  return { x: ax, z: az };
+}
+function adSlots() {
+  if (ADSLOTS) return ADSLOTS; stopsInit();
+  const S = [], old = ['Şehir güney 1', 'Şehir güney 2', 'Stadyum yolu sol', 'Stadyum yolu sağ', 'Halı saha arkası', 'Sanayi yolu 1', 'Sanayi yolu 2'];
+  ADSPOT.forEach(([x, z, r], i) => S.push({ n: old[i], k: 'pole', x, z, ry: r }));
+  const P = (n, ax, az, ry = 0) => { const f = adFind(ax, az, 4.6, ry, S); S.push({ n, k: 'pole', x: f.x, z: f.z, ry: ry ? Math.PI / 2 : 0 }); };
+  const B = BMAP.belediye; P('Belediye meydanı', B.x + B.w + 1.5, B.y + B.h / 2);
+  const CB = BMAP.cumhur; P('Cumhurbaşkanlığı', CB.x + CB.w / 2, CB.y + CB.h + 3);
+  const A = BMAP.avm; S.push({ n: 'AVM dev ekran', k: 'wall', x: A.x + A.w / 2, z: A.y + A.h + 0.08, y: 4.9, w: 6, h: 2.5, ry: 0 });
+  P('Sahil', 116.5, 54, 1);
+  const K = BMAP.kafe; P('Falez Kafe', K.x - 1.5, K.y + K.h / 2, 1);
+  P('Galericiler Sitesi girişi', 80, 177.2); P('Sanayi Sitesi girişi', 30, 177.2);
+  P('Şehre giriş (yeni gelenler)', SPAWN.x / T + 3, SPAWN.y / T + 3);
+  const nz = STZ - SPZ - SOUT - 0.6, sz = STZ + SPZ + SOUT + 0.6, hy = SROWS * SRH + 3;
+  S.push({ n: 'Stadyum kuzey sol (dev)', k: 'big', x: STX - 9, z: nz, y: hy, w: 8, h: 3.2, ry: 0 }, { n: 'Stadyum kuzey sağ (dev)', k: 'big', x: STX + 9, z: nz, y: hy, w: 8, h: 3.2, ry: 0 });
+  S.push({ n: 'Stadyum güney sol (dev)', k: 'big', x: STX - 13, z: sz, y: hy, w: 8, h: 3.2, ry: 0 }, { n: 'Stadyum güney sağ (dev)', k: 'big', x: STX + 13, z: sz, y: hy, w: 8, h: 3.2, ry: 0 });
+  S.push({ n: 'Stadyum LED bant (kuzey)', k: 'band', x: STX, z: STZ - SPZ - 0.9, y: 0.45, w: 2 * SPX - 2, h: 0.8, ry: 0 }, { n: 'Stadyum LED bant (güney)', k: 'band', x: STX, z: STZ + SPZ + 0.9, y: 0.45, w: 2 * SPX - 2, h: 0.8, ry: 0 });
+  HSAHA.forEach((h, i) => S.push({ n: `Halı saha ${i + 1} çiti`, k: 'band', x: h.x + 0.08, z: h.y + h.h / 2, y: 1.0, w: 10, h: 1, ry: Math.PI / 2 }));
+  STOPS.forEach(s => S.push({ n: `Durak • ${s.n}`, k: 'stop', x: s.x + 1.33, z: s.y - 0.25, y: 1.3, w: 1.0, h: 1.2, ry: Math.PI / 2 }));
+  return ADSLOTS = S;
+}
+const adOn = a => !!(a && (a.t || a.img) && (!a.from || a.from <= now()) && (!a.until || a.until > now()));
+const ADIMG = {};
+function adImg(src, cb) {
+  if (ADIMG[src]) { if (ADIMG[src].ok) return ADIMG[src].im; (ADIMG[src].cb = ADIMG[src].cb || []).push(cb); return null; }
+  const im = new Image(); im.crossOrigin = 'anonymous'; ADIMG[src] = { im, cb: [cb] };
+  im.onload = () => { ADIMG[src].ok = 1; (ADIMG[src].cb || []).forEach(f => f && f()); ADIMG[src].cb = null; }; im.onerror = () => { ADIMG[src].bad = 1; };
+  im.src = src; return null;
+}
+function adTex(a, s, redo) {
+  const band = s.k === 'band', W = band ? 2048 : 1024, H = band ? Math.round(2048 * s.h / s.w * 1.4) : Math.round(1024 * s.h / s.w);
+  const c = document.createElement('canvas'); c.width = W; c.height = Math.max(64, H); const g = c.getContext('2d'); const Hh = c.height;
+  const on = adOn(a), bg = on ? (a.bg || '#ffd23f') : '#ffd23f', fg = on ? (a.fg || '#1b2a49') : '#1b2a49', txt = on ? (a.t || '') : (band ? 'REKLAM ALANI • DM @komsukent' : 'REKLAMINIZ BURADA • DM @komsukent');
+  const unit = band ? Math.min(W, Math.round(Hh * 5)) : W, n = band ? Math.ceil(W / unit) : 1;
+  for (let k = 0; k < n; k++) {
+    const ox = k * unit; g.fillStyle = bg; g.fillRect(ox, 0, unit, Hh);
+    const im = on && a.img && !(ADIMG[a.img] || {}).bad ? adImg(a.img, redo) : null;
+    if (im) { const r = Math.max(unit / im.width, Hh / im.height), iw = im.width * r, ih = im.height * r; g.save(); g.beginPath(); g.rect(ox, 0, unit, Hh); g.clip(); g.drawImage(im, ox + (unit - iw) / 2, (Hh - ih) / 2, iw, ih); g.restore(); }
+    else if (txt) { let fs = Hh * 0.5; do { g.font = `900 ${fs}px system-ui,sans-serif`; fs -= 2; } while (g.measureText(txt).width > unit * 0.9 && fs > 10); g.fillStyle = fg; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, ox + unit / 2, Hh / 2 + 2); }
+    if (band) { g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(ox + unit - 3, 0, 3, Hh); }
+  }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
+}
+const AD3 = {};
+function adBuild(i, s) {
+  const a = ADS[i] || null, key = JSON.stringify(a || 0) + adOn(a) + ((a && a.img && (ADIMG[a.img] || {}).ok) ? 'i' : '');
+  if (AD3[i] && AD3[i].key === key) return; if (AD3[i]) { scene.remove(AD3[i].g); try { AD3[i].tex.dispose(); } catch (e) { } }
+  const g = new THREE.Group(); g.position.set(s.x, 0, s.z); g.rotation.y = s.ry || 0; scene.add(g);
+  const tex = adTex(a, s, () => { if (AD3[i]) AD3[i].key = ''; adBuild(i, s); }), mat2 = new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide });
+  let w = s.w, h = s.h, y = s.y;
+  if (s.k === 'pole') { w = 4.2; h = 2; y = 3.3; box(0.18, 3.2, 0.18, '#2c3e50', -1.9, 1.6, 0, g); box(0.18, 3.2, 0.18, '#2c3e50', 1.9, 1.6, 0, g); box(4.4, 2.2, 0.08, '#2c3e50', 0, y, 0, g, false); }
+  if (s.k === 'big') { box(0.3, y, 0.3, '#2c3e50', -w / 2 + 0.6, y / 2, 0, g); box(0.3, y, 0.3, '#2c3e50', w / 2 - 0.6, y / 2, 0, g); box(w + 0.3, h + 0.3, 0.1, '#111111', 0, y, 0, g, false); }
+  if (s.k === 'wall') box(w + 0.25, h + 0.25, 0.06, '#111111', 0, y, -0.05, g, false);
+  if (s.k === 'band') box(w, h + 0.1, 0.06, '#111111', 0, y, 0, g, false);
+  const off = s.k === 'wall' ? 0.0 : 0.06, front = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat2); front.position.set(0, y, off); g.add(front);
+  if (s.k !== 'wall') { const back = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat2); back.position.set(0, y, -off); back.rotation.y = Math.PI; g.add(back); }
+  AD3[i] = { g, key, tex };
+}
+ads3D = function () {
+  if (!THREE || !scene || !boxG) return;
+  for (const k in ADS3D) { try { scene.remove(ADS3D[k].g); } catch (e) { } delete ADS3D[k]; }
+  adSlots().forEach((s, i) => { try { adBuild(i, s); } catch (e) { console.log('ad', e); } });
+};
+setInterval(() => { try { if (STOPS3D && scene) ads3D(); } catch (e) { } }, 30000);
+setTimeout(function adFirst() { if (STOPS3D && scene && boxG) ads3D(); else setTimeout(adFirst, 2000); }, 5000);
+// görüntülenme / tıklama sayacı (oyuncu başına günde 1)
+const adDay = () => new Date(now() + TRH).toISOString().slice(0, 10).replace(/-/g, '');
+function adCount(i, f) {
+  const d = adDay(), k = `kk_ad_${f}_${d}_${i}`; try { if (localStorage.getItem(k)) return; localStorage.setItem(k, '1'); } catch (e) { return; }
+  runTransaction(ref(db, `adst/${i}/${d}/${f}`), v => (v || 0) + 1).catch(() => { });
+}
+setInterval(() => {
+  if (!ME || !db || ME.inside || !ADSLOTS) return; const x = ME.x / T, z = ME.y / T;
+  ADSLOTS.forEach((s, i) => { if (adOn(ADS[i]) && Math.hypot(s.x - x, s.z - z) < (s.k === 'big' || s.k === 'band' ? 30 : 14)) adCount(i, 'v'); });
+}, 5000);
+function adActs(L) {
+  if (!ME || ME.inside || !ADSLOTS) return; const x = ME.x / T, z = ME.y / T;
+  for (let i = 0; i < ADSLOTS.length; i++) { const s = ADSLOTS[i], a = ADS[i]; if (!adOn(a) || !a.url || Math.hypot(s.x - x, s.z - z) > (s.k === 'big' ? 9 : 5)) continue;
+    L.push({ label: `📢 ${esc((a.t || 'Reklam').slice(0, 26))} • aç`, fn: () => { adCount(i, 'c'); try { window.open(a.url, '_blank', 'noopener'); } catch (e) { } } }); return; }
+}
+// ---------- yönetici: reklam panoları
+adminAds = async function () {
+  const slots = adSlots(), cur = (await get(ref(db, 'config/ads')).catch(() => null))?.val() || {};
+  let el = document.getElementById('adAdm'); if (!el) { el = document.createElement('div'); el.id = 'adAdm'; el.style.cssText = 'position:fixed;inset:0;z-index:200;background:rgba(10,18,35,.96);color:#fff;overflow:auto;padding:14px;font-family:system-ui'; document.body.appendChild(el); }
+  const st = a => adOn(a) ? `🟢 ${esc(a.t || a.img || '')}${a.until ? ' • ' + Math.max(0, Math.ceil((a.until - now()) / 864e5)) + ' gün kaldı' : ''}` : a && a.until && a.until <= now() ? '⏰ süresi doldu' : '⚪ boş';
+  el.innerHTML = `<h2 style="margin:0 0 6px">📢 Reklam panoları (${slots.length})</h2><p style="font-size:12px;opacity:.8;margin:0 0 8px">Panoya dokun → düzenle. Resimleri GitHub'da <b>ads/</b> klasörüne yükle (ör. ads/firma.jpg). Yatay resim önerilir (1024×512, LED bant için 2048×128).</p>
+    <div id="adL"></div><button id="adX" style="margin-top:10px;width:100%;padding:12px;border:0;border-radius:12px;background:#3a4a6b;color:#fff;font-weight:800">Kapat</button>`;
+  const L = el.querySelector('#adL');
+  slots.forEach((s, i) => { const b = document.createElement('button'); b.style.cssText = 'display:block;width:100%;text-align:left;margin:4px 0;padding:10px;border:0;border-radius:10px;background:#22314f;color:#fff;font:600 14px system-ui'; b.innerHTML = `<b>${i + 1}. ${esc(s.n)}</b><br><span style="font-size:12px;opacity:.85">${st(cur[i])}</span>`; b.onclick = () => adEdit(i, cur, slots); L.appendChild(b); });
+  el.querySelector('#adX').onclick = () => el.remove(); el.style.display = 'block';
+};
+async function adEdit(i, cur, slots) {
+  const el = document.getElementById('adAdm'), a = cur[i] || {}, days = a.until ? Math.max(1, Math.ceil((a.until - now()) / 864e5)) : '';
+  const stats = (await get(ref(db, 'adst/' + i)).catch(() => null))?.val() || {}, ks = Object.keys(stats).sort().slice(-7);
+  const tv = ks.reduce((s, k) => s + (stats[k].v || 0), 0), tc = ks.reduce((s, k) => s + (stats[k].c || 0), 0);
+  const inp = 'width:100%;box-sizing:border-box;padding:9px;border-radius:10px;border:0;margin:3px 0 8px;font-size:15px';
+  el.innerHTML = `<h2 style="margin:0 0 4px">📢 ${i + 1}. ${esc(slots[i].n)}</h2>
+    <p style="font-size:13px;margin:0 0 8px;background:#22314f;padding:8px;border-radius:10px">📊 Son 7 gün: <b>${tv}</b> kişi gördü • <b>${tc}</b> kişi tıkladı<br><span style="font-size:11px;opacity:.8">${ks.map(k => `${k.slice(6)}.${k.slice(4, 6)}: ${stats[k].v || 0}👁 ${stats[k].c || 0}👆`).join(' • ') || 'Henüz veri yok'}</span></p>
+    <label>Yazı (resim yoksa görünür)</label><input id="adT" maxlength="40" style="${inp}" value="${esc(a.t || '')}" placeholder="ör. ABC Döner • Kepez">
+    <label>Resim (ör. ads/firma.jpg ya da https://…)</label><input id="adI" style="${inp}" value="${esc(a.img || '')}" placeholder="boş = sadece yazı">
+    <label>Link (Instagram vb., https://…)</label><input id="adU" style="${inp}" value="${esc(a.url || '')}" placeholder="https://instagram.com/…">
+    <div style="display:flex;gap:8px"><div style="flex:1"><label>Arka plan</label><input id="adB" type="color" value="${a.bg || '#ffd23f'}" style="${inp};height:42px;padding:2px"></div><div style="flex:1"><label>Yazı rengi</label><input id="adF" type="color" value="${a.fg || '#1b2a49'}" style="${inp};height:42px;padding:2px"></div><div style="flex:1"><label>Kaç gün</label><input id="adD" type="number" min="1" inputmode="numeric" value="${days}" placeholder="süresiz" style="${inp}"></div></div>
+    <label>Bu reklam başka panolarda da olsun:</label><div id="adM" style="max-height:30vh;overflow:auto;background:#22314f;border-radius:10px;padding:6px;margin:4px 0 10px">${slots.map((s, j) => `<label style="display:block;padding:4px;font-size:13px"><input type="checkbox" value="${j}" ${j === i ? 'checked' : ''}> ${j + 1}. ${esc(s.n)}</label>`).join('')}</div>
+    <div style="display:flex;gap:8px"><button id="adS" style="flex:2;padding:12px;border:0;border-radius:12px;background:#27ae60;color:#fff;font-weight:800">💾 Kaydet</button><button id="adR" style="flex:1;padding:12px;border:0;border-radius:12px;background:#c0392b;color:#fff;font-weight:800">🗑 Kaldır</button><button id="adG" style="flex:1;padding:12px;border:0;border-radius:12px;background:#3a4a6b;color:#fff;font-weight:800">⬅ Geri</button></div>`;
+  const q = id => el.querySelector('#' + id), sel = () => [...el.querySelectorAll('#adM input:checked')].map(x => +x.value);
+  q('adG').onclick = adminAds;
+  q('adR').onclick = async () => { if (!confirm('Seçili panolardaki reklam kaldırılsın mı?')) return; const up = {}; sel().forEach(j => up['config/ads/' + j] = null); await update(ref(db), up).catch(e => alert(e.message)); adminAds(); };
+  q('adS').onclick = async () => {
+    const t = q('adT').value.trim().slice(0, 40), img = q('adI').value.trim(), url = q('adU').value.trim(), d = +q('adD').value || 0;
+    if (!t && !img) return alert('Yazı ya da resim gir');
+    if (url && !/^https:\/\//i.test(url)) return alert('Link https:// ile başlamalı');
+    if (img && !/^(https:\/\/|ads\/)[\w\-./%?=&]+$/i.test(img)) return alert('Resim ads/ klasöründe ya da https:// ile olmalı');
+    const v = { t: t || null, img: img || null, url: url || null, bg: q('adB').value, fg: q('adF').value, from: now(), until: d ? now() + d * 864e5 : null };
+    const up = {}; sel().forEach(j => up['config/ads/' + j] = v); if (!Object.keys(up).length) return alert('En az bir pano seç');
+    await update(ref(db), up).then(() => alert(`✅ ${Object.keys(up).length} panoya kondu`)).catch(e => alert(e.message)); adminAds();
+  };
+}
+
 // ================= EVENTS =================
 const EV_NAMES = { yangin: '🔥 YANGIN', soygun: '🚨 SOYGUN', festival: '🎉 FESTİVAL' };
 function evStart() { if (EV && !EV.done) { const b = evB(); toast(`${EV_NAMES[EV.type]}${b ? ' — ' + b.n : ''}!`, 5000); } }
