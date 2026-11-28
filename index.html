@@ -173,7 +173,7 @@ const COUNTRIES = {
 let FULL1 = true; try { FULL1 = localStorage.getItem('kk_full1') !== '0'; } catch (e) { }   // Komşukent dolu mu: yönetici panelden açar/kapatır (pub/full1)
 const C = (() => { let c = 0; try { const u = +new URLSearchParams(location.search).get('c'), st = +localStorage.getItem('kk_c'), known = !!(localStorage.getItem('kk_me') || localStorage.getItem('kk_id')); c = u || (known ? st : 0) || (FULL1 ? 2 + Math.floor(Math.random() * 2) : 1); } catch (e) { c = 1; } if (!COUNTRIES[c] || !COUNTRIES[c].cfg) c = 1; try { localStorage.setItem('kk_c', String(c)); } catch (e) { } return c; })();
 const FB = {};
-const APP_V = '2026112237';
+const APP_V = '2026112238';
 let CAP = 0;   // bump on every upload (yyyymmddNN)
 const ADMIN = location.hash === '#yonetim';
 let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off, orderByChild, equalTo;
@@ -5066,13 +5066,10 @@ async function kkAptBuild(p) {
   say(`🏢 Müteahhit <b>${esc(ME.name)}</b> 4 daireli apartman dikti! Daireler satışta 🏷`, true);
 }
 function kkApt(own, p, g, cxP, czP) {
-  box(p.w, 0.06, p.h, '#bdbdbd', cxP, 0.03, czP, g, false);
-  const H = 5.4; box(2.7, H, 2.5, '#f1e4cc', cxP, H / 2, czP - 0.1, g);
-  for (let f = 1; f < 4; f++) box(2.8, 0.12, 2.6, own.color || '#c0392b', cxP, f * 1.35, czP - 0.1, g, false);
-  box(2.95, 0.3, 2.75, own.color || '#c0392b', cxP, H + 0.15, czP - 0.1, g);
-  for (let f = 0; f < 4; f++) for (const dx of [-0.75, 0.75]) if (!(f === 0 && dx < 0)) box(0.55, 0.55, 0.05, '', cxP + dx, 0.75 + f * 1.35, czP + 1.17, g, false, winMat);
-  box(0.6, 1.0, 0.05, '#5a3d2b', cxP - 0.75, 0.5, czP + 1.17, g, false);
-  const L = makeLabel(); L.innerHTML = `<span class="nm${own.id === myId ? ' me' : ''}">🏢 ${esc(own.fl || own.name)} Apt.</span>`; L._p = [cxP, H + 1, czP]; return L;
+  const H = 5.4, top = hvApt(own, p, g, cxP, czP, H);
+  for (let f = 0; f < 4; f++) for (const dx of [-0.75, 0.75]) if (!(f === 0 && dx < 0)) box(0.55, 0.55, 0.05, '', cxP + dx, 0.75 + f * 1.35, czP + 1.18, g, false, winMat);
+  box(0.6, 1.0, 0.05, '#5a3d2b', cxP - 0.75, 0.5, czP + 1.18, g, false);
+  const L = makeLabel(); L.innerHTML = `<span class="nm${own.id === myId ? ' me' : ''}">🏢 ${esc(own.fl || own.name)} Apt.</span>`; L._p = [cxP, top + 0.6, czP]; return L;
 }
 
 // ---------- KULÜP & FUTBOL MESLEKLERİ ----------
@@ -6766,7 +6763,7 @@ function sz3D() {
   sg('🔧 SANAYİ • 🚗 GALERİCİLER ⬇', '#d35400', '#ffffff', 6, 1.3, SZ.rx, 3.2, 115.2); box(0.2, 3.8, 0.2, '#333', SZ.rx - 3, 1.9, 115.2); box(0.2, 3.8, 0.2, '#333', SZ.rx + 3, 1.9, 115.2);
   for (const [t, c, x] of [['SANAYİ SİTESİ', '#d35400', 29.5], ['GALERİCİLER SİTESİ', '#2e86de', 79.5]]) { box(0.3, 5, 0.3, '#2c3e50', x - 5, 2.5, SZ.road + 1.9); box(0.3, 5, 0.3, '#2c3e50', x + 5, 2.5, SZ.road + 1.9); box(10.3, 1.2, 0.3, c, x, 5, SZ.road + 1.9); sg(t, c, '#ffffff', 9.6, 1.05, x, 5, SZ.road + 2.06); }
   const K = glLot(7); box(K.w, 0.05, K.h, '#d5d8dc', K.x + K.w / 2, 0.04, K.y + K.h / 2, null, false);
-  box(6, 2.6, 4, '#f39c12', K.x + K.w / 2, 1.3, K.y + 8.5); box(6.4, 0.3, 4.4, '#1b2a49', K.x + K.w / 2, 2.75, K.y + 8.5); sg('🪪 SÜRÜCÜ KURSU', '#1b2a49', '#f39c12', 5, 0.9, K.x + K.w / 2, 2.2, K.y + 6.45);
+  box(6, 2.6, 4, '', K.x + K.w / 2, 1.3, K.y + 8.5, null, true, hvTexMat('#f39c12')); hvPoleFlag(scene, K.x + K.w / 2 - 3.6, K.y + 10.9, 4.2); box(6.4, 0.3, 4.4, '#1b2a49', K.x + K.w / 2, 2.75, K.y + 8.5); sg('🪪 SÜRÜCÜ KURSU', '#1b2a49', '#f39c12', 5, 0.9, K.x + K.w / 2, 2.2, K.y + 6.45);
   for (let k = 0; k < 6; k++) { const cx = K.x + 1 + k * 1.3; box(0.25, 0.45, 0.25, '#ff7f00', cx, 0.22, K.y + 2.5 + (k % 2) * 1.5); box(0.27, 0.06, 0.27, '#ffffff', cx, 0.3, K.y + 2.5 + (k % 2) * 1.5); }
   sz3DSync(); ads3D();
 }
@@ -6786,7 +6783,7 @@ function sz3DSync() {
     }
     if (kind === 'ss') {
       const T0 = SSTYPE[data.t] || SSTYPE.kaporta, H = 3.4;
-      bx(G.w, H, 0.2, '#d5d8dc', cx, H / 2, L.s > 0 ? G.y + 0.1 : G.y + G.h - 0.1); bx(0.2, H, G.h, '#d5d8dc', G.x + 0.1, H / 2, G.y + G.h / 2); bx(0.2, H, G.h, '#d5d8dc', G.x + G.w - 0.1, H / 2, G.y + G.h / 2);
+      const WM = hvTexMat('#d5d8dc'); bx(G.w, H, 0.2, '', cx, H / 2, L.s > 0 ? G.y + 0.1 : G.y + G.h - 0.1, true, WM); bx(0.2, H, G.h, '', G.x + 0.1, H / 2, G.y + G.h / 2, true, WM); bx(0.2, H, G.h, '', G.x + G.w - 0.1, H / 2, G.y + G.h / 2, true, WM); hvWallFlag(g, G.x + 0.1, H - 0.2, fz + fd * 0.05, 1.5, -1);
       bx(G.w + 0.4, 0.3, G.h + 0.4, T0.c, cx, H + 0.15, G.y + G.h / 2); bx(G.w - 0.4, 1.2, 0.08, '#95a5a6', cx, H - 0.6, fz);
       for (let k = 0; k < 4; k++) bx(G.w - 0.4, 0.04, 0.1, '#7f8c8d', cx, H - 0.1 - k * 0.3, fz + fd * 0.02, false);
       sign(ssName(i, data), T0.c, '#ffffff', H + 0.75);
@@ -6799,7 +6796,7 @@ function sz3DSync() {
       bx(0.7, 0.9, 0.5, '#7b241c', G.x + G.w - 0.7, 0.45, fz - fd * 0.6);
     } else {
       const H = 3.2;
-      bx(G.w, H, G.h, '#ecf0f1', cx, H / 2, G.y + G.h / 2); rgl(G.w - 0.6, H - 0.6, 0.05, '#bfe3ff', cx, H / 2, fz + fd * 0.03, g, 0.55);
+      bx(G.w, H, G.h, '', cx, H / 2, G.y + G.h / 2, true, hvTexMat('#ecf0f1')); hvWallFlag(g, G.x, H - 0.2, fz + fd * 0.05, 1.5, -1); rgl(G.w - 0.6, H - 0.6, 0.05, '#bfe3ff', cx, H / 2, fz + fd * 0.03, g, 0.55);
       bx(G.w + 0.3, 0.35, G.h + 0.3, '#2e86de', cx, H + 0.17, G.y + G.h / 2); sign(glName(i, data).toLocaleUpperCase('tr'), '#2e86de', '#ffffff', H + 0.8);
       const cars = Object.values(data.c || {}).slice(0, 6);
       cars.forEach((c, k) => { const m = vehMesh(c.v.t, c.v.c || '#2980b9', c.v.f, c.v.c2, { sp: c.v.sp, ne: c.v.ne, jt: c.v.jt, ex: c.v.ex, cf: c.v.cf }); m.position.set(L.x + 1.4 + (k % 3) * 2.9, 0.05, fz + fd * (1.8 + Math.floor(k / 3) * 2.6)); m.rotation.y = fd > 0 ? 0 : Math.PI; g.add(m);
@@ -8610,7 +8607,7 @@ function ys3D() {
   for (let z = 115; z < 168; z += 3) box(0.12, 0.07, 1.2, '#f4f4f4', 5.75, 0.05, z, null, false);
   const sg = (t, bg, fg, w, h, x, y, z) => { const s = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: signTex(t, bg, fg) })); s.position.set(x, y, z); scene.add(s); return s; };
   for (const [t, c, z] of [['🔧 YENİ SANAYİ SİTESİ', '#d35400', 125.6], ['🚗 YENİ GALERİCİLER', '#2e86de', 152.1]]) {
-    const x = -8.5; box(0.3, 5, 0.3, '#2c3e50', x - 5.5, 2.5, z); box(0.3, 5, 0.3, '#2c3e50', x + 5.5, 2.5, z); box(11.3, 1.2, 0.3, c, x, 5, z); sg(t, c, '#ffffff', 10.6, 1.05, x, 5, z + 0.16);
+    const x = -8.5; hvPoleFlag(scene, x - 6.6, z, 5.6); box(0.3, 5, 0.3, '#2c3e50', x - 5.5, 2.5, z); box(0.3, 5, 0.3, '#2c3e50', x + 5.5, 2.5, z); box(11.3, 1.2, 0.3, c, x, 5, z); sg(t, c, '#ffffff', 10.6, 1.05, x, 5, z + 0.16);
   }
 }
 { const _s = sz3D; sz3D = function () { _s(); try { ys3D(); } catch (e) { } }; }
@@ -8705,7 +8702,7 @@ function hvMesh(B, m, g, cast = true) {
 }
 const HV_WALL = ['#5dade2', '#f5b041', '#f5cba7', '#f1948a', '#a9cce3', '#f7dc6f', '#d7bde2', '#a3e4d7', '#fad7a0', '#aed6f1'];
 const HV_ROOF = ['#9c5a3c', '#7d4a32', '#8d8d8d', '#b5651d', '#a0522d', '#6e6e6e', '#c0392b'];
-const hvFlagOn = (own, k) => own.flag === 1 || (own.flag !== 0 && hvHash(k) % 2 === 0);
+const hvFlagOn = () => true;   // her evde Türk bayrağı
 function hvHash(s) { let h = 7; for (const ch of String(s)) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return h; }
 function hvHouse(own, p, g, cxP, czP) {
   const M = hvMats(), hh = hvHash(p.k);
@@ -8780,7 +8777,6 @@ function hvPaint(k, step = 'wc') {
   if (step === 'wc') modal(`🎨 Evini boya • ${HV_PAINT} 💰`, [
     ...HV_WALL.map(c => ({ label: `${sw(c, own.wc === c)} Duvar rengi`, fn: () => set1({ wc: c }).then(() => hvPaint(k, 'wc')) })),
     { label: '🏠 Çatı rengi seç →', cls: 'blue', fn: () => hvPaint(k, 'rc') },
-    { label: hvFlagOn(own, k) ? '🇹🇷 Bayrağı indir' : '🇹🇷 Bayrak as', fn: () => set1({ flag: hvFlagOn(own, k) ? 0 : 1 }).then(() => hvPaint(k, 'wc')) },
   ], '<p style="font-size:13px;opacity:.85">Kapın her zaman senin renginde olur.</p>');
   else modal(`🏠 Çatı rengi • ${HV_PAINT} 💰`, [
     ...HV_ROOF.map(c => ({ label: `${sw(c, own.rc === c)} Çatı rengi`, fn: () => set1({ rc: c }).then(() => hvPaint(k, 'rc')) })),
@@ -8788,6 +8784,97 @@ function hvPaint(k, step = 'wc') {
   ]);
 }
 { const _ro = roomOutActs; roomOutActs = function (L, b, p, t) { _ro(L, b, p, t); if (p && !ME.inside && !ME.drive) { const own = plots[p.k]; if (own && own.type === 'ev' && own.id === myId) L.push({ label: `🎨 Evini boya (${HV_PAINT} 💰)`, fn: () => hvPaint(p.k) }); } }; }
+
+// ================= BÜTÜN BİNALAR: aynı tarz (piksel doku, basamaklı çatı, çerçeveli pencere, çiçeklik, Türk bayrağı) =================
+// Yeni bir bina eklenirken: hvBuilding(...) + hvPoleFlag(...) kullan → otomatik bu tarzda olur
+const HVTM = {};
+const hvTexMat = (c, k = 'wall') => HVTM[k + c] || (HVTM[k + c] = new THREE.MeshLambertMaterial({ color: c, map: hvTex(k) }));
+// duvara monte direkli bayrak (x: direğin dibi, dir: -1 sola / 1 sağa uzar)
+function hvWallFlag(g, x, y, z, s = 1, dir = -1) {
+  const bp = hvB(); hvBox(bp, 0.55 * s, 0.04 * s, 0.04 * s, '#dcdcdc', x + dir * 0.27 * s, y, z); hvMesh(bp, hvMats().plain, g, false);
+  const f = new THREE.Mesh(new THREE.PlaneGeometry(0.46 * s, 0.31 * s), new THREE.MeshLambertMaterial({ map: hvFlagTex(), side: THREE.DoubleSide }));
+  f.position.set(x + dir * 0.3 * s, y - 0.18 * s, z); g.add(f); return f;
+}
+// yere dikili gönder + bayrak
+function hvPoleFlag(g, x, z, h, s = 1) {
+  const bp = hvB(); hvBox(bp, 0.1 * s, h, 0.1 * s, '#e0e0e0', x, h / 2, z); hvBox(bp, 0.18 * s, 0.14 * s, 0.18 * s, '#f1c40f', x, h + 0.07 * s, z);
+  hvBox(bp, 0.5 * s, 0.16 * s, 0.5 * s, '#9e9e9e', x, 0.08 * s, z); hvMesh(bp, hvMats().plain, g);
+  const f = new THREE.Mesh(new THREE.PlaneGeometry(1.2 * s, 0.8 * s), new THREE.MeshLambertMaterial({ map: hvFlagTex(), side: THREE.DoubleSide }));
+  f.position.set(x + 0.62 * s, h - 0.42 * s, z); f.castShadow = true; g.add(f); return f;
+}
+// basamaklı üçgen çatı (mahya uzun kenar boyunca); dönüş: çatının yüksekliği
+function hvRoof(Br, Bw, cx, cz, w, d, y0, RC, WC, SH = 0.2, IN = 0.22, OV = 0.18) {
+  const alongX = w >= d, L = (alongX ? w : d), D = (alongX ? d : w), hd = D / 2 + OV, N = Math.max(2, Math.ceil(hd / IN));
+  const B = (bw, bh, bd, c, x, y, z) => alongX ? hvBox(Br === null ? Bw : Br, bw, bh, bd, c, x, y, z) : hvBox(Br === null ? Bw : Br, bd, bh, bw, c, x, y, z);
+  for (let i = 0; i < N; i++) {
+    const y = y0 + i * SH + SH / 2, h = hd - i * IN; if (h <= 0.05) break;
+    for (const s of [-1, 1]) { const o = s * Math.max(0, h - IN * 0.8); alongX ? hvBox(Br, L + 2 * OV, SH, IN * 1.6, RC, cx, y, cz + o) : hvBox(Br, IN * 1.6, SH, L + 2 * OV, RC, cx + o, y, cz); }
+    const f = 2 * (h - IN * 1.6); if (f > 0.04) alongX ? hvBox(Bw, L - 0.02, SH, f, WC, cx, y, cz) : hvBox(Bw, f, SH, L - 0.02, WC, cx, y, cz);
+  }
+  const top = y0 + N * SH; alongX ? hvBox(Br, L + 2 * OV + 0.04, 0.16, 0.5, new THREE.Color(RC).multiplyScalar(0.75), cx, top - SH * 0.5, cz) : hvBox(Br, 0.5, 0.16, L + 2 * OV + 0.04, new THREE.Color(RC).multiplyScalar(0.75), cx, top - SH * 0.5, cz);
+  return top - y0;
+}
+// şehir binası gövdesi (BUILD): duvar, taş temel, köşe taşları, kuşak, çatı → çatı yüksekliği döner
+function hvBuilding(b, g, cxB, czB, H) {
+  const M = hvMats(), Bw = hvB(), Bd = hvB(), Br = hvB(), Bs = hvB(), Bp = hvB();
+  const w = b.w - 0.2, d = b.h - 0.2, flat = ['cami', 'avm'].includes(b.id);
+  hvBox(Bs, w + 0.2, 0.3, d + 0.2, '#a6a6a6', cxB, 0.15, czB);
+  hvBox(Bw, w, H, d, b.c, cxB, H / 2, czB);
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) hvBox(Bs, 0.3, H, 0.3, '#d8d0c2', cxB + sx * w / 2, H / 2, czB + sz * d / 2);
+  hvBox(Bs, w + 0.16, 0.2, d + 0.16, '#d8d0c2', cxB, H - 0.1, czB);
+  let rise = 0.45;
+  if (flat) { hvBox(Br, b.w + 0.3, 0.45, b.h + 0.3, b.r, cxB, H + 0.22, czB); hvBox(Bs, b.w + 0.3, 0.3, 0.2, '#d8d0c2', cxB, H + 0.6, czB + b.h / 2 + 0.05); }
+  else { hvBox(Bw, w, 0.27, d, b.c, cxB, H + 0.135, czB); rise = hvRoof(Br, Bw, cxB, czB, w, d, H + 0.27, b.r, b.c, 0.26, 0.32, 0.25) + 0.27; }
+  const chx = cxB + w * 0.3, chz = czB - d * 0.2; if (!flat) { hvBox(Bw, 0.5, rise * 0.75 + 0.6, 0.5, '#a5432f', chx, H + rise * 0.375 + 0.3, chz); hvBox(Bs, 0.6, 0.12, 0.6, '#555555', chx, H + rise * 0.75 + 0.66, chz); }
+  hvMesh(Bw, M.wall, g); hvMesh(Br, M.roof, g); hvMesh(Bs, M.stone, g); return { rise, Bp, Bd };
+}
+// pencereye çerçeve + denizlik (+ zemin katta çiçeklik)
+function hvWinDeco(Bp, Bd, x, y, fz, ground, seed) {
+  hvBox(Bp, 0.92, 0.86, 0.04, '#ffffff', x, y, fz + 0.01); hvBox(Bp, 0.98, 0.08, 0.16, '#ffffff', x, y - 0.43, fz + 0.08);
+  hvBox(Bp, 0.05, 0.7, 0.08, '#ffffff', x, y, fz + 0.06);
+  if (ground) { const FL = ['#e74c3c', '#f1c40f', '#ff6fb5', '#ffffff', '#9b59b6']; hvBox(Bd, 0.9, 0.14, 0.2, '#7a5230', x, y - 0.52, fz + 0.14); for (let k = 0; k < 5; k++) hvBox(Bp, 0.12, 0.12, 0.12, FL[(seed + k) % 5], x - 0.34 + k * 0.17, y - 0.39, fz + 0.14); }
+}
+// oyuncu dükkânı
+function hvShop(own, p, g, cxP, czP) {
+  const M = hvMats(), hh = hvHash(p.k), Bw = hvB(), Bd = hvB(), Br = hvB(), Bs = hvB(), Bp = hvB(), Bg = hvB();
+  const AC = own.color || '#2e86de', RC = own.rc || HV_ROOF[(hh >> 4) % HV_ROOF.length], WC = own.wc || '#fbf6ec';
+  const X = cxP, Z = czP - 0.15, HW = 1.35, HD = 1.1, Y0 = 0.15, WH = 2.1, FZ = Z + HD;
+  hvBox(Bs, p.w, 0.06, p.h, '#c9c9c9', cxP, 0.03, czP);
+  hvBox(Bs, 2 * HW + 0.2, Y0, 2 * HD + 0.2, '#9e9e9e', X, Y0 / 2, Z);
+  hvBox(Bw, 2 * HW, WH, 2 * HD, WC, X, Y0 + WH / 2, Z);
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) hvBox(Bd, 0.16, WH, 0.16, '#6d4c33', X + sx * HW, Y0 + WH / 2, Z + sz * HD);
+  hvBox(Bd, 2 * HW + 0.12, 0.12, 2 * HD + 0.12, '#6d4c33', X, Y0 + WH, Z);
+  const rise = hvRoof(Br, Bw, X, Z, 2 * HW, 2 * HD, Y0 + WH + 0.06, RC, WC);
+  // çizgili tente (dükkân rengi + beyaz)
+  for (let k = 0; k < 8; k++) hvBox(Bp, 0.355, 0.1, 0.85, k % 2 ? '#ffffff' : AC, X - HW - 0.02 + 0.18 + k * 0.355, Y0 + 1.42, FZ + 0.42);
+  for (let k = 0; k < 8; k++) hvBox(Bp, 0.355, 0.14, 0.04, k % 2 ? AC : '#ffffff', X - HW - 0.02 + 0.18 + k * 0.355, Y0 + 1.32, FZ + 0.85);
+  hvBox(Bp, 1.76, 1.04, 0.04, '#ffffff', X, 0.85, FZ + 0.01);    // vitrin çerçevesi
+  for (const sx of [-1, 1]) { hvBox(Bw, 0.34, 0.34, 0.34, '#c0703a', X + sx * 1.15, 0.17, FZ + 0.35); hvBox(Bp, 0.38, 0.34, 0.38, '#3e9b45', X + sx * 1.15, 0.5, FZ + 0.35); hvBox(Bp, 0.12, 0.12, 0.12, ['#e74c3c', '#f1c40f'][sx > 0 ? 1 : 0], X + sx * 1.15, 0.72, FZ + 0.45); }
+  for (const sx of [-1, 1]) { hvBox(Bp, 0.04, 0.5, 0.52, '#ffffff', X + sx * (HW + 0.02), Y0 + 1.1, Z); hvBox(Bg, 0.04, 0.36, 0.38, '#ffffff', X + sx * (HW + 0.04), Y0 + 1.1, Z); }
+  hvMesh(Bw, M.wall, g); hvMesh(Bd, M.wood, g); hvMesh(Br, M.roof, g); hvMesh(Bs, M.stone, g, false); hvMesh(Bp, M.plain, g); hvMesh(Bg, winMat || M.plain, g, false);
+  hvWallFlag(g, X - HW, Y0 + WH - 0.15, FZ - 0.02);
+  return Y0 + WH + rise;
+}
+// apartman
+function hvApt(own, p, g, cxP, czP, H) {
+  const M = hvMats(), hh = hvHash(p.k), Bw = hvB(), Bd = hvB(), Br = hvB(), Bs = hvB(), Bp = hvB();
+  const BC = own.color || '#c0392b', WC = own.wc || '#f1e4cc', RC = own.rc || BC, X = cxP, Z = czP - 0.1, HW = 1.35, HD = 1.25, FZ = Z + HD;
+  hvBox(Bs, p.w, 0.06, p.h, '#bdbdbd', cxP, 0.03, czP);
+  hvBox(Bs, 2 * HW + 0.2, 0.25, 2 * HD + 0.2, '#9e9e9e', X, 0.125, Z);
+  hvBox(Bw, 2 * HW, H, 2 * HD, WC, X, H / 2, Z);
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) hvBox(Bs, 0.22, H, 0.22, '#d8d0c2', X + sx * HW, H / 2, Z + sz * HD);
+  for (let f = 1; f < 4; f++) hvBox(Bd, 2 * HW + 0.12, 0.12, 2 * HD + 0.12, BC, X, f * 1.35, Z);
+  hvBox(Bd, 2 * HW + 0.14, 0.16, 2 * HD + 0.14, BC, X, H, Z);
+  const rise = hvRoof(Br, Bw, X, Z, 2 * HW, 2 * HD, H + 0.08, RC, WC);
+  for (let f = 0; f < 4; f++) for (const dx of [-0.75, 0.75]) if (!(f === 0 && dx < 0)) {
+    const y = 0.75 + f * 1.35; hvBox(Bp, 0.67, 0.67, 0.04, '#ffffff', X + dx, y, FZ + 0.01); hvBox(Bp, 0.72, 0.07, 0.14, '#ffffff', X + dx, y - 0.34, FZ + 0.07);
+    if (f > 0) { hvBox(Bd, 0.66, 0.12, 0.18, '#7a5230', X + dx, y - 0.42, FZ + 0.12); for (let k = 0; k < 4; k++) hvBox(Bp, 0.1, 0.1, 0.1, ['#e74c3c', '#f1c40f', '#ff6fb5', '#ffffff'][(hh + k + f) % 4], X + dx - 0.22 + k * 0.146, y - 0.31, FZ + 0.12); }
+  }
+  hvBox(Bp, 0.76, 1.14, 0.04, '#f4f1ea', X - 0.75, 0.57, FZ + 0.01); hvBox(Bs, 0.9, 0.1, 0.34, '#bdbdbd', X - 0.75, 0.05, FZ + 0.18);
+  hvMesh(Bw, M.wall, g); hvMesh(Bd, M.wood, g); hvMesh(Br, M.roof, g); hvMesh(Bs, M.stone, g); hvMesh(Bp, M.plain, g, false);
+  hvWallFlag(g, X - HW, H - 0.25, FZ - 0.02, 1.3);
+  return H + rise;
+}
 
 // ================= EVENTS =================
 const EV_NAMES = { yangin: '🔥 YANGIN', soygun: '🚨 SOYGUN', festival: '🎉 FESTİVAL' };
@@ -8998,10 +9085,9 @@ async function init3D() {
   BUILD.forEach(b => {
     const cxB = b.x + b.w / 2, czB = b.y + b.h / 2, H = b.H;
     const bg = new THREE.Group(); scene.add(bg); bg.position.y = b.yo || 0; const box = (w, h, d, c, x, y, z, p, cast, m) => boxIn(w, h, d, c, x, y, z, bg, cast, m);
-    if (ecoDeco(b, bg, box, 0)) return;
+    if (ecoDeco(b, bg, box, 0)) { if (H >= 2 && !b.sz && !b.abl) try { hvPoleFlag(bg, b.x - 0.45, b.y + b.h + 0.45, H + 2.2); } catch (e) { } return; }
     if (b.open) { buildStage(bg, box); return; }
-    box(b.w - 0.2, H, b.h - 0.2, b.c, cxB, H / 2, czB);
-    box(b.w + 0.3, 0.45, b.h + 0.3, b.r, cxB, H + 0.22, czB);
+    const HB = hvBuilding(b, bg, cxB, czB, H);
     if (b.id === 'cami') {
       const dome = new THREE.Mesh(new THREE.SphereGeometry(1.6, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), mat('#d4ac0d'));
       dome.position.set(cxB, H + 0.4, czB); dome.castShadow = true; bg.add(dome);
@@ -9014,13 +9100,17 @@ async function init3D() {
     for (let i = 0; i < 4; i++) for (let j = 0; j < Math.floor(H / 1.3); j++) {
       if (j === 0 && (i === 1 || i === 2)) continue;
       box(0.75, 0.7, 0.06, '', b.x + 0.9 + i * ((b.w - 1.8) / 3), H - 0.9 - j * 1.25, fz + 0.02, null, false, winMat);
+      hvWinDeco(HB.Bp, HB.Bd, b.x + 0.9 + i * ((b.w - 1.8) / 3), H - 0.9 - j * 1.25, fz, j === Math.floor(H / 1.3) - 1, i + j);
     }
     box(1.3, 1.9, 0.08, '#5a3d2b', cxB, 0.95, fz + 0.03, null, false);
+    hvBox(HB.Bp, 1.6, 2.15, 0.04, '#f4f1ea', cxB, 1.07, fz + 0.01); hvBox(HB.Bp, 1.9, 0.14, 0.5, '#bdbdbd', cxB, 0.07, fz + 0.3);
+    hvMesh(HB.Bp, hvMats().plain, bg, false); hvMesh(HB.Bd, hvMats().wood, bg, false);
+    if (b.id !== 'belediye') hvPoleFlag(bg, b.x - 0.45, b.y + b.h + 0.45, H + Math.min(2.5, HB.rise) + 1.6);
     if (b.id !== 'adalet') box(b.w + 0.2, 0.25, 1.2, b.r, cxB, 2.15, fz + 0.5, null, true);
     const sign = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 1.05), new THREE.MeshBasicMaterial({ map: signTex(b.n, '#ffffff', '#111111') }));
     sign.position.set(cxB, H - 0.3, fz + (b.id === 'adalet' ? 0.5 : 0.09)); bg.add(sign);
     ecoDeco(b, bg, box, 1);
-    addOcc(bg, b.x, b.x + b.w, b.y, b.y + b.h + 1.2, b.id === 'cami' ? 6.5 : H + 1);
+    addOcc(bg, b.x, b.x + b.w, b.y, b.y + b.h + 1.2, b.id === 'cami' ? 6.5 : H + HB.rise + 1);
   });
   ecoWorld3D(o); ab3D(); try { sz3D(); } catch (e) { console.warn('sz3D', e); }
   box(1.2, 1.4, 0.15, '#7f8c8d', JAIL_SPOT.x * S3, 0.7, JAIL_SPOT.y * S3 + 0.8);
@@ -9124,14 +9214,11 @@ function refreshPlots() {
       label = makeLabel(); label.innerHTML = `<span class="nm${own.id === myId ? ' me' : ''}">🏡 ${esc(own.name)}</span>`; label._p = [cxP, 3.3, czP];
     } else if (own.type === 'apt') { label = kkApt(own, p, g, cxP, czP);
     } else {
-      box(p.w, 0.06, p.h, '#c9c9c9', cxP, 0.03, czP, g, false);
-      box(2.7, 2.0, 2.2, '#fbf6ec', cxP, 1.0, czP - 0.15, g);
-      box(2.9, 0.25, 2.4, own.color || '#2e86de', cxP, 2.12, czP - 0.15, g);
-      box(2.8, 0.12, 0.8, own.color || '#2e86de', cxP, 1.55, czP + 1.25, g);
-      box(1.6, 0.9, 0.05, '', cxP, 0.85, czP + 0.96, g, false, winMat); vitrin(own, g, cxP, czP);
-      const s = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 0.55), new THREE.MeshBasicMaterial({ map: signTex(own.shop || 'Dükkan', '#ffffff', '#111') }));
-      s.position.set(cxP, 1.9, czP + 0.97); g.add(s);
-      label = makeLabel(); label.innerHTML = `<span class="nm${own.id === myId ? ' me' : ''}">${SHOPTYPES[own.shopType] || '🏪'} ${esc(own.shop)} • ${esc(own.name)}</span>`; label._p = [cxP, 3.1, czP];
+      const top = hvShop(own, p, g, cxP, czP);
+      box(1.6, 0.9, 0.05, '', cxP, 0.85, czP + 0.98, g, false, winMat); vitrin(own, g, cxP, czP + 0.04);
+      const s = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 0.5), new THREE.MeshBasicMaterial({ map: signTex(own.shop || 'Dükkan', '#ffffff', '#111') }));
+      s.position.set(cxP, 1.95, czP + 0.99); g.add(s);
+      label = makeLabel(); label.innerHTML = `<span class="nm${own.id === myId ? ' me' : ''}">${SHOPTYPES[own.shopType] || '🏪'} ${esc(own.shop)} • ${esc(own.name)}</span>`; label._p = [cxP, top + 0.5, czP];
     }
     plotGroup.add(g);
     if (cur && cur.oc) { const i = occ.indexOf(cur.oc); if (i >= 0) occ.splice(i, 1); cur.oc.mats.forEach(m => { const j = winMats.indexOf(m); if (j >= 0) winMats.splice(j, 1); }); }
