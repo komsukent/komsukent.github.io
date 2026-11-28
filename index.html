@@ -173,7 +173,7 @@ const COUNTRIES = {
 let FULL1 = true; try { FULL1 = localStorage.getItem('kk_full1') !== '0'; } catch (e) { }   // Komşukent dolu mu: yönetici panelden açar/kapatır (pub/full1)
 const C = (() => { let c = 0; try { const u = +new URLSearchParams(location.search).get('c'), st = +localStorage.getItem('kk_c'), known = !!(localStorage.getItem('kk_me') || localStorage.getItem('kk_id')); c = u || (known ? st : 0) || (FULL1 ? 2 + Math.floor(Math.random() * 2) : 1); } catch (e) { c = 1; } if (!COUNTRIES[c] || !COUNTRIES[c].cfg) c = 1; try { localStorage.setItem('kk_c', String(c)); } catch (e) { } return c; })();
 const FB = {};
-const APP_V = '2026112235';
+const APP_V = '2026112236';
 let CAP = 0;   // bump on every upload (yyyymmddNN)
 const ADMIN = location.hash === '#yonetim';
 let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off, orderByChild, equalTo;
@@ -367,6 +367,7 @@ async function enter2(mode) {
     } else if (!isAdm) {
       if (bad(name)) throw { message: 'Bu isim kullanılamaz 🙅 Kendi Instagram ya da TikTok kullanıcı adını yaz' };
     }
+    if (!isAdm) { try { const cn = (await get(ref(db, 'players/' + myId + '/cn'))).val(); if (typeof cn === 'string' && cn.length >= 2) name = cn; } catch (e) { } }
     if (name.length < 2) throw { message: 'Kullanıcı adını yaz' };
     let nk = keyOf(name);
     let nr = await runTransaction(ref(db, 'names/' + nk), cur => (cur && cur !== myId) ? undefined : myId).catch(() => null);
@@ -6542,9 +6543,11 @@ const SSTYPE = {
   motor: { n: 'Motor Ustası', e: '⚙️', job: 'Motor Ustası', c: '#c0392b' }, egzoz: { n: 'Egzozcu', e: '💨', job: 'Egzozcu', c: '#566573' },
   cam: { n: 'Cam Filmcisi', e: '🕶', job: 'Cam Filmcisi', c: '#1b2a49' }, yikama: { n: 'Oto Yıkama', e: '🧽', job: 'Oto Yıkamacı', c: '#3498db' },
 };
-const SS_N = 12, GL_N = 8, SS_PRICE = 12000, GL_PRICE = 20000;
-const ssLot = i => ({ x: 4 + (i % 6) * 8.6, y: i < 6 ? 180 : 197, w: 7.6, h: 12, s: i < 6 ? 1 : -1 });
-const glLot = i => ({ x: 60.5 + (i % 4) * 9.5, y: i < 4 ? 180 : 197, w: 8.6, h: 12, s: i < 4 ? 1 : -1 });
+const SS_N = 18, GL_N = 14, GL_KURS = 7, SS_PRICE = 12000, GL_PRICE = 20000;
+// 0-11 / 0-6: güneydeki eski site • 12-17 / 8-13: batıdaki yeni site (3 sütun x 2 sıra)
+const ysLot = (j, y0) => ({ x: -22.8 + (j % 3) * 9, y: j < 3 ? y0 : y0 + 14.5, w: 8.4, h: 11, s: j < 3 ? 1 : -1 });
+const ssLot = i => i >= 12 ? ysLot(i - 12, 114.5) : ({ x: 4 + (i % 6) * 8.6, y: i < 6 ? 180 : 197, w: 7.6, h: 12, s: i < 6 ? 1 : -1 });
+const glLot = i => i >= 8 ? ysLot(i - 8, 141) : ({ x: 60.5 + (i % 4) * 9.5, y: i < 4 ? 180 : 197, w: 8.6, h: 12, s: i < 4 ? 1 : -1 });
 const SZ_GAR = L => L.s > 0 ? { x: L.x + 0.2, y: L.y + 0.5, w: L.w - 0.4, h: 5.5 } : { x: L.x + 0.2, y: L.y + 6, w: L.w - 0.4, h: 5.5 };
 let SSITE = {}, GALERI = {}, KAMP = null, ADS = {}, szStarted = 0;
 const SSJOBS = Object.values(SSTYPE).map(t => t.job);
@@ -6804,7 +6807,7 @@ function sz3DSync() {
     }
   };
   for (let i = 0; i < SS_N; i++) lot('s' + i, ssLot(i), SSITE[i], 'ss', i);
-  for (let i = 0; i < GL_N - 1; i++) lot('g' + i, glLot(i), GALERI[i], 'gl', i);
+  for (let i = 0; i < GL_N; i++) if (i !== GL_KURS) lot('g' + i, glLot(i), GALERI[i], 'gl', i);
 }
 // ---- dışarıdaki butonlar (sanayi, galeri, kurs, polis kontrolü)
 const EHLCHK = {};
@@ -6816,7 +6819,7 @@ function szActs(L, t) {
     if (!d) L.push({ label: `🏷 Sanayi No:${i + 1} satılık (${SS_PRICE.toLocaleString('tr')} 💰)`, cls: 'blue', fn: () => ssBuy(i) });
     else L.push({ label: `${SSTYPE[d.t].e} ${ssName(i, d)}${d.id === myId ? ' (dükkanın)' : ''}`, cls: 'blue', fn: () => ssMenu(i) });
   }
-  for (let i = 0; i < GL_N - 1; i++) { const Lt = glLot(i); if (!near(Lt, 10)) continue; hit = true; const d = GALERI[i];
+  for (let i = 0; i < GL_N; i++) { if (i === GL_KURS) continue; const Lt = glLot(i); if (!near(Lt, 10)) continue; hit = true; const d = GALERI[i];
     if (!d) L.push({ label: `🏷 Galeri No:${i + 1} satılık (${GL_PRICE.toLocaleString('tr')} 💰)`, cls: 'blue', fn: () => glBuy(i) });
     else L.push({ label: `🚗 ${glName(i, d)}${d.id === myId ? ' (galerin)' : ''} • ${Object.keys(d.c || {}).length} araç`, cls: 'blue', fn: () => glMenu(i) });
   }
@@ -7229,7 +7232,7 @@ function mapPOIs() {
   if (MAPL.shop) for (const p of PLOTS) { const o = plots[p.k]; if (o && o.shopType) L.push({ k: 'shop', e: (SHOPTYPES[o.shopType] || '🏪').split(' ')[0], n: o.shop || 'Dükkan', x: p.x + 1.5, y: p.y + 1.5, gx: p.x + 1.5, gy: p.y + 3.6, o, pk: p.k }); }
   if (MAPL.sale) { for (const p of PLOTS) if (!plots[p.k]) L.push({ k: 'sale', e: '🟢', n: 'Satılık arsa', x: p.x + 1.5, y: p.y + 1.5, gx: p.x + 1.5, gy: p.y + 3.6, pk: p.k });
     for (let i = 0; i < SS_N; i++) if (!SSITE[i]) { const Lt = ssLot(i); L.push({ k: 'sale', e: '🟢', n: `Sanayi No:${i + 1} satılık`, x: Lt.x + Lt.w / 2, y: Lt.y + 6, gx: Lt.x + Lt.w / 2, gy: Lt.s > 0 ? Lt.y + 10 : Lt.y + 2, price: SS_PRICE }); }
-    for (let i = 0; i < GL_N - 1; i++) if (!GALERI[i]) { const Lt = glLot(i); L.push({ k: 'sale', e: '🟢', n: `Galeri No:${i + 1} satılık`, x: Lt.x + Lt.w / 2, y: Lt.y + 6, gx: Lt.x + Lt.w / 2, gy: Lt.s > 0 ? Lt.y + 10 : Lt.y + 2, price: GL_PRICE }); } }
+    for (let i = 0; i < GL_N; i++) if (i !== GL_KURS && !GALERI[i]) { const Lt = glLot(i); L.push({ k: 'sale', e: '🟢', n: `Galeri No:${i + 1} satılık`, x: Lt.x + Lt.w / 2, y: Lt.y + 6, gx: Lt.x + Lt.w / 2, gy: Lt.s > 0 ? Lt.y + 10 : Lt.y + 2, price: GL_PRICE }); } }
   if (MAPL.event) {
     if (concert && concert.until > now()) L.push({ k: 'ev', e: '🎤', n: 'Konser var!', x: STAGE.x + STAGE.w / 2, y: STAGE.y + 3, gx: STAGE.x + STAGE.w / 2, gy: STAGE.y + 4, pulse: 1 });
     for (const p of PLOTS) { const o = plots[p.k]; if (o && o.gm && o.gm.until > now() && FOOD[o.gm.k]) L.push({ k: 'ev', e: '⭐', n: `${o.shop}: ${FOOD[o.gm.k].n} %30`, x: p.x + 1.5, y: p.y + 0.5, gx: p.x + 1.5, gy: p.y + 3.6, pulse: 1 }); }
@@ -7259,13 +7262,14 @@ function mapBase() {
   x.fillStyle = '#2e8b57'; rr(8.4, 120.4, 63.6, 165.6); x.fillStyle = '#4caf50'; rr(21, 133, 51, 153);
   x.fillStyle = '#3c9a46'; rr(70, 128, 82, 148); rr(85, 128, 97, 148);
   x.fillStyle = '#9aa0a6'; rr(2, 179, 57, 210); x.fillStyle = '#d6dbe0'; rr(59, 179, 100, 210);
+  x.fillStyle = '#9aa0a6'; rr(-23.5, 114, 6.5, 140.5); x.fillStyle = '#d6dbe0'; rr(-23.5, 140.5, 6.5, 167.5); x.fillStyle = '#5d636b'; rr(-23, 112, 1, 114); rr(-23, 126, 7, 128.5); rr(-23, 152.5, 7, 155); rr(4.5, 112, 7, 170);
   return MAPBASE = c;
 }
 function mapPlotsDraw(x, s, ox, oy) {
   for (const p of PLOTS) { const o = plots[p.k]; if (!o) continue; x.fillStyle = o.type === 'ev' ? '#f28b82' : o.type === 'apt' ? '#b39ddb' : '#ffd57e'; if (o.id === myId) x.fillStyle = '#ffe600'; x.fillRect(ox + p.x * s, oy + p.y * s, p.w * s, p.h * s); }
   for (const b of BUILD) { if (b.sz || b.open) { if (!b.sz) { x.fillStyle = 'rgba(255,255,255,.25)'; x.fillRect(ox + b.x * s, oy + b.y * s, b.w * s, b.h * s); } continue; } x.fillStyle = b.r || b.c || '#999'; x.fillRect(ox + b.x * s, oy + b.y * s, b.w * s, b.h * s); x.strokeStyle = 'rgba(0,0,0,.35)'; x.lineWidth = 1; x.strokeRect(ox + b.x * s, oy + b.y * s, b.w * s, b.h * s); }
   for (let i = 0; i < SS_N; i++) { const L = ssLot(i), G = SZ_GAR(L); x.fillStyle = SSITE[i] ? (SSTYPE[SSITE[i].t] || {}).c || '#7f8c8d' : 'rgba(46,204,113,.6)'; x.fillRect(ox + G.x * s, oy + G.y * s, G.w * s, G.h * s); }
-  for (let i = 0; i < GL_N; i++) { const L = glLot(i), G = SZ_GAR(L); x.fillStyle = i === GL_N - 1 ? '#f39c12' : GALERI[i] ? '#2e86de' : 'rgba(46,204,113,.6)'; x.fillRect(ox + G.x * s, oy + G.y * s, G.w * s, G.h * s); }
+  for (let i = 0; i < GL_N; i++) { const L = glLot(i), G = SZ_GAR(L); x.fillStyle = i === GL_KURS ? '#f39c12' : GALERI[i] ? '#2e86de' : 'rgba(46,204,113,.6)'; x.fillRect(ox + G.x * s, oy + G.y * s, G.w * s, G.h * s); }
 }
 // ---- tam ekran harita
 let MAPV = null;
@@ -7925,7 +7929,7 @@ async function adEdit(i, cur, slots) {
 // ================= v23: GENİŞ ŞEHİR • YOL KENARI DURAKLAR + GERÇEK OTOBÜS • PANOLAR DÜZELDİ • KOMŞUKENT BANKASI =================
 // ---- yollar (şehir ızgarası + dış yollar)
 const XROADS = [[98, 113.6, -23.5, -22.5], [98, 113.6, -8.5, -7.5], [98, 113.6, 36.5, 37.5], [98, 113.6, 81.5, 82.5], [98, 113.6, 96.5, 97.5],
-  [112.6, 114.6, CO, WN], [0, 102, 112, 114], [34.4, 37.6, 113.6, 120.5], [82, 85, 113.8, 127.8], [99, 102, 113, 196], [2, 102, 193, 196], [2, 101, 168, 170], [37, 39, 97, 113], [97.2, 99.2, 97, 113], [112.6, 114.6, 97, 114], [101, 114.6, 112, 114]];
+  [112.6, 114.6, CO, WN], [0, 102, 112, 114], [34.4, 37.6, 113.6, 120.5], [82, 85, 113.8, 127.8], [99, 102, 113, 196], [2, 102, 193, 196], [2, 101, 168, 170], [37, 39, 97, 113], [97.2, 99.2, 97, 113], [112.6, 114.6, 97, 114], [101, 114.6, 112, 114], [-23, 1, 112, 114], [-23, 7, 126, 128.5], [-23, 7, 152.5, 155], [4.5, 7, 112, 170]];
 function roadAt(x, y) { if (isRoad(x, y)) return true; const cx = x + 0.5, cy = y + 0.5; return XROADS.some(([x0, x1, y0, y1]) => cx >= x0 && cx <= x1 && cy >= y0 && cy <= y1); }
 const XR = XROADS.slice(0, 5).map(r => r[2] + 0.5);   // hangi doğu bağlantıları çizildi
 // ---- duraklar: yol kenarında, yola paralel
@@ -8592,6 +8596,57 @@ const KS = (() => {
 { const _b = busGo; busGo = function (...a) { const was = BUS; const r = _b.apply(this, a); if (!was && BUS) KS.play('korna', 0.6); return r; }; }
 { const _f = fishCatch; fishCatch = function (...a) { KS.play('su', 0.8); return _f.apply(this, a); }; }
 document.getElementById('bSnd').onclick = () => KS.menu();
+
+// ================= YENİ SANAYİ & GALERİCİLER SİTESİ (batı) • İSİM DEĞİŞTİRME KARTI =================
+// eski 12 sanayi + 7 galeri reklam için ayrıldı; oyuncular için batıda 6 sanayi + 6 galeri yeni dükkan
+STOPS.push({ n: 'Yeni Sanayi', x: 3.95, y: 140.6, r: Math.PI / 2 });
+LANDM.push({ id: 'ysan', e: '🔧', n: 'Yeni Sanayi & Galeri', x: -8.5, y: 140.5, d: 'Satılık sanayi dükkanları ve galeriler' });
+function ys3D() {
+  if (!THREE || !scene || ys3D.done) return; ys3D.done = 1;
+  box(30.5, 0.04, 27, '#8f949a', -8.5, 0.024, 127, null, false); box(30.5, 0.04, 27, '#c7ccd1', -8.5, 0.024, 154, null, false);
+  const road = (w, d, x, z) => box(w, 0.06, d, '#4a4f57', x, 0.046, z, null, false);
+  road(24.5, 2, -11, 113); road(30.5, 2.5, -8.25, 127.25); road(30.5, 2.5, -8.25, 153.75); road(2.5, 58, 5.75, 141);
+  for (let x = -21; x < 6; x += 3) { box(1.2, 0.07, 0.12, '#f4f4f4', x, 0.05, 127.25, null, false); box(1.2, 0.07, 0.12, '#f4f4f4', x, 0.05, 153.75, null, false); }
+  for (let z = 115; z < 168; z += 3) box(0.12, 0.07, 1.2, '#f4f4f4', 5.75, 0.05, z, null, false);
+  const sg = (t, bg, fg, w, h, x, y, z) => { const s = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: signTex(t, bg, fg) })); s.position.set(x, y, z); scene.add(s); return s; };
+  for (const [t, c, z] of [['🔧 YENİ SANAYİ SİTESİ', '#d35400', 125.6], ['🚗 YENİ GALERİCİLER', '#2e86de', 152.1]]) {
+    const x = -8.5; box(0.3, 5, 0.3, '#2c3e50', x - 5.5, 2.5, z); box(0.3, 5, 0.3, '#2c3e50', x + 5.5, 2.5, z); box(11.3, 1.2, 0.3, c, x, 5, z); sg(t, c, '#ffffff', 10.6, 1.05, x, 5, z + 0.16);
+  }
+}
+{ const _s = sz3D; sz3D = function () { _s(); try { ys3D(); } catch (e) { } }; }
+// ---- isim değiştirme kartı (Belediye • Nüfus)
+const NAME_CARD = 3000;
+const nameKey = n => fold(n.toLocaleLowerCase('tr')).replace(/[.\s]/g, '_');
+async function renameCard() {
+  if (!ME || !db) return;
+  const last = (await get(ref(db, 'players/' + myId + '/cnAt')).catch(() => null))?.val() || 0;
+  if (last > now() - 24 * 3600000) return toast(`🪪 İsmini günde 1 kez değiştirebilirsin (${Math.ceil((last + 24 * 3600000 - now()) / 3600000)} saat sonra)`);
+  if (ME.money < NAME_CARD) return toast(`🪪 İsim değiştirme kartı ${NAME_CARD.toLocaleString('tr')} 💰, paran yetmiyor 😅`);
+  const v = prompt(`🪪 İsim değiştirme kartı • ${NAME_CARD.toLocaleString('tr')} 💰\nŞu anki adın: ${ME.name}\n\nYeni kullanıcı adını yaz:`, ''); if (v == null) return;
+  const nn = clean(v), nk = nameKey(nn), ok = nameKey(ME.name);
+  if (nn.length < 2) return toast('En az 2 harf yazmalısın');
+  if (nn === ME.name) return toast('Bu zaten senin adın 🙂');
+  if (!admins[myId] && RESERVED.some(r => nk.replace(/_/g, '').includes(r))) return toast('Bu isim kullanılamaz 🙅');
+  if (nk !== ok) {
+    const r = await runTransaction(ref(db, 'names/' + nk), cur => (cur && cur !== myId) ? undefined : myId).catch(() => null);
+    if (!r || !r.committed) return toast(`"${esc(nn)}" başka bir oyuncuya ait 😕 Başka bir isim dene`);
+  }
+  if (!spend(NAME_CARD)) { if (nk !== ok) remove(ref(db, 'names/' + nk)).catch(() => { }); return; }
+  cityIncome(NAME_CARD);
+  const old = ME.name;
+  if (nk !== ok) remove(ref(db, 'names/' + ok)).catch(() => { });
+  ME.name = nn;
+  await update(ref(db, 'players/' + myId), { name: nn, cn: nn, nk, cnAt: now() }).catch(() => { });
+  pub({ name: nn }); saveMe();
+  try { const s = JSON.parse(localStorage.getItem('kk_me') || '{}'); s.name = nn; localStorage.setItem('kk_me', JSON.stringify(s)); } catch (e) { }
+  // sahip olduğu yerlerde görünen ad
+  for (const p of PLOTS) { const o = plots[p.k]; if (o && o.id === myId) { o.name = nn; update(ref(db, 'plots2/' + p.k), { name: nn }).catch(() => { }); } }
+  for (const i in SSITE) if (SSITE[i] && SSITE[i].id === myId) update(ref(db, 'ssite/' + i), { on: nn }).catch(() => { });
+  for (const i in GALERI) if (GALERI[i] && GALERI[i].id === myId) update(ref(db, 'galeri/' + i), { on: nn }).catch(() => { });
+  hud(); closeModal(); toast(`🪪 Yeni adın: <b>${esc(nn)}</b>`, 4000);
+  say(`🪪 <b>${esc(old)}</b> adını <b>${esc(nn)}</b> olarak değiştirdi`, true);
+}
+{ const _ca = computeActs; computeActs = function () { const L = _ca(); if (ME && ME.inside === 'belediye') L.push({ label: `🪪 İsim değiştirme kartı (${NAME_CARD.toLocaleString('tr')} 💰)`, cls: 'blue', disabled: ME.money < NAME_CARD, fn: renameCard }); return L; }; }
 
 // ================= EVENTS =================
 const EV_NAMES = { yangin: '🔥 YANGIN', soygun: '🚨 SOYGUN', festival: '🎉 FESTİVAL' };
