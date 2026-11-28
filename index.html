@@ -173,7 +173,7 @@ const COUNTRIES = {
 let FULL1 = true; try { FULL1 = localStorage.getItem('kk_full1') !== '0'; } catch (e) { }   // Komşukent dolu mu: yönetici panelden açar/kapatır (pub/full1)
 const C = (() => { let c = 0; try { const u = +new URLSearchParams(location.search).get('c'), st = +localStorage.getItem('kk_c'), known = !!(localStorage.getItem('kk_me') || localStorage.getItem('kk_id')); c = u || (known ? st : 0) || (FULL1 ? 2 + Math.floor(Math.random() * 2) : 1); } catch (e) { c = 1; } if (!COUNTRIES[c] || !COUNTRIES[c].cfg) c = 1; try { localStorage.setItem('kk_c', String(c)); } catch (e) { } return c; })();
 const FB = {};
-const APP_V = '2026112239';
+const APP_V = '2026112240';
 let CAP = 0;   // bump on every upload (yyyymmddNN)
 const ADMIN = location.hash === '#yonetim';
 let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off, orderByChild, equalTo;
@@ -356,6 +356,8 @@ async function enter2(mode) {
     myId = auth.currentUser.uid;
     if ((await get(ref(db, 'bans/' + myId))).exists()) throw { message: 'Bu hesap şehirden uzaklaştırıldı ⛔' };
     const isAdm = (await get(ref(db, 'admins/' + myId))).val() === true;
+    let unArch = null; try { unArch = await archRestore(myId); } catch (e) { }
+    if (unArch) setTimeout(() => toast('👋 Uzun zaman oldu, tekrar hoş geldin! Paran ve eşyaların duruyor. Evin boşa çıktıysa yeniden arsa alabilirsin 🏡', 8000), 3000);
     const U = auth.currentUser, isG = !U.isAnonymous;
     if (!isAdm) { const cap = (await get(ref(db, 'config/cap')).catch(() => null))?.val() || 0; if (cap) { const on = (await get(ref(db, 'online')).catch(() => null))?.val() || {}; if (Object.keys(on).filter(k => k !== myId).length >= cap) throw { message: `🚦 Şehir şu an dolu (${cap} kişi). 2-3 dakika sonra tekrar dene, uyuyanlar çıktıkça yer açılıyor 🙏` }; } }
     if (!isAdm && !isG && !devCheck(myId)) { /* sınır sadece misafir hesaplara, Google hesabı her zaman girer */ try { if (U.isAnonymous) await AU.signOut(auth); } catch (e) { } throw { message: '📵 Bu telefonda en fazla 2 hesap açılabilir. Daha önce girdiğin hesapla gir (aynı isimle misafir ya da aynı Google hesabı).' }; }
@@ -387,7 +389,7 @@ async function enter2(mode) {
     if (!prev || prev.money == null) {   // carry over progress (old device / new browser)
       let old = null; try { old = localStorage.getItem('kk_id'); } catch (e) { }
       if (takeFrom) old = takeFrom;
-      if (old && old !== myId) { const o = (await get(ref(db, 'players/' + old))).val(); if (o) prev = { money: Math.min(2000, o.money || 0), energy: o.energy, acc: o.acc, wear: o.wear, m: o.m, lvl: o.lvl, inv: o.inv, q: o.q, play: o.play, job: o.job, pd: o.pd, joined: o.joined, pleft: o.pleft }; }
+      if (old && old !== myId) { let o = (await get(ref(db, 'players/' + old))).val(); if (!o) o = (await get(ref(db, 'arch/' + old)).catch(() => null))?.val(); if (o) prev = { money: Math.min(2000, o.money || 0), energy: o.energy, acc: o.acc, wear: o.wear, m: o.m, lvl: o.lvl, inv: o.inv, q: o.q, play: o.play, job: o.job, pd: o.pd, joined: o.joined, pleft: o.pleft }; }
       if (takeFrom) setTimeout(() => toast('👋 Tekrar hoş geldin! Başka cihazdan girdiğin için ilerlemenin bir kısmı taşındı. Kaybetmemek için 👤 → Google\'a bağla', 7000), 3000);
     }
     let claimed = null, tcode = null; try { tcode = localStorage.getItem('kk_tcode'); } catch (e) { }
@@ -2352,6 +2354,16 @@ function lastSeen(p) {
   for (const d of Object.keys(p.pd || {})) { const x = Date.parse(d); if (x) t = Math.max(t, x + 864e5 - 1); }
   return t;
 }
+const ARCH_DROP = ['pd', 'dq', 'dev', 'x', 'y', 'ride', 'kd'];
+async function archRestore(uid) {   // arşivdeki hesabı oyuncular listesine geri taşı
+  try {
+    const a = (await get(ref(db, 'arch/' + uid))).val(); if (!a) return null;
+    const cur = (await get(ref(db, 'players/' + uid))).val() || {};
+    const p = Object.assign({}, a, cur, { money: (+a.money || 0) + (+cur.money || 0) });   // arşivdeyken gelen hediye/kira da eklenir delete p.archAt;
+    await update(ref(db), { ['players/' + uid]: p, ['arch/' + uid]: null });
+    return p;
+  } catch (e) { console.log('arch restore err', e); return null; }
+}
 async function inactiveSweep() {
   if (inactiveSweep.busy || (inactiveSweep.last || 0) > now() - 6 * 3600000) return; inactiveSweep.busy = 1; inactiveSweep.last = now();
   try {
@@ -2361,8 +2373,11 @@ async function inactiveSweep() {
     for (const [id, p] of Object.entries(all)) {
       if (!p || adm[id] === true || id === myId) continue;
       const t = lastSeen(p); if (!t || t > cut) continue;      // tarihi bilinmeyene dokunma
-      if (!Object.values(pl).some(o => o && o.id === id)) continue;   // hesap silinmez; sadece arsası/evi boşa çıkar
-      gone.push(id); upd['players/' + id + '/home'] = null; upd['players/' + id + '/shop'] = null;
+      if (p.moved || p.mstay) continue;   // göç edenlere dokunma
+      if (gone.length >= 400) break;   // bir turda en fazla 400 hesap arşive
+      gone.push(id); const a = Object.assign({}, p, { home: null, shop: null, archAt: now() }); for (const k of ARCH_DROP) delete a[k];
+      for (const k in a) if (a[k] == null) delete a[k];
+      upd['arch/' + id] = a; upd['players/' + id] = null;   // hesap silinmez, arşive taşınır; girince geri gelir
     }
     const G = new Set(gone);
     for (const [k, o] of Object.entries(pl)) if (o && G.has(o.id)) upd['plots2/' + k] = null;
@@ -2371,8 +2386,9 @@ async function inactiveSweep() {
     let tn = 0;   // 7 gündür alınmamış taşıma paketleri ve onlara ayrılan arsalar
     for (const [code, tr] of Object.entries(trs)) if (tr && !tr.by && tr.t && tr.t < cut) { upd['transfers/' + code] = null; tn++; for (const [k, o] of Object.entries(pl)) if (o && o.code === code) upd['plots2/' + k] = null; }
     const keys = Object.keys(upd);
-    for (let i = 0; i < keys.length; i += 300) { const part = {}; keys.slice(i, i + 300).forEach(k => part[k] = upd[k]); await update(ref(db), part); }
-    if (gone.length || tn) { console.log('sweep', gone.length, tn); toast(`🧹 30 gündür girmeyen ${gone.length} oyuncunun evi/dükkânı boşa çıktı (hesapları duruyor)${tn ? ` • ${tn} eski taşıma paketi temizlendi` : ''}`, 6000); }
+    keys.sort((a, b) => (a.startsWith('arch/') ? 0 : 1) - (b.startsWith('arch/') ? 0 : 1));   // önce arşive yaz, sonra sil
+    for (let i = 0; i < keys.length; i += 60) { const part = {}; keys.slice(i, i + 60).forEach(k => part[k] = upd[k]); await update(ref(db), part); }
+    if (gone.length || tn) { console.log('sweep', gone.length, tn); toast(`🗄 30 gündür girmeyen ${gone.length} oyuncu arşive alındı, evleri boşa çıktı (girince hesapları geri gelir)${tn ? ` • ${tn} eski taşıma paketi temizlendi` : ''}`, 6000); }
   } catch (e) { console.log('sweep err', e); } finally { inactiveSweep.busy = 0; }
 }
 
