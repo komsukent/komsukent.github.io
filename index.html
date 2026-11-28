@@ -173,7 +173,7 @@ const COUNTRIES = {
 let FULL1 = true; try { FULL1 = localStorage.getItem('kk_full1') !== '0'; } catch (e) { }   // Komşukent dolu mu: yönetici panelden açar/kapatır (pub/full1)
 const C = (() => { let c = 0; try { const u = +new URLSearchParams(location.search).get('c'), st = +localStorage.getItem('kk_c'), known = !!(localStorage.getItem('kk_me') || localStorage.getItem('kk_id')); c = u || (known ? st : 0) || (FULL1 ? 2 + Math.floor(Math.random() * 2) : 1); } catch (e) { c = 1; } if (!COUNTRIES[c] || !COUNTRIES[c].cfg) c = 1; try { localStorage.setItem('kk_c', String(c)); } catch (e) { } return c; })();
 const FB = {};
-const APP_V = '2026112238';
+const APP_V = '2026112239';
 let CAP = 0;   // bump on every upload (yyyymmddNN)
 const ADMIN = location.hash === '#yonetim';
 let goOffline, goOnline, db, ref, set, update, get, remove, onValue, onChildAdded, onChildChanged, onChildRemoved, onDisconnect, push, query, limitToLast, runTransaction, serverTimestamp, off, orderByChild, equalTo;
@@ -2346,7 +2346,7 @@ setInterval(() => {
 
 // admin-side cleanup: profession roles must be held by the right job, one person one role, no elections for profession roles
 // ---- Yönetici: 7 gün girmeyen hesapları sil (yöneticiler hariç)
-const INACT_MS = 7 * 864e5;
+const INACT_MS = 30 * 864e5;
 function lastSeen(p) {
   let t = Math.max(+p.seen || 0, +p.joined || 0, (p.moved && +p.moved.t) || 0);
   for (const d of Object.keys(p.pd || {})) { const x = Date.parse(d); if (x) t = Math.max(t, x + 864e5 - 1); }
@@ -2361,17 +2361,18 @@ async function inactiveSweep() {
     for (const [id, p] of Object.entries(all)) {
       if (!p || adm[id] === true || id === myId) continue;
       const t = lastSeen(p); if (!t || t > cut) continue;      // tarihi bilinmeyene dokunma
-      gone.push(id); upd['players/' + id] = null; upd['online/' + id] = null; upd['mods/' + id] = null; upd['goc/' + id] = null;
+      if (!Object.values(pl).some(o => o && o.id === id)) continue;   // hesap silinmez; sadece arsası/evi boşa çıkar
+      gone.push(id); upd['players/' + id + '/home'] = null; upd['players/' + id + '/shop'] = null;
     }
     const G = new Set(gone);
     for (const [k, o] of Object.entries(pl)) if (o && G.has(o.id)) upd['plots2/' + k] = null;
     for (const [r, h] of Object.entries(rl)) if (h && G.has(h.id)) upd['roles/' + r] = null;
     if (CB && G.has(CB.id)) upd['cb'] = null;
     let tn = 0;   // 7 gündür alınmamış taşıma paketleri ve onlara ayrılan arsalar
-    for (const [code, tr] of Object.entries(trs)) if (tr && !tr.by && (tr.t || 0) < cut) { upd['transfers/' + code] = null; tn++; for (const [k, o] of Object.entries(pl)) if (o && o.code === code) upd['plots2/' + k] = null; }
+    for (const [code, tr] of Object.entries(trs)) if (tr && !tr.by && tr.t && tr.t < cut) { upd['transfers/' + code] = null; tn++; for (const [k, o] of Object.entries(pl)) if (o && o.code === code) upd['plots2/' + k] = null; }
     const keys = Object.keys(upd);
     for (let i = 0; i < keys.length; i += 300) { const part = {}; keys.slice(i, i + 300).forEach(k => part[k] = upd[k]); await update(ref(db), part); }
-    if (gone.length || tn) { console.log('sweep', gone.length, tn); toast(`🧹 7 gündür girmeyen ${gone.length} hesap silindi${tn ? ` • ${tn} bekleyen taşıma paketi temizlendi` : ''}`, 6000); }
+    if (gone.length || tn) { console.log('sweep', gone.length, tn); toast(`🧹 30 gündür girmeyen ${gone.length} oyuncunun evi/dükkânı boşa çıktı (hesapları duruyor)${tn ? ` • ${tn} eski taşıma paketi temizlendi` : ''}`, 6000); }
   } catch (e) { console.log('sweep err', e); } finally { inactiveSweep.busy = 0; }
 }
 
@@ -2824,6 +2825,7 @@ function gocMenu() {
   if (!list.length) return toast('Şu an göç edilebilecek başka ülke yok');
   modal('🌍 Ülke değiştir', list.map(c => ({ label: `${COUNTRIES[c].f} ${esc(ctryName(c))}'e göç et`, fn: () => modal(`🌍 ${esc(ctryName(c))}'e göç`, [
     { label: '✅ Evet, başvur', cls: 'blue', fn: async () => {
+      if (!confirm(`⚠️ Emin misin?\n\n${ctryName(c)} ülkesine göç edince evin, dükkanın ve paran oraya taşınır, burada kalmaz.\nBu hakkı sadece 1 kez kullanabilirsin.`)) return;
       try { await set(ref(db, 'goc/' + myId), { to: c, n: ME.name, t: serverTimestamp() }); toast(`🌍 Göç başvurun alındı! Onaylanınca sana haber vereceğiz`, 5000); }
       catch (e) { toast('Başvuru gönderilemedi'); }
     } }], `<p><b>Tek hakkın bu!</b> Geri dönüş yok.</p><p>💰 Paran, 👔 mesleğin, kıyafetlerin, 🐾 hayvanın ve mesai geçmişin taşınır.</p><p>🏠 Ev ve dükkanların burada satılır, parası hesabına eklenir.</p><p>👑 Makamın varsa burada boşalır.</p>`) })), `<p>Herkesin 1 kez ülke değiştirme hakkı var.</p>`);
@@ -2837,7 +2839,7 @@ function movedScreen(mv) {
     mcard.querySelector('#mvGo').onclick = () => { try { localStorage.removeItem('kk_hops'); } catch (e) { } goCountry(mv.to); };
     mcard.querySelector('#mvStay').onclick = async () => {
       mcard.innerHTML = '<h2>⏳ Hesabın bu ülkeye bağlanıyor…</h2>';
-      try { await update(ref(db, 'players/' + myId), { moved: null, gocUsed: 1 }); } catch (e) { }
+      try { await update(ref(db, 'players/' + myId), { moved: null, gocUsed: 1, mstay: { to: mv.to, code: mv.code, t: Date.now() } }); } catch (e) { }
       try { ['kk_hops', 'kk_tcode', 'kk_tmode'].forEach(k => localStorage.removeItem(k)); } catch (e) { }
       closeModal(); enter('resume');
     };
@@ -2887,7 +2889,7 @@ async function gocRun() {
   if (gocRun.busy) return; gocRun.busy = 1;
   try {
     for (const [k, j] of Object.entries(GOCQ)) {
-      if (!DBS[j.src] || !DBS[j.req.to]) continue;
+      if (!j.ok || !DBS[j.src] || !DBS[j.req.to]) continue;
       delete GOCQ[k];
       await transferPlayer(j.src, j.uid, j.req.to, null).catch(e => toast('Göç işlenemedi: ' + (e.message || e)));
     }
@@ -2911,7 +2913,7 @@ async function transferPlayer(src, uid, to, role, cache) {
   for (const [r, h] of Object.entries(rl)) if (h && h.id === uid) upd['roles/' + r] = null;
   const cbS = (await get(ref(S, 'cb'))).val(); if (cbS && cbS.id === uid) upd['cb'] = null;
   const pkg = { name: p.name || 'Komşu', job: p.job === 'Cumhurbaşkanı' ? (p.preJob || 'İşsiz') : (p.job || 'İşsiz'), money: Math.floor((p.money || 0) + refund), energy: p.energy ?? 100, acc: p.acc || null, wear: p.wear || null, m: p.m || null,
-    inv: p.inv || null, veh: p.veh || null, lvl: p.lvl || 0, pet: p.pet || null, bio: p.bio || '', jobChanged: p.jobChanged || 0, jx: p.jx || 0, color: p.color || null, play: p.play || 0, pd: p.pd || null, q: p.q || null, joined: p.joined || null, pleft: p.pleft || 0, preJob: p.preJob || null, from: src, to, role: role || null, t: Date.now(),
+    inv: p.inv || null, veh: p.veh || null, lvl: p.lvl || 0, pet: p.pet || null, bio: p.bio || '', jobChanged: p.jobChanged || 0, jx: p.jx || 0, color: p.color || null, play: p.play || 0, pd: p.pd || null, q: p.q || null, joined: p.joined || null, pleft: p.pleft || 0, preJob: p.preJob || null, from: src, to, role: role || null, t: Date.now(), t: Date.now(),
     plots: kept.length ? kept : null, home: kept.includes(p.home) ? p.home : null, shop: kept.includes(p.shop) ? p.shop : (kept.find(k => tp[k].type !== 'ev') || null) };
   await set(ref(T, 'transfers/' + code), pkg);
   if (kept.length) await update(ref(T), tupd).catch(() => { });
@@ -2951,7 +2953,9 @@ function adminCountryHTML() {
   <div class="row">${Object.keys(COUNTRIES).map(Number).filter(c => c !== C && ctryOn(c)).map(c => `<button data-con="${c}" style="background:#2e86de">${DBS[c] ? '🔗 ' + esc(ctryName(c)) + ' bağlı' : '🔌 ' + esc(ctryName(c)) + "'e bağlan"}</button>`).join('')}</div>
   <button id="aWKey" style="background:#b8860b;margin:4px 0">🔑 Zirve anahtarlarını ver (cumhurbaşkanları için)</button>
   <button id="aBack" style="background:#8e44ad;margin:4px 0">↩️ Taşınanları geri getir</button>
-  <p style="font-size:13px;margin:4px 0">🧳 Bekleyen göç: <b>${q}</b>${q ? ' (hedef ülkeye bağlanınca otomatik işlenir)' : ''}</p>`;
+  <p style="font-size:13px;margin:4px 0">🧳 Bekleyen göç başvurusu: <b>${q}</b>${q ? ' (onaylayınca işlenir)' : ''}</p>
+  ${Object.entries(GOCQ).slice(0, 20).map(([k, j]) => `<div class="row" style="align-items:center;gap:6px;margin:3px 0"><span style="flex:1;font-size:13px">${esc(j.req.n || 'Komşu')} • ${esc(ctryName(j.src))} → ${esc(ctryName(j.req.to))}${j.ok ? ' ⏳' : ''}</span><button data-gok="${esc(k)}" style="background:#27ae60;padding:4px 10px">✅</button><button data-gno="${esc(k)}" style="background:#c0392b;padding:4px 10px">❌</button></div>`).join('')}
+  <button id="aLost" style="background:#16a085;margin:4px 0">🔎 Kayıp göç paketlerini bul / geri getir</button>`;
 }
 function adminCountryWire(el) {
   el.querySelectorAll('[data-cc]').forEach(b => b.onclick = () => { const c = +b.dataset.cc; if (c !== C) goCountry(c); });
@@ -2959,6 +2963,9 @@ function adminCountryWire(el) {
     connectCountry(+b.dataset.con, true).then(() => gocRun()).catch(e => { if (e && e.code !== 'auth/cancelled-popup-request' && e.code !== 'auth/popup-closed-by-user') alert(e.message || e.code || e); }).finally(() => { connectCountry.busy = 0; adminUI(); }); });
   const wk = el.querySelector('#aWKey'); if (wk) wk.onclick = worldKeysAll;
   const bk = el.querySelector('#aBack'); if (bk) bk.onclick = backMenu;
+  const ls = el.querySelector('#aLost'); if (ls) ls.onclick = lostPkgMenu;
+  el.querySelectorAll('[data-gok]').forEach(b => b.onclick = () => { const j = GOCQ[b.dataset.gok]; if (!j) return; if (!DBS[j.src] || !DBS[j.req.to]) return alert(`Önce ${ctryName(j.req.to)} ülkesine 🔌 bağlan`); if (!confirm(`${j.req.n} → ${ctryName(j.req.to)} göçü onaylansın mı?`)) return; j.ok = 1; gocRun().then(() => adminUI()); });
+  el.querySelectorAll('[data-gno]').forEach(b => b.onclick = async () => { const k = b.dataset.gno, j = GOCQ[k]; if (!j) return; delete GOCQ[k]; const S = (DBS[j.src] || {}).db || (j.src === C ? db : null); if (S) { await remove(ref(S, 'goc/' + j.uid)).catch(() => { }); if (S === db) notify(j.uid, '🌍 Göç başvurun onaylanmadı, burada devam 🙂'); } adminUI(); });
   const rm = el.querySelector('#aCbRm'); if (rm) rm.onclick = () => { if (!confirm('Cumhurbaşkanı görevden alınsın mı?')) return; const id = CB.id; remove(ref(db, 'cb')); remove(ref(db, 'mods/' + id)); say(`🏛 Cumhurbaşkanı <b>${esc(CB.name)}</b> görevden alındı`, true, 'ann'); };
 }
 
@@ -2966,7 +2973,7 @@ function adminCountryWire(el) {
 async function backMenu() {
   toast('↩️ Taşınanlar yükleniyor…', 1500);
   const all = (await get(ref(db, 'players'))).val() || {};
-  const mv = Object.entries(all).filter(([, p]) => p && p.moved && p.moved.code && p.moved.code !== 'back').map(([id, p]) => ({ id, p, t: p.moved.t || 0, to: p.moved.to })).sort((a, b) => b.t - a.t);
+  const mv = Object.entries(all).filter(([, p]) => p && ((p.moved && p.moved.code && p.moved.code !== 'back') || (p.mstay && p.mstay.code))).map(([id, p]) => { const m = (p.moved && p.moved.code) ? p.moved : p.mstay; return { id, p: Object.assign({}, p, { moved: m, _stay: !(p.moved && p.moved.code) }), t: m.t || 0, to: m.to }; }).sort((a, b) => b.t - a.t);
   if (!mv.length) return toast('Bu ülkeden taşınan oyuncu yok');
   const G = []; for (const m of mv) { const g = G[G.length - 1]; if (g && g.t0 - m.t < 180000) { g.L.push(m); g.t0 = m.t; } else G.push({ t1: m.t, t0: m.t, L: [m] }); }
   const hm = t => new Date(t).toLocaleString('tr', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
@@ -3007,13 +3014,37 @@ async function bringBack(uid, p, cache) {
   }
   const P = 'players/' + uid + '/', pick = k => data[k] !== undefined ? data[k] : (p[k] !== undefined ? p[k] : null);
   Object.assign(supd, {
-    [P + 'moved']: null, [P + 'gocUsed']: 0, [P + 'money']: Math.floor((data.money || 0) + refund),
+    [P + 'moved']: null, [P + 'mstay']: null, [P + 'gocUsed']: 0, [P + 'money']: Math.floor((data.money || 0) + refund + (p._stay ? (p.money || 0) : 0)),
     [P + 'job']: data.job === 'Cumhurbaşkanı' ? (data.preJob || 'İşsiz') : (data.job || p.job || 'İşsiz'),
-    [P + 'home']: keep.includes(data.home) ? data.home : null, [P + 'shop']: keep.includes(data.shop) ? data.shop : (keep.find(k => sp[k] && sp[k].type !== 'ev') || null),
+    [P + 'home']: keep.includes(data.home) ? data.home : (p._stay ? (p.home || null) : null), [P + 'shop']: keep.includes(data.shop) ? data.shop : (keep.find(k => sp[k] && sp[k].type !== 'ev') || (p._stay ? (p.shop || null) : null)),
   });
+  if (p._stay) ['job', 'energy', 'lvl', 'play', 'pd', 'jx', 'q', 'joined'].forEach(k => { if (p[k] != null) supd[P + k] = p[k]; });
   ['energy', 'acc', 'wear', 'm', 'inv', 'veh', 'lvl', 'pet', 'bio', 'jobChanged', 'jx', 'play', 'pd', 'q', 'joined'].forEach(k => { const v = pick(k); if (v !== null) supd[P + k] = v; });
   if (Object.keys(tupd).length) await update(ref(T), tupd);
   await update(ref(db), supd);
+}
+
+// ---- Yönetici: kayıp göç paketleri (oyuncu "Burada kal" dedi ya da kodu kayboldu)
+async function lostPkgMenu() {
+  const cs = Object.keys(COUNTRIES).map(Number).filter(c => c !== C && ctryOn(c));
+  const need = cs.filter(c => !DBS[c]); if (need.length === cs.length) return alert(`Önce panelden ${cs.map(c => ctryName(c)).join(' / ')} ülkesine 🔌 bağlan`);
+  toast('🔎 Paketler aranıyor…', 1500);
+  const L = [];
+  for (const c of cs) { if (!DBS[c]) continue; const T = (await get(ref(DBS[c].db, 'transfers')).catch(() => null))?.val() || {}; for (const [code, tr] of Object.entries(T)) if (tr && !tr.by && tr.from === C && !tr.role) L.push({ c, code, tr }); }
+  if (!L.length) return alert('Teslim alınmamış göç paketi bulunamadı' + (need.length ? `\n(Bağlı olmayan ülke: ${need.map(c => ctryName(c)).join(', ')})` : ''));
+  const f = n => Math.floor(n || 0).toLocaleString('tr');
+  modal('🔎 Kayıp göç paketleri', L.slice(0, 40).map(x => ({ label: `🧳 <b>${esc(x.tr.name)}</b> → ${esc(ctryName(x.c))}<br><small>💰 ${f(x.tr.money)} • 🏠 ${(x.tr.plots || []).length} yer • ${new Date((x.t = x.tr.t || 0) || Date.now()).toLocaleDateString('tr')}</small>`, fn: () => lostPkgGive(x) })),
+    `<p>Teslim alınmamış paketler. Dokun → hangi oyuncuya ait olduğunu seç → parası, evi ve dükkânı ${esc(ctryName(C))}'deki hesabına geri gelir (şimdiki parasının üstüne eklenir).</p>`);
+}
+async function lostPkgGive(x) {
+  const all = (await get(ref(db, 'players'))).val() || {}, key = n => fold(String(n || '').toLocaleLowerCase('tr'));
+  const cand = Object.entries(all).filter(([, p]) => p && p.name && (key(p.name) === key(x.tr.name) || key(p.name).startsWith(key(x.tr.name)) || key(x.tr.name).startsWith(key(p.name))));
+  if (!cand.length) return alert(`"${x.tr.name}" adında oyuncu bulunamadı. Oyuncu ismini değiştirmiş olabilir.`);
+  modal(`🧳 ${esc(x.tr.name)} paketi kime?`, cand.slice(0, 15).map(([id, p]) => ({ label: `👤 ${esc(p.name)} • 💰 ${Math.floor(p.money || 0).toLocaleString('tr')}${p.gocUsed ? ' • göç etmiş' : ''}`, fn: async () => {
+    if (!confirm(`${x.tr.name} paketi ${p.name} hesabına geri getirilsin mi?`)) return;
+    try { if (!DBS[C]) DBS[C] = { db, uid: myId }; await bringBack(id, Object.assign({}, p, { moved: { to: x.c, code: x.code }, _stay: true }), {}); alert(`✅ ${p.name} eşyalarına kavuştu!`); notify(id, '↩️ Göç paketin geri geldi! Paran, evin ve dükkânın hesabında 🏠'); }
+    catch (e) { alert('❌ Olmadı: ' + (e.message || e)); }
+  } })));
 }
 
 // ---- Yönetici: haftalık güç sıralaması (cumhurbaşkanı seçmek için)
@@ -6661,7 +6692,9 @@ function ssBuy(i) {
   if (Object.values(SSITE).some(L => L && L.id === myId)) return toast('Sanayide zaten bir dükkanın var 🔧');
   modal(`🔧 Sanayi No:${i + 1} • ${SS_PRICE.toLocaleString('tr')} 💰`, Object.entries(SSTYPE).map(([t, o]) => ({ label: `${o.e} ${o.n}`, disabled: ME.money < SS_PRICE, fn: async () => {
     if (ME.money < SS_PRICE) return toast('Para yetmiyor');
-    const r = await TX(ref(db, 'ssite/' + i), c => c ? undefined : { id: myId, on: ME.name, t, at: now() }).catch(() => null);
+    if (ssBuy.busy) return; ssBuy.busy = 1;
+    let err = null; const r = await runTransaction(ref(db, 'ssite/' + i), c => c ? undefined : { id: myId, on: ME.name, t, at: now() }).catch(e => { err = e; return null; }).finally(() => { ssBuy.busy = 0; });
+    if (err) return toast('İşlem yapılamadı, tekrar dene 🙏');
     if (!r || !r.committed) return toast('Bu dükkan alınmış 😬');
     spend(SS_PRICE); cityIncome(Math.round(SS_PRICE * 0.3)); stat('shop'); saveMe(); closeModal();
     say(`🔧 <b>${esc(ME.name)}</b> Sanayi Sitesi'nde <b>${o.n}</b> dükkanı açtı! (Sanayi No:${i + 1})`, true); toast('🔧 Dükkanın hayırlı olsun!', 4000);
@@ -6671,7 +6704,10 @@ function ssBuy(i) {
 function glBuy(i) {
   if (Object.values(GALERI).some(L => L && L.id === myId)) return toast('Zaten bir galerin var 🚗');
   modal(`🚗 Galeri No:${i + 1}`, [{ label: `✅ Satın al (${GL_PRICE.toLocaleString('tr')} 💰)`, cls: 'blue', disabled: ME.money < GL_PRICE, fn: async () => {
-    const r = await TX(ref(db, 'galeri/' + i), c => c ? undefined : { id: myId, on: ME.name, at: now() }).catch(() => null);
+    if (ME.money < GL_PRICE) return toast('Para yetmiyor');
+    if (glBuy.busy) return; glBuy.busy = 1;
+    let err = null; const r = await runTransaction(ref(db, 'galeri/' + i), c => c ? undefined : { id: myId, on: ME.name, at: now() }).catch(e => { err = e; return null; }).finally(() => { glBuy.busy = 0; });
+    if (err) return toast('İşlem yapılamadı, tekrar dene 🙏');
     if (!r || !r.committed) return toast('Bu galeri alınmış 😬');
     spend(GL_PRICE); cityIncome(Math.round(GL_PRICE * 0.3)); stat('shop'); saveMe(); closeModal();
     say(`🚗 <b>${esc(ME.name)}</b> Galericiler Sitesi'nde galeri açtı! (Galeri No:${i + 1})`, true);
@@ -8052,8 +8088,8 @@ async function bankMenu() {
   await bankLoad(); const B = BANK, t = now(), f = n => Math.floor(n || 0).toLocaleString('tr');
   const vad = B.v ? (B.vt + B.vd * 864e5 <= t ? '✅ vadesi doldu' : `⏳ ${Math.ceil((B.vt + B.vd * 864e5 - t) / 3600000)} saat kaldı`) : '';
   const items = [
-    { label: '💵 Hesaba para yatır', fn: () => bankAmt('Hesaba yatır', ME.money, v => { if (!spend(v)) return; bankSet({ d: (B.d || 0) + v }, `💵 ${f(v)} 💰 hesabına yatırıldı`); }) },
-    { label: `🏧 Hesaptan para çek (${f(B.d)} 💰)`, disabled: !(B.d > 0), fn: () => bankAmt('Hesaptan çek', B.d, v => { bankSet({ d: B.d - v }, `🏧 ${f(v)} 💰 çektin`).then(() => earn(v, '🏧 Para çekildi')); }) },
+    { label: '💵 Hesaba para yatır', fn: () => bankAmt('Hesaba yatır', ME.money, async v => { if (!spend(v)) return; saveMe(); const r = await runTransaction(ref(db, 'bank/acc/' + myId + '/d'), d => Math.floor(d || 0) + v).catch(() => null); if (!r || !r.committed) { earn(v); return toast('Banka hatası, paran iade edildi'); } BANK.d = r.snapshot.val(); toast(`💵 ${f(v)} 💰 hesabına yatırıldı`, 3500); }) },
+    { label: `🏧 Hesaptan para çek (${f(B.d)} 💰)`, disabled: !(B.d > 0), fn: () => bankAmt('Hesaptan çek', B.d, v => bankWithdraw(v)) },
     B.v ? { label: `📈 Vadeli hesap: ${f(B.v)} 💰 • ${vad}`, fn: vadeliBoz } : { label: '📈 Vadeli hesap aç (faiz kazan)', fn: vadeliAc },
     B.l ? { label: `💳 Kredi borcu: ${f(B.l)} 💰 • öde`, cls: 'blue', fn: krediOde } : { label: `💳 Kredi çek (en fazla ${f(kLimit())} 💰)`, disabled: !!B.bl, fn: krediCek },
     { label: '💸 Havale gönder (%1 ücret)', fn: havaleMenu },
@@ -8062,24 +8098,37 @@ async function bankMenu() {
     <p style="font-size:12px;opacity:.85">Bankadaki para güvende: hırsızlar sadece cebindekini çalabilir. Vadeli hesap: 1 gün %2, 3 gün %7, 7 gün %18 faiz.${B.bl ? '<br>⛔ Geciken borç yüzünden kredi çekemezsin.' : ''}</p>`);
 }
 function bankSet(o, msg) { Object.assign(BANK, o); return update(bankRef(), o).then(() => { saveMe(); if (msg) toast(msg, 3500); }).catch(e => toast('Banka hatası: ' + e.message)); }
+let BANKBUSY = 0;
 function bankAmt(title, max, fn) {
   max = Math.floor(max || 0); if (max <= 0) return toast('Yeterli para yok');
   const opts = [100, 500, 1000, 5000, 10000].filter(v => v <= max);
-  modal(title, [...opts.map(v => ({ label: `${v.toLocaleString('tr')} 💰`, fn: () => fn(v) })), { label: `Hepsi (${max.toLocaleString('tr')} 💰)`, cls: 'blue', fn: () => fn(max) }, { label: '⬅ Geri', fn: bankMenu }]);
+  const go = v => { if (BANKBUSY > now()) return; BANKBUSY = now() + 2500; closeModal(); try { fn(v); } finally { setTimeout(() => { BANKBUSY = 0; }, 2500); } };
+  modal(title, [...opts.map(v => ({ label: `${v.toLocaleString('tr')} 💰`, fn: () => go(v) })), { label: `Hepsi (${max.toLocaleString('tr')} 💰)`, cls: 'blue', fn: () => go(max) }, { label: '⬅ Geri', fn: bankMenu }]);
+}
+// hesaptan çekme: sunucudaki bakiyeden düşülür, fazlası çekilemez
+async function bankWithdraw(v) {
+  let got = 0; const r = await TX(ref(db, 'bank/acc/' + myId + '/d'), d => { d = Math.floor(d || 0); got = Math.min(v, d); return got > 0 ? d - got : undefined; }).catch(() => null);
+  if (!r || !r.committed || got <= 0) return toast('Hesabında o kadar para yok');
+  BANK.d = r.snapshot.val() || 0; earn(got, '🏧 Para çekildi'); saveMe();
 }
 function vadeliAc() {
-  modal('📈 Vadeli hesap', VADE.map(o => ({ label: `${o.d} gün • %${Math.round(o.r * 100)} faiz`, fn: () => bankAmt(`${o.d} gün vadeli`, Math.min(ME.money, VADELI_MAX), v => { if (!spend(v)) return; bankSet({ v, vt: now(), vd: o.d, vr: o.r }, `📈 ${v.toLocaleString('tr')} 💰 ${o.d} günlük vadeliye yatırıldı`); }) })).concat([{ label: '⬅ Geri', fn: bankMenu }]),
+  modal('📈 Vadeli hesap', VADE.map(o => ({ label: `${o.d} gün • %${Math.round(o.r * 100)} faiz`, fn: () => bankAmt(`${o.d} gün vadeli`, Math.min(ME.money, VADELI_MAX), v => { if (BANK.v) return toast('Zaten bir vadeli hesabın var'); if (!spend(v)) return; bankSet({ v, vt: now(), vd: o.d, vr: o.r }, `📈 ${v.toLocaleString('tr')} 💰 ${o.d} günlük vadeliye yatırıldı`); }) })).concat([{ label: '⬅ Geri', fn: bankMenu }]),
     `<p>Paranı kilitle, vade dolunca faiziyle geri al. En fazla ${VADELI_MAX.toLocaleString('tr')} 💰. Erken bozarsan faiz alamazsın.</p>`);
 }
 function vadeliBoz() {
   const B = BANK, done = B.vt + B.vd * 864e5 <= now(), faiz = done ? Math.round(B.v * (B.vr || 0)) : 0;
-  modal('📈 Vadeli hesap', [{ label: done ? `✅ Faiziyle çek: ${(B.v + faiz).toLocaleString('tr')} 💰` : `⚠️ Erken boz (faizsiz ${B.v.toLocaleString('tr')} 💰)`, cls: done ? 'blue' : 'red', fn: () => { const v = B.v + faiz; bankSet({ v: null, vt: null, vd: null, vr: null }, done ? `📈 Faiz +${faiz} 💰!` : 'Vadeli bozuldu').then(() => earn(v, '📈 Vadeli hesap')); } }, { label: '⬅ Geri', fn: bankMenu }]);
+  modal('📈 Vadeli hesap', [{ label: done ? `✅ Faiziyle çek: ${(B.v + faiz).toLocaleString('tr')} 💰` : `⚠️ Erken boz (faizsiz ${B.v.toLocaleString('tr')} 💰)`, cls: done ? 'blue' : 'red', fn: async () => { if (!B.v || BANKBUSY > now()) return; BANKBUSY = now() + 3000; closeModal(); let had = 0; const rr = await TX(ref(db, 'bank/acc/' + myId + '/v'), x => { had = x || 0; return x ? null : undefined; }).catch(() => null); BANKBUSY = 0; if (!rr || !rr.committed || !had) return toast('Vadeli hesap bulunamadı'); const v = had + (done ? Math.round(had * (B.vr || 0)) : 0); B.v = 0; bankSet({ v: null, vt: null, vd: null, vr: null }, done ? `📈 Faiz +${faiz} 💰!` : 'Vadeli bozuldu').then(() => earn(v, '📈 Vadeli hesap')); } }, { label: '⬅ Geri', fn: bankMenu }]);
 }
 function krediCek() {
   const lim = kLimit(), opts = [1000, 2500, 5000, 10000, 20000].filter(v => v <= lim);
-  modal('💳 Kredi', opts.map(v => ({ label: `${v.toLocaleString('tr')} 💰 al → ${Math.round(v * (1 + KREDI_FAIZ)).toLocaleString('tr')} öde`, fn: () => {
+  modal('💳 Kredi', opts.map(v => ({ label: `${v.toLocaleString('tr')} 💰 al → ${Math.round(v * (1 + KREDI_FAIZ)).toLocaleString('tr')} öde`, fn: async () => {
+    if (BANKBUSY > now()) return;
+    await bankLoad(); if (BANK.l || BANK.bl) { closeModal(); return toast('Önce mevcut kredi borcunu öde 💳'); }
     if (!confirm(`${v.toLocaleString('tr')} 💰 kredi çekilsin mi?\n${KREDI_GUN} gün içinde ${Math.round(v * (1 + KREDI_FAIZ)).toLocaleString('tr')} 💰 ödemen gerekir. Gecikirse paran ve hesabından otomatik kesilir.`)) return;
-    bankSet({ l: Math.round(v * (1 + KREDI_FAIZ)), lp: v, lt: now() + KREDI_GUN * 864e5 }, `💳 ${v.toLocaleString('tr')} 💰 kredi hesabına geçti`).then(() => earn(v, '💳 Kredi'));
+    BANKBUSY = now() + 4000; closeModal();
+    const r = await runTransaction(ref(db, 'bank/acc/' + myId + '/l'), l => l ? undefined : Math.round(v * (1 + KREDI_FAIZ))).catch(() => null);
+    if (!r || !r.committed) { BANKBUSY = 0; return toast('Önce mevcut kredi borcunu öde 💳'); }
+    await bankSet({ l: Math.round(v * (1 + KREDI_FAIZ)), lp: v, lt: now() + KREDI_GUN * 864e5 }, `💳 ${v.toLocaleString('tr')} 💰 kredi hesabına geçti`); earn(v, '💳 Kredi'); BANKBUSY = 0;
   } })).concat([{ label: '⬅ Geri', fn: bankMenu }]), `<p>Faiz %${KREDI_FAIZ * 100}, vade ${KREDI_GUN} gün. Limitin mesai sayına ve seviyene göre artar.</p>`);
 }
 function krediPay(v) {   // v kadar öde; faiz payı bankanın kasasına
@@ -8163,6 +8212,7 @@ async function moneyInspect(id, p) {
   modal(`💰 ${esc(p.name)}`, [
     { label: '✏️ Parasını değiştir', fn: async () => { const v = prompt(`${p.name} kaç 💰 olsun? (şu an ${f(F.money)})`, String(Math.min(F.money, F.earned + 5000))); if (v == null) return; const n = Math.max(0, Math.floor(+v || 0)); await set(ref(db, `players/${id}/money`), n).then(() => { notify(id, `🏦 Hesabın yönetim tarafından düzenlendi: ${f(n)} 💰`); toast('✅ Kaydedildi'); }).catch(e => alert(e.message)); } },
     { label: `↩️ Kazandığı kadarına indir (${f(F.earned + 5000)} 💰)`, cls: 'red', disabled: F.money <= F.earned + 5000, fn: async () => { if (!confirm('Parası kazandığı miktar + 5.000 💰 olarak ayarlansın mı?')) return; await set(ref(db, `players/${id}/money`), F.earned + 5000).then(() => toast('✅ Düzeltildi')).catch(e => alert(e.message)); } },
+    { label: '🏦 Banka hesabını sıfırla (hile şüphesi)', cls: 'red', fn: async () => { if (!confirm(`${p.name} banka hesabı (mevduat, vadeli, kredi) sıfırlansın mı?`)) return; await remove(ref(db, 'bank/acc/' + id)).then(() => alert('✅ Banka hesabı sıfırlandı')).catch(e => alert('❌ ' + e.message)); } },
     { label: '⬅ Geri', fn: () => playersMenu() },
   ], `<p>💰 Şu anki parası: <b>${f(F.money)}</b><br>💵 Oyunda çalışarak/satarak kazandığı (kayıtlı): <b>${f(F.earned)}</b><br>👔 Mesai: <b>${F.worked}</b> • ⏱ ${F.hours} saat oynadı<br>🏦 Bankada: ${f(bank.d)}${bank.v ? ` • vadeli ${f(bank.v)}` : ''}${bank.l ? ` • borç ${f(bank.l)}` : ''}</p>
     <p style="background:${sus ? '#7b241c' : '#1e4620'};padding:8px;border-radius:10px">${sus ? `⚠️ Parası kazandığından <b>${f(fark)} 💰 fazla</b>. Başkalarından gelen para (havale, satış, kira, göç) da olabilir ama bu kadar büyük fark genelde hile ya da hatadır.` : '✅ Parası kazandığıyla uyumlu görünüyor.'}</p>
